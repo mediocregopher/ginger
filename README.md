@@ -95,3 +95,12 @@ be anything at all:
   d (four five six)
   e { 7 seven } }
 ```
+
+## Comments
+
+A semicolon delimits the beginning of a comment. Anything after the semicolon till the end of the line
+is discarded by the parser:
+```
+;I am a comment
+"I'm a string"
+```
