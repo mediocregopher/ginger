@@ -81,17 +81,24 @@ var UintChars = CharSet{
                      Char(','),
                 }
 
-//Looks at (but doesn't consume) the first byte in the buffer
 func FirstByte(rbuf *bufio.Reader) (byte,error) {
     b,err := rbuf.Peek(1)
-    if err != nil {
-        return 0,err
-    } else if b[0] == ';' {
-        rbuf.ReadLine()
-        return FirstByte(rbuf)
-    }
+    if err != nil { return 0,err }
 
     return b[0],err
+}
+
+//Looks at (but doesn't consume) the first uncommented byte in the buffer
+func FirstUncommentedByte(rbuf *bufio.Reader) (byte,error) {
+    b,err := FirstByte(rbuf)
+    if err != nil {
+        return 0,err
+    } else if b == ';' {
+        rbuf.ReadLine()
+        return FirstUncommentedByte(rbuf)
+    }
+
+    return b,err
 }
 
 func PrettyChar(c byte) string {
@@ -127,7 +134,7 @@ func ConcatByteSlices(a,b []byte) []byte {
 func PullWhitespace(rbuf *bufio.Reader) (int,error) {
     var i int
     for i=0;;i++{
-        b,err := FirstByte(rbuf)
+        b,err := FirstUncommentedByte(rbuf)
         if err != nil { return i,err }
         if Whitespace.includes(b) != true { return i,nil }
         rbuf.ReadByte()
@@ -138,7 +145,7 @@ func PullWhitespace(rbuf *bufio.Reader) (int,error) {
 func PullUint(rbuf *bufio.Reader) ([]byte,error) {
     r := make([]byte,0,16)
     for {
-        b,err := FirstByte(rbuf)
+        b,err := FirstUncommentedByte(rbuf)
         if err != nil { return r,err }
         if UintChars.includes(b) != true { return r,nil }
         if b != ',' { r = append(r,b) }
@@ -148,7 +155,7 @@ func PullUint(rbuf *bufio.Reader) ([]byte,error) {
 
 func PullInteger(rbuf *bufio.Reader) ([]byte,error) {
     neg := false
-    nb,err := FirstByte(rbuf)
+    nb,err := FirstUncommentedByte(rbuf)
     if err != nil { return nil,err }
     if nb == '-' {
         neg = true
@@ -173,7 +180,7 @@ func PullFullString(rbuf *bufio.Reader) ([]byte,error) {
     r := make([]byte,0,256)
 
     //Make sure string starts with dquote
-    dq,err := FirstByte(rbuf)
+    dq,err := FirstUncommentedByte(rbuf)
     if err != nil { return nil,err }
     if dq != '"' { return r,nil }
     rbuf.ReadByte()
@@ -206,7 +213,7 @@ func PullSimpleString(rbuf *bufio.Reader) ([]byte,error) {
     r := make([]byte,0,16)
     
     for {
-        b,err := FirstByte(rbuf)
+        b,err := FirstUncommentedByte(rbuf)
         if err != nil { return r,err }
         if SimpleChars.includes(b) {
             rbuf.ReadByte()
@@ -218,7 +225,7 @@ func PullSimpleString(rbuf *bufio.Reader) ([]byte,error) {
 }
 
 func PullByte(rbuf *bufio.Reader) ([]byte,error) {
-    sq,err := FirstByte(rbuf)
+    sq,err := FirstUncommentedByte(rbuf)
     if err != nil { return nil,err }
     if sq != '\'' { return []byte{},nil }
     rbuf.ReadByte()
@@ -247,7 +254,7 @@ func PullByte(rbuf *bufio.Reader) ([]byte,error) {
 }
 
 func PullSeq(rbuf *bufio.Reader) ([]GngType,error) {
-    d,err := FirstByte(rbuf)
+    d,err := FirstUncommentedByte(rbuf)
     if err != nil { return nil,err }
     od,ok := SeqMap[d]
     if !ok { return nil,fmt.Errorf("Unknown seq type") }
@@ -255,7 +262,7 @@ func PullSeq(rbuf *bufio.Reader) ([]GngType,error) {
 
     r := make([]GngType,0,16)
     for {
-        b,err := FirstByte(rbuf)
+        b,err := FirstUncommentedByte(rbuf)
         if err != nil {
             return r,err
         } else if (b == od) {
@@ -275,7 +282,7 @@ func PullSeq(rbuf *bufio.Reader) ([]GngType,error) {
 
 func PullElement(rbuf *bufio.Reader) (GngType,error) {
     for {
-        b,err := FirstByte(rbuf)
+        b,err := FirstUncommentedByte(rbuf)
         if err != nil {
             return nil,err
         } else if Whitespace.includes(b) {
