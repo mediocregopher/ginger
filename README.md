@@ -101,6 +101,6 @@ be anything at all:
 A semicolon delimits the beginning of a comment. Anything after the semicolon till the end of the line
 is discarded by the parser:
 ```
-;I am a comment
-"I'm a string"
+;I'm a comment
+"I'm a string" ;I'm another comment!
 ```
