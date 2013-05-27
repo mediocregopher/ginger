@@ -64,6 +64,7 @@ var SpecialCharsMap = map[byte]byte{
                         'n' : '\n',
                         'r' : '\r',
                         't' : '\t',
+                        's' : ' ',
                         '0' : 0,
                       }
 
