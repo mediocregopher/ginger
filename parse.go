@@ -261,6 +261,9 @@ func PullSeq(rbuf *bufio.Reader) ([]GngType,error) {
         } else if (b == od) {
             rbuf.ReadByte()
             return r,nil
+        } else if Whitespace.includes(b) {
+            _,err := PullWhitespace(rbuf)
+            if err != nil { return r,err }
         } else {
             el,err := PullElement(rbuf)
             if err != nil { return r,err }
