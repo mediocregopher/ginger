@@ -84,7 +84,13 @@ var UintChars = CharSet{
 //Looks at (but doesn't consume) the first byte in the buffer
 func FirstByte(rbuf *bufio.Reader) (byte,error) {
     b,err := rbuf.Peek(1)
-    if err != nil { return 0,err }
+    if err != nil {
+        return 0,err
+    } else if b[0] == ';' {
+        rbuf.ReadLine()
+        return FirstByte(rbuf)
+    }
+
     return b[0],err
 }
 
