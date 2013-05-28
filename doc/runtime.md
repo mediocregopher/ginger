@@ -40,8 +40,9 @@ item in the vector. For (a trivial) example:
 
 The above example does a few things, but it repeats itself in the second part (with the `sub`). If we could save the
 result of the addition to a variable that would be awesomesauce. The `=` function does this! It makes it so that the
-first argument is equivalent to the evaluation of the second argument. Variables' first letters must be upper-case, this
-is how they're differentiated from raw string literals. The above could be re-written as:
+first argument is equivalent to the evaluation of the second argument. Variables' can not be re-defined to be another
+value, and their first letters must be upper-case, thisis how they're differentiated from raw string literals.The above
+could be re-written as:
 ```
 [ (= AdditionResult (add 1 2))
   (sub 4 AdditionResult)
