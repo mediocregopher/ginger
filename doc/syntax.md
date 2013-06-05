@@ -12,12 +12,13 @@ literal whitespace characters are properly parsed as well
 ```
 
 The second way only works if your string contains exclusively the following characters:
-`a-z A-Z 0-9 _ - ! ?` (spaces added for readability)
+`a-z A-Z 0-9 _ - ! ? . /` (spaces added for readability)
 ```
 neat
 this_works
 so-does-this!
 what-about-this?_YUP!
+/directory/with/a/file.ext
 ```
 
 ## Integers

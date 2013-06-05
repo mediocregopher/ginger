@@ -54,6 +54,8 @@ var SimpleChars = CharSet{
                     Char('_'),
                     Char('!'),
                     Char('?'),
+                    Char('.'),
+                    Char('/'),
                   }
 
 //For translating the special characters
