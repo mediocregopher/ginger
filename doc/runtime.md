@@ -110,3 +110,78 @@ documented elsewhere. To create a defined function use the `dfn` function:
     (sub A 3) ])
   (add-four-sub-three 4) ] ; => 5
 ```
+
+## Namespaces
+
+Namespaces give names to defined scopes which can be referenced from elsewhere. The best way to show this is with an
+example:
+```
+[
+(ns circle [
+    (= Pi 3.14)
+    (dfn area [R] (mul R R Pi)) ])
+
+(circle/area 5) ; => 78.5
+]
+```
+
+### Embedded namespaces
+
+Namespaces can be embedded into a tree-like structure:
+```
+[
+(ns math [
+    (= Pi 3.14)
+    (ns circle
+        (dfn area [R] (mul R R Pi)))
+    (ns square
+        (dfn area [R] (mul R R)))
+])
+
+(math.circle/area 5) ; => 78.5
+(math.square/area 5) ; => 25
+]
+```
+
+In the above example `circle` and `square` are both sub-namespaces of the `math` namespace. In `circle` the variable
+`Pi` is referenced. Ginger will look in the current scope for that variable, and when it's not found travel up the scope
+tree. `Pi` is defined in `math`'s scope, so that value is used.
+
+### Namespace resolution
+
+Let's do a more complicated example to show how namespace resolution works:
+```
+[
+(ns tlns [
+    (ns alpha
+        (= A "The first letter in the alphabet"))
+    (ns facts
+        (= BestLetter alpha/A))
+])
+
+(println tlns.facts/BestLetter)
+]
+```
+
+In the above example `BestLetter` is defined inside `facts` to be the variable `A` which exists in the namespace `alpha`.
+To resolve this variable ginger first looks inside `facts`'s scope for a namespace called `alpha`, doesn't find it, then
+moves up to `tlns`'s scope, which does contain a namespace called `alpha`. Similaraly, to resolve `tlns.facts/BestLetter`
+ginger first looks in that statements current scope for a namespace called `tlns`, which it finds, and looks in there
+for `facts`, etc...
+
+### Variable namespaces
+
+A namespace is nothing more than a string literal. If a variable is used instead ginger will resolve the variable before
+trying to resolve the namespace.
+```
+[
+(ns tlns [
+    (ns alpha
+        (= A "The first letter in the alphabet"))])
+
+(= NS1 tlns)
+(= NS2 alpha)
+(= NS NS1.NS2)
+(println NS/A) ; This would print the message defined above
+]
+```
