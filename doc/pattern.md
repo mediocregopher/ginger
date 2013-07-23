@@ -39,6 +39,16 @@ a
 [5 6]
 ```
 
+We can also deconstruct a previously defined variable:
+```
+[
+    (= Foo [a b c])
+    (= [A B C] Foo)
+]
+```
+
+The above would assign `a` to `A`, `b` to `B`, and `c` to `C`.
+
 ### No Match
 
 What happens if we try to pattern match a value that doesn't match the left side?:
@@ -136,3 +146,59 @@ Pattern matching can be performed on maps as well:
 In the last case, the important thing is that the key is `-`. This tells the matcher
 that you don't care about any other keys that may or may not exist. The value can be
 anything, but `-` seems semantically more correct imo.
+
+## Case
+
+We can deconstruct and assign variables using `=`, and even test for their contents
+to some degree since `=` returns either `success` or `[error nomatch]`. However
+that's not very convenient. For this we have the `case` statement:
+```
+[
+    (= Foo bird)
+    (case Foo
+        bird  (println "It's a bird!")
+        plane (println "It's a plane!")
+        _     (println "I don't know what it is!"))
+]
+```
+
+In the above the output would be:
+```
+It's a bird!
+```
+
+`case` returns the result of whatever it matches:
+```
+[
+    (= Animal bird)
+    (case Animal
+        bird chirp
+        dog  woof
+        lion roar) ; => chirp
+]
+```
+
+`case` runs through all the different patterns in order, attempting to match on one
+using an `=` on the backend. If none can be found it returns `[error nomatch]`. Since
+`_` matches everything it can be used for any default statement.
+
+Deconstruction works with `case` too:
+```
+(case [a b c]
+    [Foo c d] [foo Foo]
+    [Bar b c] [bar Bar]
+    _         baz) ; => [bar a]
+```
+
+### Guards
+
+What's a case statement without guards? Nothing, that's what! Instead of evaluating the statement
+following the pattern, if that statement is `when` followed by a statement returning a boolean,
+finally followed by the actual statement, then boolean test must evaluate to `true` or the
+case is skipped. The boolean test can use variables from the pattern that was matched:
+```
+(case [five 5]
+    (Name Num) when (> Num 2) (println Name "is greater than two")
+    (Name Num)                (println Name "is less than or equal to two")
+    _                         (println "wut?"))
+```
