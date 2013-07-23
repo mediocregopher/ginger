@@ -121,6 +121,9 @@ Can we do both?:
 
 The above would assign `1` to `Foo` and `5` to `Bar`.
 
+#### Keeping the `-`
+TODO
+
 ### Lists
 
 Everything that applies to vectors applies to lists, as far as pattern matching goes:
