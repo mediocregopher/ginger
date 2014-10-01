@@ -3,6 +3,16 @@
 A lisp-like language built on the go programming language. The ideas are still a
 work-in-progress, and this repo is where I'm jotting down my notes.
 
+# Goals
+
+I have some immediate goals I'm trying to achieve with this syntax:
+
+* Everything is strings (except numbers, functions, and data structures). There
+  is no symbol type, atom type, keyword type, etc... they're all just strings.
+
+* There is no `defmacro`. Macro creation and usage is simply an inherent feature
+  of the language syntax.
+
 # Walkthrough
 
 This is a number which evalutates to 5:
