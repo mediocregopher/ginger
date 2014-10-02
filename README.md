@@ -59,49 +59,50 @@ This evaluates to list whose elements are a function and two numbers:
 (":+" 1 2)
 ```
 
-A list prefixed with a `:` calls the first element as a function with the rest
-of the elements as arguments. This evaluates to the number 5:
+A list whose first element is a `:` calls the second element as a function with
+the rest of the elements as arguments. This evaluates to the number 5:
 
 ```
-:(":+" 1 2)
+(":" ":+" 1 2)
 ```
 
-A bare string (lacking in `"`) is a shortcut for that string prefixed by a `:`.
-This is equivalent to the above:
+A bare `:` or `.` string (lacking in `"`) is a shortcut for `":"` or `"."`,
+respectively. An otherwise bare string is a shortcut for that string prefixed by
+a `:`. This is equivalent to the previous example:
 
 ```
-:(+ 1 2)
+(: + 1 2)
 ```
 
-The `fn` function can be used to define a new function. This evaluates to an
-anonymous function which adds one to its argument and returns it:
+The `fn` function can be used to define a new function. Note the `.` instead of
+`:`. We'll cover that in a bit. This evaluates to an anonymous function which
+adds one to its argument and returns it:
 
 ```
-:(fn [x]
-    :(+ x 1))
+(. fn [x]
+    (: + x 1))
 ```
 
-The `def` function can be used to bind some value to a new variable. Note the
-`.` instead of `:`. We'll cover that in a bit. This defines a variable `foo`
-which evaluates to the string `"bar"`:
+The `def` function can be used to bind some value to a new variable. This
+defines a variable `foo` which evaluates to the string `"bar"`:
 
 ```
-.(def foo "bar")
+(. def foo "bar")
 ```
 
 This defines a variable `incr` which evaluates to a function which adds one to
 its argument:
 
 ```
-.(def incr
-    :(fn [x]
-        :(+ x 1)))
+(. def incr
+    (. fn [x]
+        (: + x 1)))
 ```
 
 This uses `defn` as a shortcut for the above:
 ```
-.(defn incr [x]
-    :(+ x 1))
+(. defn incr [x]
+    (: + x 1))
 ```
 
 There are also maps. A map's keys can be any value(?). A map's values can be any
@@ -109,28 +110,35 @@ value. This evaluates to a map with 2 key/val pairs:
 
 ```
 { "foo" foo
-  "bar" :(incr 4) }
+  "bar" (: incr 4) }
 ```
 
 `.` is the half-evaluator. It only works on lists, and runs the function given
-in the first argument with the unevaluated arguments (even if they have `:` in
-front). You can generate new code to run on the fly (macros) using the normal
-`fn`. This evaluates to a `let`-like function, except it forces you to use the
-capitalized variable names in the body (utterly useless):
+in the first argument with the unevaluated arguments (even if they have `:`).
+You can generate new code to run on the fly (macros) using the normal `fn`. This
+evaluates to a `let`-like function, except it forces you to use the capitalized
+variable names in the body (utterly useless):
 
 ```
-.(defn caplet [mapping body...]
-    # elem-map maps over every element in a list, embedded or otherwise
-    ::(elem-map
-        :(fn [x]
-            :(if (mapping :(slice x 1))
-                (capitalize x)
+#
+# eval evaluates a given value (either a string or list). It has been
+# implicitely called on all examples so far.
+#
+# elem-map maps over every element in a list, embedded or otherwise
+#
+# capitalize looks for the first letter in a string and capitalizes it
+#
+(. defn caplet [mapping body...]
+    (. eval (: elem-map
+        (. fn [x]
+            (. if (: mapping (: slice x 1))
+                (: capitalize x)
                 x))
         body))
 
 #Usage
-.(caplet [foo "this is foo"
-          dog "this is dog"]
-    :(println Foo)
-    :(println Dog))
+(. caplet [foo "this is foo"
+           dog "this is dog"]
+    (: println Foo)
+    (: println Dog))
 ```
