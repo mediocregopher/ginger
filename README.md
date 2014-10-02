@@ -85,7 +85,7 @@ The `def` function can be used to bind some value to a new variable:
 # Now :foo will evaluate to the string bar
 
 :(:def incr
-    (:fn [x]
+    :(:fn [x]
         :(:+ :x 1)))
 # Now :incr will evaulate to a function which adds 1 to its argument
 
@@ -99,7 +99,7 @@ value. This evaluates to a map with 2 key/val pairs:
 
 ```
 { foo :foo
-  bar (:incr 4) }
+  bar :(:incr 4) }
 ```
 
 `.` is the half-evaluator. It only works on lists, and runs the function given
