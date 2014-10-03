@@ -129,12 +129,15 @@ variable names in the body (utterly useless):
 # capitalize looks for the first letter in a string and capitalizes it
 #
 (. defn caplet [mapping body...]
-    (. eval (: elem-map
-        (. fn [x]
-            (. if (: mapping (: slice x 1))
-                (: capitalize x)
-                x))
-        body))
+    (. eval
+        (. let
+            (: elem-map
+                (. fn [x]
+                    (. if (: mapping (: slice x 1))
+                        (: capitalize x)
+                        x))
+                mapping)
+            body...)))
 
 #Usage
 (. caplet [foo "this is foo"
