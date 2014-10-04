@@ -66,9 +66,9 @@ the rest of the elements as arguments. This evaluates to the number 5:
 (":" ":+" 1 2)
 ```
 
-A bare `:` or `.` string (lacking in `"`) is a shortcut for `":"` or `"."`,
-respectively. An otherwise bare string is a shortcut for that string prefixed by
-a `:`. This is equivalent to the previous example:
+A bare string (lacking in `"`) is automatically prefixed with a `:`, if it
+doesn't already have one. So `":+"`, `:+`, and `+`, are equivalent. `":"` and
+`:` are also equivalent. This is equivalent to the previous example:
 
 ```
 (: + 1 2)
