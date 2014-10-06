@@ -13,13 +13,52 @@ could be assigned to a variable on the package using `def`, or by using the
 shortcut `defn`. The following two statements are equivalent:
 
 ```
-
-(def incr
+(. def incr
     (. fn [x]
         (: + x 1)))
 
 (. defn incr [x]
     (: + x 1))
+```
+
+## Function returns
+
+### Single returns
+
+A function returns whatever the last expression in its execution returned. For
+example:
+
+```
+(. defn abs [x]
+    (. if (: >= x 0)
+        x
+        (: * -1 x)))
+```
+
+This function will return the argument `x` if it is greater than or equal to 0,
+or `(* -1 x)` if it's not.
+
+### Multiple returns
+
+A function which wishes to return multiple arguments should return them as a
+vector or list of arguments. The `let` function, which can be used to define
+temporary variables in a scope, can deconstruct these multiple-returns:
+
+```
+# Returns two numbers which sum up to 10
+(. defn sum-10 []
+    [4 6])
+
+(. let [[foo bar] (: sum-10)
+    (: fmt.Println "%d + %d = 10" foo bar))
+```
+
+Functions defined within a go library which return multiple values can also be
+deconstructed in a `let` statement:
+
+```
+(. let [[conn err] (: net.Dial "tcp" "localhost:80")]
+    # do stuff)
 ```
 
 ## Variadic function
