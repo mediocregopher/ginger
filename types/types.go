@@ -6,12 +6,12 @@ package types
 type Elem interface {
 }
 
-type String string
+type Str string
 
-type Integer int
+type Int int
 
 type Float float32
 
 type Char rune
 
-type Error error
+type Err error
