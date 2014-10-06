@@ -24,3 +24,8 @@ work-in-progress, and this repo is where I'm jotting down my notes:
   existing go operators.
 
 * Overloading function should be used as little as possible.
+
+# Documentation
+
+See the [docs][/docs] folder for more details. Keep in mind that most of ginger
+is still experimental and definitely not ready for the spotlight.
