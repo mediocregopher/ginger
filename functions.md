@@ -80,3 +80,7 @@ of using it. `+` is a variadic function in this example:
 
 (: fmt.Println (avg 1 2 3 4 5))
 ```
+
+## Tail-recursion
+
+TODO
