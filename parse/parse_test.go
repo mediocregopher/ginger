@@ -2,6 +2,7 @@ package parse
 
 import (
 	"bytes"
+	"bufio"
 	. "testing"
 
 	"github.com/mediocregopher/ginger/types"
@@ -18,8 +19,9 @@ func TestReadString(t *T) {
 	for input, output := range m {
 		buf := bytes.NewBufferString(input)
 		buf.ReadByte()
+		buf2 := bufio.NewReader(buf)
 
-		parseOut, err := ReadString(buf)
+		parseOut, err := ReadString(buf2)
 		if err != nil {
 			t.Fatal(err)
 		}

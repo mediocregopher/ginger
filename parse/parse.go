@@ -2,7 +2,6 @@ package parse
 
 import (
 	"bufio"
-	"io"
 	"strconv"
 
 	"github.com/mediocregopher/ginger/types"
@@ -19,11 +18,10 @@ import (
 // double-quote has already been read off. Ginger strings are wrapped with " and
 // are allowed to have newlines literal in them. In all other respects they are
 // the same as go strings.
-func ReadString(r io.Reader) (types.Str, error) {
-	buf := bufio.NewReader(r)
+func ReadString(r *bufio.Reader) (types.Str, error) {
 	str := types.Str("\"")
 	for {
-		piece, err := buf.ReadBytes('"')
+		piece, err := r.ReadBytes('"')
 		if err != nil {
 			return "", err
 		}
