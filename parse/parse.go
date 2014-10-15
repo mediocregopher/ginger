@@ -39,3 +39,56 @@ func ReadString(r io.Reader) (types.Str, error) {
 	}
 	return types.Str(ret), nil
 }
+
+
+// Returns (isNumber, isFloat). Can never return (false, true)
+func whatNumber(el string) (bool, bool) {
+	var isFloat bool
+	first := el[0]
+
+	var start int
+	if first == '-' {
+		if len(el) == 1 {
+			return false, false
+		}
+		start = 1
+	}
+
+	el = el[start:]
+	for i := range el {
+		if el[i] == '.' {
+			isFloat = true
+		} else if el[i] < '0' || el[i] > '9' {
+			return false, false
+		}
+	}
+
+	return true, isFloat
+}
+
+// Given a string with no spaces and with a length >= 1, parses it into either a
+// number or string.
+func ParseBareElement(el string) (types.Elem, error) {
+	isNumber, isFloat := whatNumber(el)
+	if isNumber {
+		if isFloat {
+			f, err := strconv.ParseFloat(el, 64)
+			if err != nil {
+				return nil, err
+			}
+			return types.Float(f), nil
+		} else {
+			i, err := strconv.ParseInt(el, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			return types.Int(i), nil
+		}
+	}
+
+	if el[0] == ':' {
+		return types.Str(el), nil
+	}
+
+	return types.Str(":"+el), nil
+}

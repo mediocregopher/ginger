@@ -28,3 +28,31 @@ func TestReadString(t *T) {
 		}
 	}
 }
+
+func TestParseBareElement(t *T) {
+	m := map[string]types.Elem{
+		`1`: types.Int(1),
+		`12`: types.Int(12),
+		`-1`: types.Int(-1),
+		`-12`: types.Int(-12),
+
+		`1.0`: types.Float(1.0),
+		`12.5`: types.Float(12.5),
+		`-12.5`: types.Float(-12.5),
+
+		`-`: types.Str(":-"),
+
+		`bare`: types.Str(":bare"),
+		`:not-bare`: types.Str(":not-bare"),
+	}
+
+	for input, output := range m {
+		el, err := ParseBareElement(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if output != el {
+			t.Fatalf("`%s` != `%s`", output, el)
+		}
+	}
+}

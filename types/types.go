@@ -6,6 +6,10 @@ package types
 type Elem interface {
 }
 
+// Number can either be either an Int or a Float
+type Number interface {
+}
+
 type Str string
 
 type Int int
