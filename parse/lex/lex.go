@@ -16,7 +16,7 @@ const (
 	OpenParen
 	CloseParen
 	Err
-	EOF
+	eof
 )
 
 var invalidBareStringRunes = map[rune]bool{
@@ -79,7 +79,7 @@ func (l *Lexer) spin() {
 
 func (l *Lexer) Next() *Token {
 	t := <-l.ch
-	if t.Type == EOF {
+	if t.Type == eof {
 		return nil
 	}
 	return t
@@ -118,7 +118,7 @@ func (l *Lexer) readRune() (rune, error) {
 
 func (l *Lexer) err(err error) lexerFunc {
 	if err == io.EOF {
-		l.ch <- &Token{EOF, ""}
+		l.ch <- &Token{eof, ""}
 	} else {
 		l.ch <- &Token{Err, err.Error()}
 	}
