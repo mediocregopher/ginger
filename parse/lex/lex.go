@@ -16,8 +16,8 @@ type TokenType int
 const (
 	BareString TokenType = iota
 	QuotedString
-	OpenParen
-	CloseParen
+	Open
+	Close
 	Err
 	eof
 )
@@ -162,9 +162,17 @@ func lexWhitespace(l *Lexer) lexerFunc {
 	case '"':
 		return lexQuotedString
 	case '(':
-		l.emit(OpenParen)
+		l.emit(Open)
 	case ')':
-		l.emit(CloseParen)
+		l.emit(Close)
+	case '[':
+		l.emit(Open)
+	case ']':
+		l.emit(Close)
+	case '{':
+		l.emit(Open)
+	case '}':
+		l.emit(Close)
 	default:
 		return lexBareString
 	}
