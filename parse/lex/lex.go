@@ -1,3 +1,6 @@
+// The lexer package implements a lexical reader which can take in any
+// io.Reader. It does not care about the meaning or logical validity of the
+// tokens it parses out, it simply does its job.
 package lexer
 
 import (
@@ -30,7 +33,8 @@ var invalidBareStringRunes = map[rune]bool{
 	'}':  true,
 }
 
-// Token represents a single set of characters that are a "thing" in the syntax
+// Token represents a single set of characters which *could* be a valid token of
+// the given type
 type Token struct {
 	Type TokenType
 	Val  string
@@ -48,7 +52,9 @@ type Lexer struct {
 }
 
 // NewLexer constructs a new Lexer struct and returns it. r is internally
-// wrapped with a bufio.Reader, unless it already is one.
+// wrapped with a bufio.Reader, unless it already is one. This will spawn a
+// go-routine which reads from r until it hits an error, at which point it will
+// end execution.
 func NewLexer(r io.Reader) *Lexer {
 	var br *bufio.Reader
 	var ok bool
@@ -58,7 +64,7 @@ func NewLexer(r io.Reader) *Lexer {
 
 	l := Lexer{
 		r:  br,
-		ch: make(chan *Token, 1),
+		ch: make(chan *Token),
 		outbuf: bytes.NewBuffer(make([]byte, 0, 1024)),
 	}
 
@@ -77,6 +83,9 @@ func (l *Lexer) spin() {
 	}
 }
 
+// Returns the next available token, or nil if EOF has been reached. If an error
+// other than EOF has been reached it will be returned as the Err token type,
+// and this method should not be called again after that.
 func (l *Lexer) Next() *Token {
 	t := <-l.ch
 	if t.Type == eof {
