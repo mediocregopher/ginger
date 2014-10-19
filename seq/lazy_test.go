@@ -7,19 +7,26 @@ import (
 	"github.com/mediocregopher/ginger/types"
 )
 
+// Test that Lazy implements types.Elem (compile-time check)
+func TestLazyElem(t *T) {
+	_ = types.Elem(NewLazy(nil))
+}
+
 // Test lazy operation and thread-safety
 func TestLazyBasic(t *T) {
-	ch := make(chan int)
+	ch := make(chan types.GoType)
 	mapfn := func(el types.Elem) types.Elem {
-		i := el.(int)
+		i := el.(types.GoType)
 		ch <- i
 		return i
 	}
 
-	intl := []types.Elem{0, 1, 2, 3, 4}
+	intl := elemSliceV(0, 1, 2, 3, 4)
 	l := NewList(intl...)
 	ml := LMap(mapfn, l)
 
+	// ml is a lazy list of intl, which will write to ch the first time any of
+	// the elements are read. This for loop ensures ml is thread-safe
 	for i := 0; i < 10; i++ {
 		go func() {
 			mlintl := ToSlice(ml)
@@ -29,6 +36,8 @@ func TestLazyBasic(t *T) {
 		}()
 	}
 
+	// This loop and subsequent close ensure that ml only ever "creates" each
+	// element once
 	for _, el := range intl {
 		select {
 		case elch := <-ch:
@@ -42,7 +51,7 @@ func TestLazyBasic(t *T) {
 
 // Test that arbitrary Seqs can turn into Lazy
 func TestToLazy(t *T) {
-	intl := []types.Elem{0, 1, 2, 3, 4}
+	intl := elemSliceV(0, 1, 2, 3, 4)
 	l := NewList(intl...)
 	ll := ToLazy(l)
 	assertSeqContents(ll, intl, t)

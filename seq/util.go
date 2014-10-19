@@ -19,6 +19,18 @@ func intSlicesEq(a, b []types.Elem) bool {
 	return true
 }
 
+func elemSliceV(a ...interface{}) []types.Elem {
+	ret := make([]types.Elem, 0, len(a))
+	for i := range a {
+		if e, ok := a[i].(types.Elem); ok {
+			ret = append(ret, e)
+		} else {
+			ret = append(ret, types.GoType{a[i]})
+		}
+	}
+	return ret
+}
+
 // Asserts that the given Seq is empty (contains no elements)
 func assertEmpty(s Seq, t *testing.T) {
 	if Size(s) != 0 {
@@ -59,7 +71,7 @@ func assertSeqContentsSet(s Seq, ints []types.Elem, t *testing.T) {
 }
 
 func assertSeqContentsHashMap(s Seq, kvs []*KV, t *testing.T) {
-	m := map[types.Elem]bool{}
+	m := map[KV]bool{}
 	for i := range kvs {
 		m[*kvs[i]] = true
 	}
@@ -76,9 +88,16 @@ func assertSeqContentsHashMap(s Seq, kvs []*KV, t *testing.T) {
 }
 
 // Asserts that v1 is the same as v2
-func assertValue(v1, v2 types.Elem, t *testing.T) {
+func assertValue(v1, v2 interface{}, t *testing.T) {
+	if gv1, ok := v1.(types.GoType); ok {
+		v1 = gv1.V
+	}
+	if gv2, ok := v2.(types.GoType); ok {
+		v2 = gv2.V
+	}
 	if v1 != v2 {
-		t.Fatalf("Value wrong: %v not %v", v1, v2)
+		t.Logf("Value wrong: %v not %v", v1, v2)
+		panic("bail")
 	}
 }
 
@@ -87,4 +106,8 @@ func assertInMap(v1 types.Elem, m map[types.Elem]bool, t *testing.T) {
 	if _, ok := m[v1]; !ok {
 		t.Fatalf("Value not in set: %v not in %v", v1, m)
 	}
+}
+
+func keyValV(k, v interface{}) *KV {
+	return KeyVal(types.GoType{k}, types.GoType{v})
 }

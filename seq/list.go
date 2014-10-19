@@ -39,6 +39,36 @@ func (l *List) FirstRest() (types.Elem, Seq, bool) {
 	}
 }
 
+// Implementation of Equal for types.Elem interface. Completes in O(N) time if e
+// is another List.
+func (l *List) Equal(e types.Elem) bool {
+	l2, ok := e.(*List)
+	if !ok {
+		return false
+	}
+
+	var el, el2 types.Elem
+	var ok2 bool
+
+	s, s2 := Seq(l), Seq(l2)
+
+	for {
+		el, s, ok = s.FirstRest()
+		el2, s2, ok2 = s2.FirstRest()
+
+		if !ok && !ok2 {
+			return true
+		}
+		if ok != ok2 {
+			return false
+		}
+
+		if !el.Equal(el2) {
+			return false
+		}
+	}
+}
+
 // Implementation of String for Stringer interface.
 func (l *List) String() string {
 	return ToString(l, "(", ")")

@@ -6,6 +6,11 @@ import (
 	"github.com/mediocregopher/ginger/types"
 )
 
+// Test that List implements types.Elem (compile-time check)
+func TestListElem(t *T) {
+	_ = types.Elem(NewList())
+}
+
 // Asserts that the given list is properly formed and has all of its size fields
 // filled in correctly
 func assertSaneList(l *List, t *T) {
@@ -22,7 +27,7 @@ func assertSaneList(l *List, t *T) {
 
 // Test creating a list and calling the Seq interface methods on it
 func TestListSeq(t *T) {
-	ints := []types.Elem{1, "a", 5.0}
+	ints := elemSliceV(1, "a", 5.0)
 
 	// Testing creation and Seq interface methods
 	l := NewList(ints...)
@@ -40,39 +45,62 @@ func TestListSeq(t *T) {
 	assertValue(emptyl, nilpointer, t)
 }
 
+// Test that the Equal method on Lists works
+func TestListEqual(t *T) {
+	l, l2 := NewList(), NewList()
+	assertValue(l.Equal(l2), true, t)
+	assertValue(l2.Equal(l), true, t)
+
+	l2 = NewList(elemSliceV(1, 2, 3)...)
+	assertValue(l.Equal(l2), false, t)
+	assertValue(l2.Equal(l), false, t)
+
+	l = NewList(elemSliceV(1, 2, 3, 4)...)
+	assertValue(l.Equal(l2), false, t)
+	assertValue(l2.Equal(l), false, t)
+
+	l2 = NewList(elemSliceV(1, 2, 3, 4)...)
+	assertValue(l.Equal(l2), true, t)
+	assertValue(l2.Equal(l), true, t)
+}
+
 // Test the string representation of a List
 func TestStringSeq(t *T) {
-	l := NewList(0, 1, 2, 3)
+	l := NewList(elemSliceV(0, 1, 2, 3)...)
 	assertValue(l.String(), "( 0 1 2 3 )", t)
 
-	l = NewList(0, 1, 2, NewList(3, 4), 5, NewList(6, 7, 8))
+	l = NewList(elemSliceV(
+		0, 1, 2,
+		NewList(elemSliceV(3, 4)...),
+		5,
+		NewList(elemSliceV(6, 7, 8)...))...)
 	assertValue(l.String(), "( 0 1 2 ( 3 4 ) 5 ( 6 7 8 ) )", t)
 }
 
 // Test prepending an element to the beginning of a list
 func TestPrepend(t *T) {
 	// Normal case
-	intl := []types.Elem{3, 2, 1, 0}
+	intl := elemSliceV(3, 2, 1, 0)
 	l := NewList(intl...)
-	nl := l.Prepend(4)
+	nl := l.Prepend(types.GoType{4})
 	assertSaneList(l, t)
 	assertSaneList(nl, t)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{4, 3, 2, 1, 0}, t)
+	assertSeqContents(nl, elemSliceV(4, 3, 2, 1, 0), t)
 
 	// Degenerate case
 	l = NewList()
-	nl = l.Prepend(0)
+	nl = l.Prepend(types.GoType{0})
 	assertEmpty(l, t)
 	assertSaneList(nl, t)
-	assertSeqContents(nl, []types.Elem{0}, t)
+	assertSeqContents(nl, elemSliceV(0), t)
 }
 
 // Test prepending a Seq to the beginning of a list
 func TestPrependSeq(t *T) {
 	//Normal case
-	intl1 := []types.Elem{3, 4}
-	intl2 := []types.Elem{0, 1, 2}
+	intl1 := elemSliceV(3, 4)
+	intl2 := elemSliceV(0, 1, 2)
 	l1 := NewList(intl1...)
 	l2 := NewList(intl2...)
 	nl := l1.PrependSeq(l2)
@@ -81,7 +109,7 @@ func TestPrependSeq(t *T) {
 	assertSaneList(nl, t)
 	assertSeqContents(l1, intl1, t)
 	assertSeqContents(l2, intl2, t)
-	assertSeqContents(nl, []types.Elem{0, 1, 2, 3, 4}, t)
+	assertSeqContents(nl, elemSliceV(0, 1, 2, 3, 4), t)
 
 	// Degenerate cases
 	blank1 := NewList()
@@ -105,34 +133,34 @@ func TestPrependSeq(t *T) {
 // Test appending to the end of a List
 func TestAppend(t *T) {
 	// Normal case
-	intl := []types.Elem{3, 2, 1}
+	intl := elemSliceV(3, 2, 1)
 	l := NewList(intl...)
-	nl := l.Append(0)
+	nl := l.Append(types.GoType{0})
 	assertSaneList(l, t)
 	assertSaneList(nl, t)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{3, 2, 1, 0}, t)
+	assertSeqContents(nl, elemSliceV(3, 2, 1, 0), t)
 
 	// Edge case (algorithm gets weird here)
-	l = NewList(1)
-	nl = l.Append(0)
+	l = NewList(elemSliceV(1)...)
+	nl = l.Append(types.GoType{0})
 	assertSaneList(l, t)
 	assertSaneList(nl, t)
-	assertSeqContents(l, []types.Elem{1}, t)
-	assertSeqContents(nl, []types.Elem{1, 0}, t)
+	assertSeqContents(l, elemSliceV(1), t)
+	assertSeqContents(nl, elemSliceV(1, 0), t)
 
 	// Degenerate case
 	l = NewList()
-	nl = l.Append(0)
+	nl = l.Append(types.GoType{0})
 	assertEmpty(l, t)
 	assertSaneList(nl, t)
-	assertSeqContents(nl, []types.Elem{0}, t)
+	assertSeqContents(nl, elemSliceV(0), t)
 }
 
 // Test retrieving items from a List
 func TestNth(t *T) {
 	// Normal case, in bounds
-	intl := []types.Elem{0, 2, 4, 6, 8}
+	intl := elemSliceV(0, 2, 4, 6, 8)
 	l := NewList(intl...)
 	r, ok := l.Nth(3)
 	assertSaneList(l, t)

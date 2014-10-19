@@ -50,6 +50,20 @@ func (l *Lazy) FirstRest() (types.Elem, Seq, bool) {
 	}
 }
 
+// Implementation of Equal for types.Elem interface. Treats a List as another
+// Lazy. Completes in O(N) time if e is another List or List.
+func (l *Lazy) Equal(e types.Elem) bool {
+	var ls2 *List
+	if l2, ok := e.(*Lazy); ok {
+		ls2 = ToList(l2)
+	} else if ls2, ok = e.(*List); ok {
+	} else {
+		return false
+	}
+	ls := ToList(l)
+	return ls.Equal(ls2)
+}
+
 // Implementation of String for Stringer
 func (l *Lazy) String() string {
 	return ToString(l, "<<", ">>")

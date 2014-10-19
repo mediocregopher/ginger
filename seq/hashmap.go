@@ -28,9 +28,18 @@ func (kv *KV) Hash(i uint32) uint32 {
 // compared to another KV, only compares the other key as well.
 func (kv *KV) Equal(v types.Elem) bool {
 	if kv2, ok := v.(*KV); ok {
-		return equal(kv.Key, kv2.Key)
+		return kv.Key.Equal(kv2.Key)
 	}
-	return equal(kv.Key, v)
+	return kv.Key.Equal(v)
+}
+
+func (kv *KV) fullEqual(v types.Elem) bool {
+	kv2, ok := v.(*KV)
+	if !ok {
+		return false
+	}
+
+	return kv.Key.Equal(kv2.Key) && kv.Val.Equal(kv2.Val)
 }
 
 // Implementation of String for Stringer
@@ -63,6 +72,38 @@ func (hm *HashMap) FirstRest() (types.Elem, Seq, bool) {
 	}
 	el, nset, ok := hm.set.FirstRest()
 	return el, &HashMap{nset.(*Set)}, ok
+}
+
+// Implementation of Equal for types.Elem interface. Completes in O(Nlog(M))
+// time if e is another HashMap, where M is the size of the given HashMap
+func (hm *HashMap) Equal(e types.Elem) bool {
+	// This can't just use Set's Equal because that would end up using KeyVal's
+	// Equal, which is not a true Equal
+
+	hm2, ok := e.(*HashMap)
+	if !ok {
+		return false
+	}
+
+	var el types.Elem
+	s := Seq(hm)
+	size := uint64(0)
+
+	for { 
+		el, s, ok = s.FirstRest()
+		if !ok {
+			return size == hm2.Size()
+		}
+		size++
+
+		kv := el.(*KV)
+		k, v := kv.Key, kv.Val
+
+		v2, ok := hm2.Get(k)
+		if !ok || !v.Equal(v2) {
+			return false
+		}
+	}
 }
 
 // Returns a new HashMap with the given value set on the given key. Also returns

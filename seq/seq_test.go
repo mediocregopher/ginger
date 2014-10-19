@@ -50,11 +50,11 @@ func testSeqNoOrderGen(t *T, s Seq, ints []types.Elem) Seq {
 // Test reversing a Seq
 func TestReverse(t *T) {
 	// Normal case
-	intl := []types.Elem{3, 2, 1}
+	intl := elemSliceV(3, 2, 1)
 	l := NewList(intl...)
 	nl := Reverse(l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{1, 2, 3}, t)
+	assertSeqContents(nl, elemSliceV(1, 2, 3), t)
 
 	// Degenerate case
 	l = NewList()
@@ -65,15 +65,15 @@ func TestReverse(t *T) {
 
 func testMapGen(t *T, mapFn func(func(types.Elem) types.Elem, Seq) Seq) {
 	fn := func(n types.Elem) types.Elem {
-		return n.(int) + 1
+		return types.GoType{n.(types.GoType).V.(int) + 1}
 	}
 
 	// Normal case
-	intl := []types.Elem{1, 2, 3}
+	intl := elemSliceV(1, 2, 3)
 	l := NewList(intl...)
 	nl := mapFn(fn, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{2, 3, 4}, t)
+	assertSeqContents(nl, elemSliceV(2, 3, 4), t)
 
 	// Degenerate case
 	l = NewList()
@@ -95,27 +95,31 @@ func TestLMap(t *T) {
 // Test reducing over a Seq
 func TestReduce(t *T) {
 	fn := func(acc, el types.Elem) (types.Elem, bool) {
-		return acc.(int) + el.(int), false
+		acci := acc.(types.GoType).V.(int)
+		eli := el.(types.GoType).V.(int)
+		return types.GoType{acci + eli}, false
 	}
 
 	// Normal case
-	intl := []types.Elem{1, 2, 3, 4}
+	intl := elemSliceV(1, 2, 3, 4)
 	l := NewList(intl...)
-	r := Reduce(fn, 0, l)
+	r := Reduce(fn, types.GoType{0}, l)
 	assertSeqContents(l, intl, t)
 	assertValue(r, 10, t)
 
 	// Short-circuit case
 	fns := func(acc, el types.Elem) (types.Elem, bool) {
-		return acc.(int) + el.(int), el.(int) > 2
+		acci := acc.(types.GoType).V.(int)
+		eli := el.(types.GoType).V.(int)
+		return types.GoType{acci + eli}, eli > 2
 	}
-	r = Reduce(fns, 0, l)
+	r = Reduce(fns, types.GoType{0}, l)
 	assertSeqContents(l, intl, t)
 	assertValue(r, 6, t)
 
 	// Degenerate case
 	l = NewList()
-	r = Reduce(fn, 0, l)
+	r = Reduce(fn, types.GoType{0}, l)
 	assertEmpty(l, t)
 	assertValue(r, 0, t)
 }
@@ -123,11 +127,11 @@ func TestReduce(t *T) {
 // Test the Any function
 func TestAny(t *T) {
 	fn := func(el types.Elem) bool {
-		return el.(int) > 3
+		return el.(types.GoType).V.(int) > 3
 	}
 
 	// Value found case
-	intl := []types.Elem{1, 2, 3, 4}
+	intl := elemSliceV(1, 2, 3, 4)
 	l := NewList(intl...)
 	r, ok := Any(fn, l)
 	assertSeqContents(l, intl, t)
@@ -135,7 +139,7 @@ func TestAny(t *T) {
 	assertValue(ok, true, t)
 
 	// Value not found case
-	intl = []types.Elem{1, 2, 3}
+	intl = elemSliceV(1, 2, 3)
 	l = NewList(intl...)
 	r, ok = Any(fn, l)
 	assertSeqContents(l, intl, t)
@@ -153,18 +157,18 @@ func TestAny(t *T) {
 // Test the All function
 func TestAll(t *T) {
 	fn := func(el types.Elem) bool {
-		return el.(int) > 3
+		return el.(types.GoType).V.(int) > 3
 	}
 
 	// All match case
-	intl := []types.Elem{4, 5, 6}
+	intl := elemSliceV(4, 5, 6)
 	l := NewList(intl...)
 	ok := All(fn, l)
 	assertSeqContents(l, intl, t)
 	assertValue(ok, true, t)
 
 	// Not all match case
-	intl = []types.Elem{3, 4, 2, 5}
+	intl = elemSliceV(3, 4, 2, 5)
 	l = NewList(intl...)
 	ok = All(fn, l)
 	assertSeqContents(l, intl, t)
@@ -179,15 +183,15 @@ func TestAll(t *T) {
 
 func testFilterGen(t *T, filterFn func(func(types.Elem) bool, Seq) Seq) {
 	fn := func(el types.Elem) bool {
-		return el.(int)%2 != 0
+		return el.(types.GoType).V.(int)%2 != 0
 	}
 
 	// Normal case
-	intl := []types.Elem{1, 2, 3, 4, 5}
+	intl := elemSliceV(1, 2, 3, 4, 5)
 	l := NewList(intl...)
 	r := filterFn(fn, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(r, []types.Elem{1, 3, 5}, t)
+	assertSeqContents(r, elemSliceV(1, 3, 5), t)
 
 	// Degenerate cases
 	l = NewList()
@@ -209,19 +213,19 @@ func TestLFilter(t *T) {
 // Test Flatten-ing of a Seq
 func TestFlatten(t *T) {
 	// Normal case
-	intl1 := []types.Elem{0, 1, 2}
-	intl2 := []types.Elem{3, 4, 5}
+	intl1 := elemSliceV(0, 1, 2)
+	intl2 := elemSliceV(3, 4, 5)
 	l1 := NewList(intl1...)
 	l2 := NewList(intl2...)
 	blank := NewList()
-	intl := []types.Elem{-1, l1, l2, 6, blank, 7}
+	intl := elemSliceV(-1, l1, l2, 6, blank, 7)
 	l := NewList(intl...)
 	nl := Flatten(l)
 	assertSeqContents(l1, intl1, t)
 	assertSeqContents(l2, intl2, t)
 	assertEmpty(blank, t)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{-1, 0, 1, 2, 3, 4, 5, 6, 7}, t)
+	assertSeqContents(nl, elemSliceV(-1, 0, 1, 2, 3, 4, 5, 6, 7), t)
 
 	// Degenerate case
 	nl = Flatten(blank)
@@ -231,11 +235,11 @@ func TestFlatten(t *T) {
 
 func testTakeGen(t *T, takeFn func(uint64, Seq) Seq) {
 	// Normal case
-	intl := []types.Elem{0, 1, 2, 3, 4}
+	intl := elemSliceV(0, 1, 2, 3, 4)
 	l := NewList(intl...)
 	nl := takeFn(3, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{0, 1, 2}, t)
+	assertSeqContents(nl, elemSliceV(0, 1, 2), t)
 
 	// Edge cases
 	nl = takeFn(5, l)
@@ -269,28 +273,28 @@ func TestLTake(t *T) {
 
 func testTakeWhileGen(t *T, takeWhileFn func(func(types.Elem) bool, Seq) Seq) {
 	pred := func(el types.Elem) bool {
-		return el.(int) < 3
+		return el.(types.GoType).V.(int) < 3
 	}
 
 	// Normal case
-	intl := []types.Elem{0, 1, 2, 3, 4, 5}
+	intl := elemSliceV(0, 1, 2, 3, 4, 5)
 	l := NewList(intl...)
 	nl := takeWhileFn(pred, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{0, 1, 2}, t)
+	assertSeqContents(nl, elemSliceV(0, 1, 2), t)
 
 	// Edge cases
-	intl = []types.Elem{5, 5, 5}
+	intl = elemSliceV(5, 5, 5)
 	l = NewList(intl...)
 	nl = takeWhileFn(pred, l)
 	assertSeqContents(l, intl, t)
 	assertEmpty(nl, t)
 
-	intl = []types.Elem{0, 1, 2}
+	intl = elemSliceV(0, 1, 2)
 	l = NewList(intl...)
 	nl = takeWhileFn(pred, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{0, 1, 2}, t)
+	assertSeqContents(nl, elemSliceV(0, 1, 2), t)
 
 	// Degenerate case
 	l = NewList()
@@ -312,11 +316,11 @@ func TestLTakeWhile(t *T) {
 // Test dropping from a Seq
 func TestDrop(t *T) {
 	// Normal case
-	intl := []types.Elem{0, 1, 2, 3, 4}
+	intl := elemSliceV(0, 1, 2, 3, 4)
 	l := NewList(intl...)
 	nl := Drop(3, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{3, 4}, t)
+	assertSeqContents(nl, elemSliceV(3, 4), t)
 
 	// Edge cases
 	nl = Drop(5, l)
@@ -341,24 +345,24 @@ func TestDrop(t *T) {
 // Test dropping from a Seq until a given condition
 func TestDropWhile(t *T) {
 	pred := func(el types.Elem) bool {
-		return el.(int) < 3
+		return el.(types.GoType).V.(int) < 3
 	}
 
 	// Normal case
-	intl := []types.Elem{0, 1, 2, 3, 4, 5}
+	intl := elemSliceV(0, 1, 2, 3, 4, 5)
 	l := NewList(intl...)
 	nl := DropWhile(pred, l)
 	assertSeqContents(l, intl, t)
-	assertSeqContents(nl, []types.Elem{3, 4, 5}, t)
+	assertSeqContents(nl, elemSliceV(3, 4, 5), t)
 
 	// Edge cases
-	intl = []types.Elem{5, 5, 5}
+	intl = elemSliceV(5, 5, 5)
 	l = NewList(intl...)
 	nl = DropWhile(pred, l)
 	assertSeqContents(l, intl, t)
 	assertSeqContents(nl, intl, t)
 
-	intl = []types.Elem{0, 1, 2}
+	intl = elemSliceV(0, 1, 2)
 	l = NewList(intl...)
 	nl = DropWhile(pred, l)
 	assertSeqContents(l, intl, t)

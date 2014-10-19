@@ -30,63 +30,41 @@ func hash(v types.Elem, i uint32) uint32 {
 	case Setable:
 		return vt.Hash(i) % ARITY
 
-	case uint:
-		return uint32(vt) % ARITY
-	case uint8:
-		return uint32(vt) % ARITY
-	case uint32:
-		return uint32(vt) % ARITY
-	case uint64:
-		return uint32(vt) % ARITY
-	case int:
-		return uint32(vt) % ARITY
-	case int8:
-		return uint32(vt) % ARITY
-	case int16:
-		return uint32(vt) % ARITY
-	case int32:
-		return uint32(vt) % ARITY
-	case int64:
-		return uint32(vt) % ARITY
-	case float32:
-		return uint32(vt) % ARITY
-	case float64:
-		return uint32(vt) % ARITY
+	case types.GoType:
+		switch gvt := vt.V.(type) {
+		case uint:
+			return uint32(gvt) % ARITY
+		case uint8:
+			return uint32(gvt) % ARITY
+		case uint32:
+			return uint32(gvt) % ARITY
+		case uint64:
+			return uint32(gvt) % ARITY
+		case int:
+			return uint32(gvt) % ARITY
+		case int8:
+			return uint32(gvt) % ARITY
+		case int16:
+			return uint32(gvt) % ARITY
+		case int32:
+			return uint32(gvt) % ARITY
+		case int64:
+			return uint32(gvt) % ARITY
+		case float32:
+			return uint32(gvt) % ARITY
+		case float64:
+			return uint32(gvt) % ARITY
 
-	case string:
-		return crc32.ChecksumIEEE([]byte(vt)) % ARITY
+		case string:
+			return crc32.ChecksumIEEE([]byte(gvt)) % ARITY
 
-	case []byte:
-		return crc32.ChecksumIEEE(vt) % ARITY
-
-	default:
-		err := fmt.Sprintf("%s not hashable", reflect.TypeOf(v))
-		panic(err)
-	}
-}
-
-// Returns whether two values (potentially Setable's) are equivalent
-func equal(v1, v2 types.Elem) bool {
-	if v1t, ok := v1.(Setable); ok {
-		return v1t.Equal(v2)
-	} else if v2t, ok := v2.(Setable); ok {
-		return v2t.Equal(v1)
-	} else if v1t, ok := v1.([]byte); ok {
-		if v2t, ok := v2.([]byte); ok {
-			if len(v1t) != len(v2t) {
-				return false
-			}
-			for i := range v1t {
-				if v1t[i] != v2t[i] {
-					return false
-				}
-			}
-			return true
+		case []byte:
+			return crc32.ChecksumIEEE(gvt) % ARITY
 		}
-		return false
-	} else {
-		return v1 == v2
 	}
+
+	err := fmt.Sprintf("%s not hashable", reflect.TypeOf(v))
+	panic(err)
 }
 
 // The number of children each node in Set (implemented as a hash tree) can have
@@ -142,7 +120,7 @@ func (set *Set) shallowTrySetOrInit(val types.Elem) (bool, bool) {
 		set.val = val
 		set.full = true
 		return true, false
-	} else if equal(set.val, val) {
+	} else if set.val.Equal(val) {
 		set.val = val
 		set.full = true
 		return true, true
@@ -215,7 +193,7 @@ func (set *Set) SetVal(val types.Elem) (*Set, bool) {
 func (set *Set) internalDelVal(val types.Elem, i uint32) (*Set, bool) {
 	if set == nil {
 		return nil, false
-	} else if set.full && equal(val, set.val) {
+	} else if set.full && set.val.Equal(val) {
 		cset := set.clone()
 		cset.val = nil
 		cset.full = false
@@ -247,7 +225,7 @@ func (set *Set) DelVal(val types.Elem) (*Set, bool) {
 func (set *Set) internalGetVal(val types.Elem, i uint32) (types.Elem, bool) {
 	if set == nil {
 		return nil, false
-	} else if set.full && equal(val, set.val) {
+	} else if set.full && set.val.Equal(val) {
 		return set.val, true
 	} else if set.kids == nil {
 		return nil, false
@@ -299,6 +277,32 @@ func (set *Set) FirstRest() (types.Elem, Seq, bool) {
 		restSet.size--
 	}
 	return el, Seq(restSet), ok
+}
+
+// Implementation of Equal for types.Elem interface. Completes in O(Nlog(M))
+// time if e is another Set, where M is the size of the given Set
+func (set *Set) Equal(e types.Elem) bool {
+	set2, ok := e.(*Set)
+	if !ok {
+		return false
+	}
+
+	var el types.Elem
+	s := Seq(set) 
+	size := uint64(0)
+
+	for {
+		el, s, ok = s.FirstRest()
+		if !ok {
+			return size == set2.Size()
+		}
+		size++
+
+		_, ok = set2.GetVal(el)
+		if !ok {
+			return false
+		}
+	}
 }
 
 // Implementation of String for Stringer interface
