@@ -40,6 +40,18 @@ type Token struct {
 	Val  string
 }
 
+// Returns the token's value as an error, or nil if the token is not of type
+// Err. If the token is nil returns io.EOF, since that is the ostensible meaning
+func (t *Token) AsError() error {
+	if t == nil {
+		return io.EOF
+	}
+	if t.Type != Err {
+		return nil
+	}
+	return errors.New(t.Val)
+}
+
 var (
 	errInvalidUTF8 = errors.New("invalid utf8 character")
 )
@@ -96,10 +108,9 @@ func (l *Lexer) Next() *Token {
 
 func (l *Lexer) emit(t TokenType) {
 	str := l.outbuf.String()
-	fmt.Printf("emitting %q\n", str)
 	l.ch <- &Token{
 		Type: t,
-		Val: l.outbuf.String(),
+		Val: str,
 	}
 	l.outbuf.Reset()
 }
@@ -151,11 +162,9 @@ func lexWhitespace(l *Lexer) lexerFunc {
 	}
 
 	if unicode.IsSpace(r) {
-		fmt.Printf("skipping %q because it's a space\n", r)
 		return lexWhitespace
 	}
 
-	fmt.Printf("not skipping %q\n", r)
 	l.outbuf.WriteRune(r)
 	
 	switch r {
@@ -192,7 +201,6 @@ func lexQuotedString(l *Lexer) lexerFunc {
 
 	if r == '"' && buf[len(buf) - 2] != '\\' {
 		l.emit(QuotedString)
-		fmt.Println("emitting quoted string, parsing whitespace")
 		return lexWhitespace
 	}
 	return lexQuotedString
@@ -201,7 +209,6 @@ func lexQuotedString(l *Lexer) lexerFunc {
 func lexBareString(l *Lexer) lexerFunc {
 	r, err := l.peek()
 	if err != nil {
-		fmt.Printf("got err %s in peek\n", err)
 		l.emit(BareString)
 		return l.err(err)
 	}
@@ -212,7 +219,6 @@ func lexBareString(l *Lexer) lexerFunc {
 	}
 
 	if _, err = l.readRune(); err != nil {
-		fmt.Printf("got err %s in read\n", err)
 		l.emit(BareString)
 		return l.err(err)
 	}
