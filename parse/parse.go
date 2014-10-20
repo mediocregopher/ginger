@@ -22,19 +22,21 @@ var closers = map[string]string{
 // The lexer only indicates a bare string, but technically an integer or a float
 // is a bare string so we must try and convert to one of those first
 func parseBareString(tok *lex.Token) types.Elem {
-	if i, err := strconv.ParseInt(tok.Val, 10, int_bits); err != nil {
+	if i, err := strconv.ParseInt(tok.Val, 10, int_bits); err == nil {
 		return types.GoType{int(i)}
-	}
 
-	if i64, err := strconv.ParseInt(tok.Val, 10, 64); err != nil {
+	} else if int_bits == 64 {
+		// We don't want to bother with the next case if int_bits is 64
+
+	} else if i64, err := strconv.ParseInt(tok.Val, 10, 64); err == nil {
 		return types.GoType{int64(i64)}
 	}
 
-	if f32, err := strconv.ParseInt(tok.Val, 10, 32); err != nil {
+	if f32, err := strconv.ParseFloat(tok.Val, 32); err == nil {
 		return types.GoType{float32(f32)}
 	}
 
-	if f64, err := strconv.ParseInt(tok.Val, 10, 64); err != nil {
+	if f64, err := strconv.ParseFloat(tok.Val, 64); err == nil {
 		return types.GoType{float64(f64)}
 	}
 
