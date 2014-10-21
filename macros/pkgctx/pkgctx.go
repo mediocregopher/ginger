@@ -9,10 +9,10 @@ type PkgCtx struct {
 	// string for no alias)
 	Packages map[string]string
 
-	// CallDict is a map used by Eval for making actual calls dynamically. The
+	// CallMap is a map used by Eval for making actual calls dynamically. The
 	// key is the string representation of the call to be used (for example,
 	// "fmt.Println") and must agree with the aliases being used in Packages.
 	// The value need not be set during actual compilation, but it is useful to
 	// use it during testing
-	CallDict map[string]interface{}
+	CallMap map[string]interface{}
 }
