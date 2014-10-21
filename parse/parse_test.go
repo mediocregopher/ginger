@@ -11,32 +11,42 @@ import (
 
 func TestParseBareString(t *T) {
 	m := map[string][]types.Elem{
-		"foo": []types.Elem{types.GoType{":foo"}},
+		"1": {types.GoType{int(1)}},
+		"-1": {types.GoType{int(-1)}},
+		"+1": {types.GoType{int(1)}},
 
-		"foo bar": []types.Elem{
+		"1.5": {types.GoType{float32(1.5)}},
+		"-1.5": {types.GoType{float32(-1.5)}},
+		"+1.5": {types.GoType{float32(1.5)}},
+		"1.5e1": {types.GoType{float32(15)}},
+
+		"foo": {types.GoType{":foo"}},
+
+		"foo 4 bar": {
 			types.GoType{":foo"},
+			types.GoType{4},
 			types.GoType{":bar"},
 		},
 
-		"foo \"bar\"": []types.Elem{
+		"foo \"bar\"": {
 			types.GoType{":foo"},
 			types.GoType{"bar"},
 		},
 
-		"()": []types.Elem{seq.NewList()},
+		"()": {seq.NewList()},
 
-		"(foo)": []types.Elem{seq.NewList(
+		"(foo)": {seq.NewList(
 			types.GoType{":foo"},
 		)},
 
-		"(foo (bar))": []types.Elem{seq.NewList(
+		"(foo (bar))": {seq.NewList(
 			types.GoType{":foo"},
 			seq.NewList(types.GoType{":bar"}),
 		)},
 
-		"{}": []types.Elem{seq.NewHashMap()},
+		"{}": {seq.NewHashMap()},
 
-		"{foo bar}": []types.Elem{seq.NewHashMap(
+		"{foo bar}": {seq.NewHashMap(
 			seq.KeyVal(types.GoType{":foo"}, types.GoType{":bar"}),
 		)},
 	}
