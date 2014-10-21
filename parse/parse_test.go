@@ -9,19 +9,51 @@ import (
 	"github.com/mediocregopher/ginger/types"
 )
 
-func TestParseBareString(t *T) {
+func TestParse(t *T) {
+	m := map[string]types.Elem{
+		"1": types.GoType{int(1)},
+		"-1": types.GoType{int(-1)},
+		"+1": types.GoType{int(1)},
+
+		"1.5": types.GoType{float32(1.5)},
+		"-1.5": types.GoType{float32(-1.5)},
+		"+1.5": types.GoType{float32(1.5)},
+		"1.5e1": types.GoType{float32(15)},
+
+		"foo": types.GoType{":foo"},
+
+		"()": seq.NewList(),
+
+		"(foo)": seq.NewList(
+			types.GoType{":foo"},
+		),
+
+		"(foo (bar))": seq.NewList(
+			types.GoType{":foo"},
+			seq.NewList(types.GoType{":bar"}),
+		),
+
+		"{}": seq.NewHashMap(),
+
+		"{foo bar}": seq.NewHashMap(
+			seq.KeyVal(types.GoType{":foo"}, types.GoType{":bar"}),
+		),
+	}
+
+	for input, output := range m {
+		parsed, err := ParseString(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !output.Equal(parsed) {
+			t.Fatalf("input: %q %#v != %#v", input, output, parsed)
+		}
+	}
+}
+
+func TestParseMulti(t *T) {
 	m := map[string][]types.Elem{
-		"1": {types.GoType{int(1)}},
-		"-1": {types.GoType{int(-1)}},
-		"+1": {types.GoType{int(1)}},
-
-		"1.5": {types.GoType{float32(1.5)}},
-		"-1.5": {types.GoType{float32(-1.5)}},
-		"+1.5": {types.GoType{float32(1.5)}},
-		"1.5e1": {types.GoType{float32(15)}},
-
-		"foo": {types.GoType{":foo"}},
-
 		"foo 4 bar": {
 			types.GoType{":foo"},
 			types.GoType{4},
@@ -32,23 +64,6 @@ func TestParseBareString(t *T) {
 			types.GoType{":foo"},
 			types.GoType{"bar"},
 		},
-
-		"()": {seq.NewList()},
-
-		"(foo)": {seq.NewList(
-			types.GoType{":foo"},
-		)},
-
-		"(foo (bar))": {seq.NewList(
-			types.GoType{":foo"},
-			seq.NewList(types.GoType{":bar"}),
-		)},
-
-		"{}": {seq.NewHashMap()},
-
-		"{foo bar}": {seq.NewHashMap(
-			seq.KeyVal(types.GoType{":foo"}, types.GoType{":bar"}),
-		)},
 	}
 
 	for input, output := range m {

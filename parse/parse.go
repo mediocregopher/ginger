@@ -1,6 +1,10 @@
+// The parse package implements a syntax parser for the ginger syntax. It can
+// read in any io.Reader and returns fully parsed Elem's from the types package
+// that it finds.
 package parse
 
 import (
+	"bytes"
 	"io"
 	"fmt"
 	"strconv"
@@ -60,6 +64,7 @@ type Parser struct {
 	l *lex.Lexer
 }
 
+// Returns a NewParser, using the lex package as the tokenizer
 func NewParser(r io.Reader) *Parser {
 	p := Parser{
 		l: lex.NewLexer(r),
@@ -67,6 +72,9 @@ func NewParser(r io.Reader) *Parser {
 	return &p
 }
 
+// Reads a full element, and any sub-elements (if the top-level element is a
+// data-structure) into an Elem and returns it. Returns any errors, including
+// io.EOF, if it runs into them instead
 func (p *Parser) ReadElem() (types.Elem, error) {
 	tok := p.l.Next()
 	return p.parseToken(tok)
@@ -138,4 +146,11 @@ func (p *Parser) readUntil(closer string) ([]types.Elem, error) {
 
 		return series, nil
 	}
+}
+
+// Parses the first Elem it finds out of the given string and returns it
+func ParseString(input string) (types.Elem, error) {
+	buf := bytes.NewBufferString(input)
+	p := NewParser(buf)
+	return p.ReadElem()
 }
