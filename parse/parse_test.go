@@ -11,13 +11,13 @@ import (
 
 func TestParse(t *T) {
 	m := map[string]types.Elem{
-		"1": types.GoType{int(1)},
+		"1":  types.GoType{int(1)},
 		"-1": types.GoType{int(-1)},
 		"+1": types.GoType{int(1)},
 
-		"1.5": types.GoType{float32(1.5)},
-		"-1.5": types.GoType{float32(-1.5)},
-		"+1.5": types.GoType{float32(1.5)},
+		"1.5":   types.GoType{float32(1.5)},
+		"-1.5":  types.GoType{float32(-1.5)},
+		"+1.5":  types.GoType{float32(1.5)},
 		"1.5e1": types.GoType{float32(15)},
 
 		"foo": types.GoType{":foo"},

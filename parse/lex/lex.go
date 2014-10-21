@@ -13,6 +13,7 @@ import (
 )
 
 type TokenType int
+
 const (
 	BareString TokenType = iota
 	QuotedString
@@ -58,9 +59,9 @@ var (
 
 // Lexer reads through an io.Reader and emits Tokens from it.
 type Lexer struct {
-	r *bufio.Reader
+	r      *bufio.Reader
 	outbuf *bytes.Buffer
-	ch chan *Token
+	ch     chan *Token
 }
 
 // NewLexer constructs a new Lexer struct and returns it. r is internally
@@ -75,8 +76,8 @@ func NewLexer(r io.Reader) *Lexer {
 	}
 
 	l := Lexer{
-		r:  br,
-		ch: make(chan *Token),
+		r:      br,
+		ch:     make(chan *Token),
 		outbuf: bytes.NewBuffer(make([]byte, 0, 1024)),
 	}
 
@@ -110,7 +111,7 @@ func (l *Lexer) emit(t TokenType) {
 	str := l.outbuf.String()
 	l.ch <- &Token{
 		Type: t,
-		Val: str,
+		Val:  str,
 	}
 	l.outbuf.Reset()
 }
@@ -166,7 +167,7 @@ func lexWhitespace(l *Lexer) lexerFunc {
 	}
 
 	l.outbuf.WriteRune(r)
-	
+
 	switch r {
 	case '"':
 		return lexQuotedString
@@ -199,7 +200,7 @@ func lexQuotedString(l *Lexer) lexerFunc {
 	l.outbuf.WriteRune(r)
 	buf := l.outbuf.Bytes()
 
-	if r == '"' && buf[len(buf) - 2] != '\\' {
+	if r == '"' && buf[len(buf)-2] != '\\' {
 		l.emit(QuotedString)
 		return lexWhitespace
 	}

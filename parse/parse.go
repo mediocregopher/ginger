@@ -5,8 +5,8 @@ package parse
 
 import (
 	"bytes"
-	"io"
 	"fmt"
+	"io"
 	"strconv"
 	"unsafe"
 
@@ -45,7 +45,7 @@ func parseBareString(tok *lex.Token) types.Elem {
 	}
 
 	if tok.Val[0] != ':' {
-		return types.GoType{":"+tok.Val}
+		return types.GoType{":" + tok.Val}
 	}
 
 	return types.GoType{tok.Val}
@@ -100,10 +100,10 @@ func (p *Parser) parseToken(tok *lex.Token) (types.Elem, error) {
 		if tok.Val == "(" {
 			return seq.NewList(series...), nil
 		} else if tok.Val == "{" {
-			if len(series) % 2 != 0 {
+			if len(series)%2 != 0 {
 				return nil, fmt.Errorf("hash must have even number of elements")
 			}
-			kvs := make([]*seq.KV, 0, len(series) / 2)
+			kvs := make([]*seq.KV, 0, len(series)/2)
 			for i := 0; i < len(series); i += 2 {
 				kv := seq.KV{series[i], series[i+1]}
 				kvs = append(kvs, &kv)
@@ -112,12 +112,11 @@ func (p *Parser) parseToken(tok *lex.Token) (types.Elem, error) {
 		}
 
 		panic("should never get here")
-	
+
 	default:
 		return nil, fmt.Errorf("Unexpected %q", tok.Val)
 	}
 }
-
 
 func (p *Parser) readUntil(closer string) ([]types.Elem, error) {
 	series := make([]types.Elem, 0, 4)

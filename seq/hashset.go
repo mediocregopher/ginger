@@ -288,7 +288,7 @@ func (set *Set) Equal(e types.Elem) bool {
 	}
 
 	var el types.Elem
-	s := Seq(set) 
+	s := Seq(set)
 	size := uint64(0)
 
 	for {

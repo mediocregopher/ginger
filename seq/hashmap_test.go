@@ -43,7 +43,7 @@ func TestHashMapEqual(t *T) {
 	hm = NewHashMap(keyValV(1, "one"), keyValV(2, "two"))
 	assertValue(hm.Equal(hm2), false, t)
 	assertValue(hm2.Equal(hm), false, t)
-	
+
 	hm2 = NewHashMap(keyValV(1, "one"))
 	assertValue(hm.Equal(hm2), false, t)
 	assertValue(hm2.Equal(hm), false, t)

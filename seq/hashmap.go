@@ -89,7 +89,7 @@ func (hm *HashMap) Equal(e types.Elem) bool {
 	s := Seq(hm)
 	size := uint64(0)
 
-	for { 
+	for {
 		el, s, ok = s.FirstRest()
 		if !ok {
 			return size == hm2.Size()

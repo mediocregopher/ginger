@@ -8,7 +8,7 @@ import (
 // Elem is a generic type which can be used as a wrapper type for all ginger
 // types, both base types and data structures
 type Elem interface {
-	
+
 	// Returns whether one element is equal to another. Since all ginger values
 	// are immutable, this must be a deep-equals check.
 	Equal(Elem) bool
