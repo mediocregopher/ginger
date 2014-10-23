@@ -44,6 +44,13 @@ func Size(s Seq) uint64 {
 	}
 }
 
+// Returns whether or not the given Seq is empty. This is accomplished using
+// FirstRest and NOT just by naively returning Size(s) == 0.
+func Empty(s Seq) bool {
+	_, _, ok := s.FirstRest()
+	return !ok
+}
+
 // Returns the elements in the Seq as a slice. If the underlying Seq has any
 // implicit order to it that order will be kept. An empty Seq will return an
 // empty slice; nil is never returned. In general this completes in O(N) time.

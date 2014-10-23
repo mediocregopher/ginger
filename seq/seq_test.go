@@ -6,7 +6,7 @@ import (
 	"github.com/mediocregopher/ginger/types"
 )
 
-// Tests the FirstRest, Size, and ToSlice methods of a Seq
+// Tests the FirstRest, Size, Empty, and ToSlice methods of a Seq
 func testSeqGen(t *T, s Seq, ints []types.Elem) Seq {
 	intsl := uint64(len(ints))
 	for i := range ints {
@@ -18,8 +18,13 @@ func testSeqGen(t *T, s Seq, ints []types.Elem) Seq {
 		assertValue(ok, true, t)
 		assertValue(first, ints[i], t)
 
+		empty := Empty(s)
+		assertValue(empty, false, t)
+
 		s = rest
 	}
+	empty := Empty(s)
+	assertValue(empty, true, t)
 	return s
 }
 
