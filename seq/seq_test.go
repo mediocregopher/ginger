@@ -379,3 +379,49 @@ func TestDropWhile(t *T) {
 	assertEmpty(l, t)
 	assertEmpty(nl, t)
 }
+
+// Test Traversing a Seq until a given condition
+func TestTraverse(t *T) {
+	var acc int
+	pred := func(el types.Elem) bool {
+		acc += el.(types.GoType).V.(int)
+		return true
+	}
+
+	l := NewList()
+	acc = 0
+	Traverse(pred, l)
+	assertValue(acc, 0, t)
+
+	l2 := NewList(elemSliceV(0, 1, 2, 3)...)
+	acc = 0
+	Traverse(pred, l2)
+	assertValue(acc, 6, t)
+
+	l3 := NewList(
+		types.GoType{1},
+		types.GoType{2},
+		NewList(elemSliceV(4, 5, 6)...),
+		types.GoType{3},
+	)
+	acc = 0
+	Traverse(pred, l3)
+	assertValue(acc, 21, t)
+
+	pred = func(el types.Elem) bool {
+		i := el.(types.GoType).V.(int)
+		if i > 4 {
+			return false
+		}
+		acc += i
+		return true
+	}
+
+	acc = 0
+	Traverse(pred, l2)
+	assertValue(acc, 6, t)
+
+	acc = 0
+	Traverse(pred, l3)
+	assertValue(acc, 7, t)
+}

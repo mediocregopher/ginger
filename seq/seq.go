@@ -286,3 +286,27 @@ func DropWhile(pred func(types.Elem) bool, s Seq) Seq {
 	}
 	return s
 }
+
+// Runs pred on each element in the sequence, descending recursively if it
+// encounters another Seq (without calling pred on that Seq). This amounts to a
+// depth-first traverse. If pred ever returns false the traverse will stop.
+// Returns false if the Traverse was stopped by pred, true otherwise.
+func Traverse(pred func(types.Elem) bool, s Seq) bool {
+	var el types.Elem
+	var ok bool
+	for {
+		el, s, ok = s.FirstRest()
+		if !ok {
+			return true
+		}
+		var predRet bool
+		if inners, ok := el.(Seq); ok {
+			predRet = Traverse(pred, inners)
+		} else {
+			predRet = pred(el)
+		}
+		if !predRet {
+			return false
+		}
+	}
+}
