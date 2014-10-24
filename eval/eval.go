@@ -45,12 +45,11 @@ func Eval(p *pkgctx.PkgCtx, el types.Elem) types.Elem {
 	if !ok || !first.Equal(colon) {
 		return el
 	}
-	
+
 	fnEl, args, ok := rest.FirstRest()
 	if !ok {
 		Bail(el, "Empty list after colon, no function given")
 	}
-	
 
 	var fnName string
 	if gt, ok := fnEl.(types.GoType); ok {
