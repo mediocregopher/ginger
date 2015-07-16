@@ -37,9 +37,9 @@ variable/function defined in one part can be used in another part.
 
 A public variable/function can be used within a package without any extra
 embelishment (in the above example, `(: AwesomeFunction)` could simply be called
-from within the package.
+from within the package).
 
-Outside of a package can be used as follows:
+Outside of a package variables/functions can be used as follows:
 
 ```
 (. package "show-and-tell"

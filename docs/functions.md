@@ -36,7 +36,7 @@ example:
 ```
 
 This function will return the argument `x` if it is greater than or equal to 0,
-or `(* -1 x)` if it's not.
+or `(: * -1 x)` if it's not.
 
 ### Multiple returns
 
@@ -50,7 +50,7 @@ temporary variables in a scope, can deconstruct these multiple-returns:
     [4 6])
 
 (. let [[foo bar] (: sum-10)
-    (: fmt.Println "%d + %d = 10" foo bar))
+    (: fmt.Printf "%d + %d = 10\n" foo bar))
 ```
 
 Functions defined within a go library which return multiple values can also be

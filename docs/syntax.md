@@ -7,8 +7,8 @@ evaluated.
 
 I have some immediate goals I'm trying to achieve with this syntax:
 
-* Everything is strings (except numbers, functions, and data structures). There
-  is no symbol type, atom type, keyword type, etc... they're all just strings.
+* Everything is strings (except numbers, functions, and composites). There is no
+  symbol type, atom type, keyword type, etc... they're all just strings.
 
 * There is no `defmacro`. Macro creation and usage is simply an inherent feature
   of the language syntax.
@@ -115,29 +115,26 @@ value. This evaluates to a map with 2 key/val pairs:
 
 `.` is the half-evaluator. It only works on lists, and runs the function given
 in the first argument with the unevaluated arguments (even if they have `:`).
-You can generate new code to run on the fly (macros) using the normal `fn`. This
-evaluates to a `let`-like function, except it forces you to use the capitalized
-variable names in the body (utterly useless):
+You can generate new code to run (compile-time macros) using the normal `fn`.
+The returned value is evaluated in place of the original. This evaluates to a
+`let`-like function, except it forces you to use the capitalized variable names
+in the body (utterly useless):
 
 ```
 #
-# eval evaluates a given value (either a string or list). It has been
-# implicitely called on all examples so far.
+# map-alternate is a made up function which maps over every other element in a
+# list, starting with the first.
+# E.g. (: map-alternate (. fn [x] (: + x 1)) (1 2 3 4 5)) -> (2 2 4 4 6)
 #
-# elem-map maps over every element in a list, embedded or otherwise
-#
-# capitalize looks for the first letter in a string and capitalizes it
+# capitalize is a made up function which looks for the first letter in a string
+# and capitalizes it
 #
 (. defn caplet [mapping body...]
-    (. eval
-        (. let
-            (: elem-map
-                (. fn [x]
-                    (. if (: mapping (: slice x 1))
-                        (: capitalize x)
-                        x))
-                mapping)
-            body...)))
+    ("." let
+        (: map-alternate
+            (. fn [x] (: capitalize x))
+            mapping)
+        body...))
 
 #Usage
 (. caplet [foo "this is foo"
