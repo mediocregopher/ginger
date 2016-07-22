@@ -135,6 +135,37 @@ func (tup Tuple) Equal(e Expr) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type Pipe struct {
+	exprs []Expr
+}
+
+func (p Pipe) Token() lexer.Token {
+	return p.exprs[0].Token()
+}
+
+func (p Pipe) String() string {
+	strs := make([]string, len(p.exprs))
+	for i := range p.exprs {
+		strs[i] = p.exprs[i].String()
+	}
+	return "(" + strings.Join(strs, "|") + ")"
+}
+
+func (p Pipe) Equal(e Expr) bool {
+	pp, ok := e.(Pipe)
+	if !ok || len(pp.exprs) != len(p.exprs) {
+		return false
+	}
+	for i := range p.exprs {
+		if !p.exprs[i].Equal(pp.exprs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // toks[0] must be start
 func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Token, []lexer.Token, error) {
 	c := 1
@@ -173,6 +204,7 @@ var (
 	openParen  = lexer.Token{TokenType: lexer.Punctuation, Val: "("}
 	closeParen = lexer.Token{TokenType: lexer.Punctuation, Val: ")"}
 	comma      = lexer.Token{TokenType: lexer.Punctuation, Val: ","}
+	pipe       = lexer.Token{TokenType: lexer.Punctuation, Val: "|"}
 )
 
 func parse(toks []lexer.Token) (Expr, []lexer.Token, error) {
@@ -251,6 +283,8 @@ func parseString(t lexer.Token) (Expr, error) {
 func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 	if toks[0].Equal(comma) {
 		return parseTuple(toks, root)
+	} else if toks[0].Equal(pipe) {
+		return parsePipe(toks, root)
 	}
 
 	return nil, nil, fmt.Errorf("invalid connecting punctuation: %v", toks[0])
@@ -276,4 +310,26 @@ func parseTuple(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 
 	rootTup.exprs = append(rootTup.exprs, expr)
 	return parseTuple(toks, rootTup)
+}
+
+func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
+	rootTup, ok := root.(Pipe)
+	if !ok {
+		rootTup = Pipe{exprs: []Expr{root}}
+	}
+
+	if len(toks) < 2 {
+		return rootTup, toks, nil
+	} else if !toks[0].Equal(pipe) {
+		return rootTup, toks, nil
+	}
+
+	var expr Expr
+	var err error
+	if expr, toks, err = parseSingle(toks[1:]); err != nil {
+		return nil, nil, err
+	}
+
+	rootTup.exprs = append(rootTup.exprs, expr)
+	return parsePipe(toks, rootTup)
 }
