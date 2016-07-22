@@ -63,7 +63,7 @@ func TestLex(t *T) {
 	assertNext(String, `"\"foo"`, 14, 2)
 	assertNext(String, `"bar\"baz\""`, 15, 2)
 	assertNext(String, `"buz\0"`, 16, 2)
+	assertNext(EOF, "EOF", 17, 0)
 
 	assert.False(t, l.HasNext())
-	assert.Nil(t, l.Err())
 }
