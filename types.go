@@ -166,6 +166,57 @@ func (p Pipe) Equal(e Expr) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type Statement struct {
+	in   Expr
+	pipe Pipe
+}
+
+func (s Statement) Token() lexer.Token {
+	return s.in.Token()
+}
+
+func (s Statement) String() string {
+	return fmt.Sprintf("(%s > %s)", s.in.String(), s.pipe.String())
+}
+
+func (s Statement) Equal(e Expr) bool {
+	ss, ok := e.(Statement)
+	return ok && s.in.Equal(ss.in) && s.pipe.Equal(ss.pipe)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type Block struct {
+	stmts []Statement
+}
+
+func (b Block) Token() lexer.Token {
+	return b.stmts[0].Token()
+}
+
+func (b Block) String() string {
+	strs := make([]string, len(b.stmts))
+	for i := range b.stmts {
+		strs[i] = b.stmts[i].String()
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(strs, " "))
+}
+
+func (b Block) Equal(e Expr) bool {
+	bb, ok := e.(Block)
+	if !ok {
+		return false
+	}
+	for i := range b.stmts {
+		if !b.stmts[i].Equal(bb.stmts[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // toks[0] must be start
 func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Token, []lexer.Token, error) {
 	c := 1
@@ -203,8 +254,11 @@ func readAllToks(r io.Reader) []lexer.Token {
 var (
 	openParen  = lexer.Token{TokenType: lexer.Punctuation, Val: "("}
 	closeParen = lexer.Token{TokenType: lexer.Punctuation, Val: ")"}
+	openCurly  = lexer.Token{TokenType: lexer.Punctuation, Val: "{"}
+	closeCurly = lexer.Token{TokenType: lexer.Punctuation, Val: "}"}
 	comma      = lexer.Token{TokenType: lexer.Punctuation, Val: ","}
 	pipe       = lexer.Token{TokenType: lexer.Punctuation, Val: "|"}
+	arrow      = lexer.Token{TokenType: lexer.Punctuation, Val: ">"}
 )
 
 func parse(toks []lexer.Token) (Expr, []lexer.Token, error) {
@@ -240,6 +294,18 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 			return nil, nil, err
 		} else if len(ptoks) > 0 {
 			return nil, nil, fmt.Errorf("multiple expressions inside parenthesis; %v", starter)
+		}
+		return expr, toks, nil
+
+	} else if toks[0].Equal(openCurly) {
+		var btoks []lexer.Token
+		btoks, toks, err = sliceEnclosedToks(toks, openCurly, closeCurly)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if expr, err = parseBlock(btoks); err != nil {
+			return nil, nil, err
 		}
 		return expr, toks, nil
 	}
@@ -283,11 +349,23 @@ func parseString(t lexer.Token) (Expr, error) {
 func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 	if toks[0].Equal(comma) {
 		return parseTuple(toks, root)
+
 	} else if toks[0].Equal(pipe) {
 		return parsePipe(toks, root)
+
+	} else if toks[0].Equal(arrow) {
+		expr, toks, err := parse(toks[1:])
+		if err != nil {
+			return nil, nil, err
+		}
+		pipe, ok := expr.(Pipe)
+		if !ok {
+			pipe = Pipe{exprs: []Expr{expr}}
+		}
+		return Statement{in: root, pipe: pipe}, toks, nil
 	}
 
-	return nil, nil, fmt.Errorf("invalid connecting punctuation: %v", toks[0])
+	return root, toks, nil
 }
 
 func parseTuple(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
@@ -332,4 +410,30 @@ func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 
 	rootTup.exprs = append(rootTup.exprs, expr)
 	return parsePipe(toks, rootTup)
+}
+
+// parseBlock assumes that the given token list is the entire block, already
+// pulled from outer curly braces by sliceEnclosedToks, or determined to be the
+// entire block in some other way.
+func parseBlock(toks []lexer.Token) (Expr, error) {
+	b := Block{}
+
+	// TODO figure out what we want to do about empty blocks
+
+	var expr Expr
+	var err error
+	for {
+		if len(toks) == 0 {
+			return b, nil
+		}
+
+		if expr, toks, err = parse(toks); err != nil {
+			return nil, err
+		}
+		stmt, ok := expr.(Statement)
+		if !ok {
+			return nil, fmt.Errorf("blocks may only contain full statements: %v", expr)
+		}
+		b.stmts = append(b.stmts, stmt)
+	}
 }

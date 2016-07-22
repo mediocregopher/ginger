@@ -112,3 +112,64 @@ func TestParsePipe(t *T) {
 	toks = []lexer.Token{foo, pipe, openParen, foo, pipe, foo, closeParen, pipe, foo, foo}
 	assertParse(t, toks, mkPipe(fooExpr, mkPipe(fooExpr, fooExpr), fooExpr), []lexer.Token{foo})
 }
+
+func TestParseStatement(t *T) {
+	stmt := func(in Expr, ee ...Expr) Expr {
+		return Statement{in: in, pipe: Pipe{exprs: ee}}
+	}
+
+	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
+	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+
+	toks := []lexer.Token{foo, arrow, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr), []lexer.Token{})
+
+	toks = []lexer.Token{openParen, foo, arrow, foo, closeParen}
+	assertParse(t, toks, stmt(fooExpr, fooExpr), []lexer.Token{})
+
+	toks = []lexer.Token{foo, arrow, openParen, foo, closeParen}
+	assertParse(t, toks, stmt(fooExpr, fooExpr), []lexer.Token{})
+
+	toks = []lexer.Token{foo, arrow, foo, pipe, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{})
+
+	toks = []lexer.Token{foo, arrow, foo, pipe, foo, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{foo})
+
+	toks = []lexer.Token{foo, arrow, openParen, foo, pipe, foo, closeParen, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{foo})
+
+	toks = []lexer.Token{openParen, foo, closeParen, arrow, openParen, foo, pipe, foo, closeParen, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{foo})
+
+	toks = []lexer.Token{openParen, foo, closeParen, arrow, openParen, foo, pipe, foo, closeParen, foo}
+	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{foo})
+
+	fooTupExpr := Tuple{exprs: []Expr{fooExpr, fooExpr}}
+	toks = []lexer.Token{foo, arrow, openParen, foo, comma, foo, closeParen, pipe, foo, foo}
+	assertParse(t, toks, stmt(fooExpr, fooTupExpr, fooExpr), []lexer.Token{foo})
+}
+
+func TestParseBlock(t *T) {
+	stmt := func(in Expr, ee ...Expr) Statement {
+		return Statement{in: in, pipe: Pipe{exprs: ee}}
+	}
+	block := func(stmts ...Statement) Block {
+		return Block{stmts: stmts}
+	}
+
+	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
+	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+
+	toks := []lexer.Token{openCurly, foo, arrow, foo, closeCurly}
+	assertParse(t, toks, block(stmt(fooExpr, fooExpr)), []lexer.Token{})
+
+	toks = []lexer.Token{openCurly, foo, arrow, foo, closeCurly, foo}
+	assertParse(t, toks, block(stmt(fooExpr, fooExpr)), []lexer.Token{foo})
+
+	toks = []lexer.Token{openCurly, foo, arrow, foo, openParen, foo, arrow, foo, closeParen, closeCurly, foo}
+	assertParse(t, toks, block(stmt(fooExpr, fooExpr), stmt(fooExpr, fooExpr)), []lexer.Token{foo})
+
+	toks = []lexer.Token{openCurly, foo, arrow, foo, openParen, foo, arrow, foo, closeParen, closeCurly, foo}
+	assertParse(t, toks, block(stmt(fooExpr, fooExpr), stmt(fooExpr, fooExpr)), []lexer.Token{foo})
+}
