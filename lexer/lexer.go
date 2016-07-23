@@ -36,10 +36,10 @@ func (tok Token) Equal(tok2 Token) bool {
 }
 
 // Err returns the error contained by the token, if any. Only returns non-nil if
-// TokenType is Err or EOR
+// TokenType is Err or EOF
 func (tok Token) Err() error {
 	if tok.TokenType == Err || tok.TokenType == EOF {
-		return errors.New(tok.Val)
+		return fmt.Errorf("[line:%d col:%d] %s", tok.Row, tok.Col, tok.Val)
 	}
 	return nil
 }

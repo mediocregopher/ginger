@@ -9,7 +9,9 @@ import (
 	"github.com/mediocregopher/ginger/lexer"
 )
 
-// TODO error type which incorporates token
+// TODO doc strings
+// TODO empty blocks
+// TODO empty parenthesis
 
 type tok lexer.Token
 
@@ -217,13 +219,39 @@ func (b Block) Equal(e Expr) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type exprErr struct {
+	reason string
+	tok    lexer.Token
+	tokCtx string // e.g. "block starting at" or "open paren at"
+}
+
+func (e exprErr) Error() string {
+	msg := e.reason
+	if err := e.tok.Err(); err != nil {
+		msg += " - token error: " + err.Error()
+	} else if (e.tok != lexer.Token{}) {
+		msg += " - "
+		if e.tokCtx != "" {
+			msg += e.tokCtx + ": "
+		}
+		msg = fmt.Sprintf("%s [line:%d col:%d]", msg, e.tok.Row, e.tok.Col)
+	}
+	return msg
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // toks[0] must be start
 func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Token, []lexer.Token, error) {
 	c := 1
 	ret := []lexer.Token{}
+	first := toks[0]
 	for i, tok := range toks[1:] {
-		if err := tok.Err(); err != nil {
-			return nil, nil, fmt.Errorf("missing closing %v, hit error:% s", end, err)
+		if tok.Err() != nil {
+			return nil, nil, exprErr{
+				reason: fmt.Sprintf("missing closing %v", end),
+				tok:    tok,
+			}
 		}
 
 		if tok.Equal(start) {
@@ -237,7 +265,11 @@ func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Toke
 		ret = append(ret, tok)
 	}
 
-	return nil, nil, fmt.Errorf("missing closing %v", end)
+	return nil, nil, exprErr{
+		reason: fmt.Sprintf("missing closing %v", end),
+		tok:    first,
+		tokCtx: "starting at",
+	}
 }
 
 func readAllToks(r io.Reader) []lexer.Token {
@@ -278,8 +310,11 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 	var expr Expr
 	var err error
 
-	if err := toks[0].Err(); err != nil {
-		return nil, nil, err
+	if toks[0].Err() != nil {
+		return nil, nil, exprErr{
+			reason: "could not parse token",
+			tok:    toks[0],
+		}
 	}
 
 	if toks[0].Equal(openParen) {
@@ -293,7 +328,11 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 		if expr, ptoks, err = parse(ptoks); err != nil {
 			return nil, nil, err
 		} else if len(ptoks) > 0 {
-			return nil, nil, fmt.Errorf("multiple expressions inside parenthesis; %v", starter)
+			return nil, nil, exprErr{
+				reason: "multiple expressions inside parenthesis",
+				tok:    starter,
+				tokCtx: "starting at",
+			}
 		}
 		return expr, toks, nil
 
@@ -323,13 +362,23 @@ func parseNonPunct(tok lexer.Token) (Expr, error) {
 		return parseString(tok)
 	}
 
-	return nil, fmt.Errorf("unexpected non-punctuation token: %v", tok)
+	return nil, exprErr{
+		reason: "unexpected non-punctuation token",
+		tok:    tok,
+	}
 }
 
 func parseIdentifier(t lexer.Token) (Expr, error) {
 	if t.Val[0] == '-' || (t.Val[0] >= '0' && t.Val[0] <= '9') {
 		n, err := strconv.ParseInt(t.Val, 10, 64)
-		return Int{tok: tok(t), val: n}, err
+		if err != nil {
+			return nil, exprErr{
+				reason: "error parsing number",
+				// TODO err: err,
+				tok: t,
+			}
+		}
+		return Int{tok: tok(t), val: n}, nil
 	}
 
 	if t.Val == "true" {
@@ -343,7 +392,14 @@ func parseIdentifier(t lexer.Token) (Expr, error) {
 
 func parseString(t lexer.Token) (Expr, error) {
 	str, err := strconv.Unquote(t.Val)
-	return String{tok: tok(t), str: str}, err
+	if err != nil {
+		return nil, exprErr{
+			reason: "error parsing string",
+			// TODO err: err,
+			tok: t,
+		}
+	}
+	return String{tok: tok(t), str: str}, nil
 }
 
 func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
@@ -418,8 +474,6 @@ func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 func parseBlock(toks []lexer.Token) (Expr, error) {
 	b := Block{}
 
-	// TODO figure out what we want to do about empty blocks
-
 	var expr Expr
 	var err error
 	for {
@@ -432,7 +486,11 @@ func parseBlock(toks []lexer.Token) (Expr, error) {
 		}
 		stmt, ok := expr.(Statement)
 		if !ok {
-			return nil, fmt.Errorf("blocks may only contain full statements: %v", expr)
+			return nil, exprErr{
+				reason: "blocks may only contain full statements",
+				tok:    expr.Token(),
+				tokCtx: "non-statement here",
+			}
 		}
 		b.stmts = append(b.stmts, stmt)
 	}
