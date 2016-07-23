@@ -1,4 +1,4 @@
-package ginger
+package expr
 
 import (
 	"fmt"
@@ -270,6 +270,24 @@ func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Toke
 		tok:    first,
 		tokCtx: "starting at",
 	}
+}
+
+func Parse(r io.Reader) ([]Expr, error) {
+	toks := readAllToks(r)
+	var ret []Expr
+	var expr Expr
+	var err error
+	for len(toks) > 0 {
+		if toks[0].TokenType == lexer.EOF {
+			return ret, nil
+		}
+		expr, toks, err = parse(toks)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, expr)
+	}
+	return ret, nil
 }
 
 func readAllToks(r io.Reader) []lexer.Token {

@@ -1,4 +1,4 @@
-package ginger
+package expr
 
 import (
 	. "testing"
