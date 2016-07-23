@@ -18,6 +18,20 @@ var lexTestSrc = `
 	1.5
 	1.5e9
 
+	/*
+		some stuff
+	*/
+
+	/* this should actually work */
+	/*/
+
+	/*
+		nested!
+		/*
+			wtf this is crazy
+		*/
+	*/
+
 	(punctuation,is{cool}<> )
 	-tab
 
@@ -46,24 +60,24 @@ func TestLex(t *T) {
 	assertNext(Identifier, "100", 6, 2)
 	assertNext(Identifier, "1.5", 7, 2)
 	assertNext(Identifier, "1.5e9", 8, 2)
-	assertNext(Punctuation, "(", 10, 2)
-	assertNext(Identifier, "punctuation", 10, 3)
-	assertNext(Punctuation, ",", 10, 14)
-	assertNext(Identifier, "is", 10, 15)
-	assertNext(Punctuation, "{", 10, 17)
-	assertNext(Identifier, "cool", 10, 18)
-	assertNext(Punctuation, "}", 10, 22)
-	assertNext(Punctuation, "<", 10, 23)
-	assertNext(Punctuation, ">", 10, 24)
-	assertNext(Punctuation, ")", 10, 26)
-	assertNext(Identifier, "-tab", 11, 2)
-	assertNext(String, `"this is a string"`, 13, 2)
-	assertNext(Punctuation, ",", 13, 20)
-	assertNext(String, `"and so is this one"`, 13, 22)
-	assertNext(String, `"\"foo"`, 14, 2)
-	assertNext(String, `"bar\"baz\""`, 15, 2)
-	assertNext(String, `"buz\0"`, 16, 2)
-	assertNext(EOF, "EOF", 17, 0)
+	assertNext(Punctuation, "(", 24, 2)
+	assertNext(Identifier, "punctuation", 24, 3)
+	assertNext(Punctuation, ",", 24, 14)
+	assertNext(Identifier, "is", 24, 15)
+	assertNext(Punctuation, "{", 24, 17)
+	assertNext(Identifier, "cool", 24, 18)
+	assertNext(Punctuation, "}", 24, 22)
+	assertNext(Punctuation, "<", 24, 23)
+	assertNext(Punctuation, ">", 24, 24)
+	assertNext(Punctuation, ")", 24, 26)
+	assertNext(Identifier, "-tab", 25, 2)
+	assertNext(String, `"this is a string"`, 27, 2)
+	assertNext(Punctuation, ",", 27, 20)
+	assertNext(String, `"and so is this one"`, 27, 22)
+	assertNext(String, `"\"foo"`, 28, 2)
+	assertNext(String, `"bar\"baz\""`, 29, 2)
+	assertNext(String, `"buz\0"`, 30, 2)
+	assertNext(EOF, "EOF", 31, 0)
 
 	assert.False(t, l.HasNext())
 }

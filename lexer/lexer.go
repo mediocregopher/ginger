@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 )
 
@@ -189,6 +190,9 @@ func (l *Lexer) Next() Token {
 	return t
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// the actual fsm
+
 var whitespaceSet = " \n\r\t\v\f"
 var punctuationSet = ",{}()<>|"
 var identifierSepSet = whitespaceSet + punctuationSet
@@ -203,8 +207,10 @@ func lex(l *Lexer) lexerFn {
 	// handle comments first, cause we have to peek for those. We ignore errors,
 	// and assume that any error that would happen here will happen again the
 	// next read
-	if n, _ := l.peekRune(); n == '/' {
+	if n, _ := l.peekRune(); r == '/' && n == '/' {
 		return lexLineComment
+	} else if r == '/' && n == '*' {
+		return lexBlockComment
 	}
 
 	return lexSingleRune(l, r)
@@ -255,6 +261,34 @@ func lexLineComment(l *Lexer) lexerFn {
 		return lex
 	}
 	return lexLineComment
+}
+
+// assumes the starting / has been read already
+func lexBlockComment(l *Lexer) lexerFn {
+	depth := 1
+	log.Printf("in block comment")
+
+	var recurse lexerFn
+	recurse = func(l *Lexer) lexerFn {
+		r, err := l.readRune()
+		if err != nil {
+			l.emitErr(err)
+			return nil
+		}
+		n, _ := l.peekRune()
+
+		if r == '/' && n == '*' {
+			depth++
+		} else if r == '*' && n == '/' {
+			depth--
+		}
+
+		if depth == 0 {
+			return lexSkipThen(lex)
+		}
+		return recurse
+	}
+	return recurse
 }
 
 func lexStrStart(lexer *Lexer, r rune, then lexerFn) lexerFn {
