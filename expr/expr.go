@@ -221,12 +221,18 @@ func (b Block) Equal(e Expr) bool {
 
 type exprErr struct {
 	reason string
+	err    error
 	tok    lexer.Token
 	tokCtx string // e.g. "block starting at" or "open paren at"
 }
 
 func (e exprErr) Error() string {
-	msg := e.reason
+	var msg string
+	if e.err != nil {
+		msg = e.err.Error()
+	} else {
+		msg = e.reason
+	}
 	if err := e.tok.Err(); err != nil {
 		msg += " - token error: " + err.Error()
 	} else if (e.tok != lexer.Token{}) {
@@ -271,6 +277,8 @@ func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Toke
 		tokCtx: "starting at",
 	}
 }
+
+// TODO we want to be able to have like ParseAsBlock as well
 
 func Parse(r io.Reader) ([]Expr, error) {
 	toks := readAllToks(r)
@@ -391,8 +399,7 @@ func parseIdentifier(t lexer.Token) (Expr, error) {
 		n, err := strconv.ParseInt(t.Val, 10, 64)
 		if err != nil {
 			return nil, exprErr{
-				reason: "error parsing number",
-				// TODO err: err,
+				err: err,
 				tok: t,
 			}
 		}
@@ -412,8 +419,7 @@ func parseString(t lexer.Token) (Expr, error) {
 	str, err := strconv.Unquote(t.Val)
 	if err != nil {
 		return nil, exprErr{
-			reason: "error parsing string",
-			// TODO err: err,
+			err: err,
 			tok: t,
 		}
 	}
