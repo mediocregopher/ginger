@@ -9,126 +9,107 @@ import (
 	"github.com/mediocregopher/ginger/lexer"
 )
 
-// TODO doc strings
 // TODO empty blocks
 // TODO empty parenthesis
 
-type tok lexer.Token
-
-func (t tok) Token() lexer.Token {
-	return lexer.Token(t)
+// Actual represents the actual expression in question, and has certain
+// properties. It is wrapped by Expr which also holds onto contextual
+// information, like the token to which Actual was originally parsed from
+type Actual interface {
+	// Equal should return true if the type and value of the other expression
+	// are equal.
+	Equal(Actual) bool
 }
 
-type Expr interface {
-	Token() lexer.Token
-	String() string
+// Expr contains the actual expression as well as some contextual information
+// wrapping it. Most interactions will be with this and not with the Actual
+// directly.
+type Expr struct {
+	Actual Actual
 
-	// Equal should return true if the type and value of the other expression
-	// are equal. The tokens shouldn't be taken into account
-	Equal(Expr) bool
+	// Token is a nice-to-have, nothing will break if it's not there
+	Token lexer.Token
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Bool struct {
-	tok
-	val bool
-}
+// Bool represents a true or false value
+type Bool bool
 
-func (b Bool) String() string {
-	return fmt.Sprint(b.val)
-}
-
-func (b Bool) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (b Bool) Equal(e Actual) bool {
 	bb, ok := e.(Bool)
 	if !ok {
 		return false
 	}
-	return bb.val == b.val
+	return bb == b
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Int struct {
-	tok
-	val int64
-}
+// Int represents an integer value
+type Int int64
 
-func (i Int) String() string {
-	return fmt.Sprint(i.val)
-}
-
-func (i Int) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (i Int) Equal(e Actual) bool {
 	ii, ok := e.(Int)
 	if !ok {
 		return false
 	}
-	return ii.val == i.val
+	return ii == i
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type String struct {
-	tok
-	str string
-}
+// String represents a string value
+type String string
 
-func (s String) String() string {
-	return strconv.QuoteToASCII(s.str)
-}
-
-func (s String) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (s String) Equal(e Actual) bool {
 	ss, ok := e.(String)
 	if !ok {
 		return false
 	}
-	return ss.str == s.str
+	return ss == s
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Identifier struct {
-	tok
-	ident string
-}
+// Identifier represents a binding to some other value which has been given a
+// name
+type Identifier string
 
-func (id Identifier) String() string {
-	return id.ident
-}
-
-func (id Identifier) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (id Identifier) Equal(e Actual) bool {
 	idid, ok := e.(Identifier)
 	if !ok {
 		return false
 	}
-	return idid.ident == id.ident
+	return idid == id
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Tuple struct {
-	exprs []Expr
-}
-
-func (tup Tuple) Token() lexer.Token {
-	return tup.exprs[0].Token()
-}
+// Tuple represents a fixed set of expressions which are interacted with as if
+// they were a single value
+type Tuple []Expr
 
 func (tup Tuple) String() string {
-	strs := make([]string, len(tup.exprs))
-	for i := range tup.exprs {
-		strs[i] = tup.exprs[i].String()
+	strs := make([]string, len(tup))
+	for i := range tup {
+		strs[i] = fmt.Sprint(tup[i].Actual)
 	}
 	return "(" + strings.Join(strs, ", ") + ")"
 }
 
-func (tup Tuple) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (tup Tuple) Equal(e Actual) bool {
 	tuptup, ok := e.(Tuple)
-	if !ok || len(tuptup.exprs) != len(tup.exprs) {
+	if !ok || len(tuptup) != len(tup) {
 		return false
 	}
-	for i := range tup.exprs {
-		if !tup.exprs[i].Equal(tuptup.exprs[i]) {
+	for i := range tup {
+		if !tup[i].Actual.Equal(tuptup[i].Actual) {
 			return false
 		}
 	}
@@ -137,29 +118,27 @@ func (tup Tuple) Equal(e Expr) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Pipe struct {
-	exprs []Expr
-}
-
-func (p Pipe) Token() lexer.Token {
-	return p.exprs[0].Token()
-}
+// Pipe represents a set of expressions which operate on values and return new
+// values. The inputs of one expression in the pipe is the output of the
+// previous expression
+type Pipe []Expr
 
 func (p Pipe) String() string {
-	strs := make([]string, len(p.exprs))
-	for i := range p.exprs {
-		strs[i] = p.exprs[i].String()
+	strs := make([]string, len(p))
+	for i := range p {
+		strs[i] = fmt.Sprint(p[i].Actual)
 	}
 	return "(" + strings.Join(strs, "|") + ")"
 }
 
-func (p Pipe) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (p Pipe) Equal(e Actual) bool {
 	pp, ok := e.(Pipe)
-	if !ok || len(pp.exprs) != len(p.exprs) {
+	if !ok || len(pp) != len(p) {
 		return false
 	}
-	for i := range p.exprs {
-		if !p.exprs[i].Equal(pp.exprs[i]) {
+	for i := range p {
+		if !p[i].Actual.Equal(pp[i].Actual) {
 			return false
 		}
 	}
@@ -168,49 +147,47 @@ func (p Pipe) Equal(e Expr) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Statement represents an actual action which will be taken. The input value is
+// used as the input to the pipe, and the output of the pipe is the output of
+// the statement
 type Statement struct {
 	in   Expr
 	pipe Pipe
 }
 
-func (s Statement) Token() lexer.Token {
-	return s.in.Token()
-}
-
 func (s Statement) String() string {
-	return fmt.Sprintf("(%s > %s)", s.in.String(), s.pipe.String())
+	return fmt.Sprintf("(%v > %s)", s.in.Actual, s.pipe.String())
 }
 
-func (s Statement) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (s Statement) Equal(e Actual) bool {
 	ss, ok := e.(Statement)
-	return ok && s.in.Equal(ss.in) && s.pipe.Equal(ss.pipe)
+	return ok && s.in.Actual.Equal(ss.in.Actual) && s.pipe.Equal(ss.pipe)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Block struct {
-	stmts []Statement
-}
-
-func (b Block) Token() lexer.Token {
-	return b.stmts[0].Token()
-}
+// Block represents a set of statements which share a scope, i.e. If one
+// statement binds a variable the rest of the statements in the block can use
+// that variable, including sub-blocks within this one.
+type Block []Statement
 
 func (b Block) String() string {
-	strs := make([]string, len(b.stmts))
-	for i := range b.stmts {
-		strs[i] = b.stmts[i].String()
+	strs := make([]string, len(b))
+	for i := range b {
+		strs[i] = b[i].String()
 	}
 	return fmt.Sprintf("{ %s }", strings.Join(strs, " "))
 }
 
-func (b Block) Equal(e Expr) bool {
+// Equal implements the Actual method
+func (b Block) Equal(e Actual) bool {
 	bb, ok := e.(Block)
 	if !ok {
 		return false
 	}
-	for i := range b.stmts {
-		if !b.stmts[i].Equal(bb.stmts[i]) {
+	for i := range b {
+		if !b[i].Equal(bb[i]) {
 			return false
 		}
 	}
@@ -300,8 +277,9 @@ func Parse(r io.Reader) ([]Expr, error) {
 
 // ParseAsBlock reads the given io.Reader as if it was implicitly surrounded by
 // curly braces, making it into a Block. This means all expressions from the
-// io.Reader *must* be statements
-func ParseAsBlock(r io.Reader) (Block, error) {
+// io.Reader *must* be statements. The returned Expr's Actual will always be a
+// Block.
+func ParseAsBlock(r io.Reader) (Expr, error) {
 	return parseBlock(readAllToks(r))
 }
 
@@ -329,7 +307,7 @@ var (
 func parse(toks []lexer.Token) (Expr, []lexer.Token, error) {
 	expr, toks, err := parseSingle(toks)
 	if err != nil {
-		return nil, nil, err
+		return Expr{}, nil, err
 	}
 
 	if len(toks) > 0 && toks[0].TokenType == lexer.Punctuation {
@@ -344,7 +322,7 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 	var err error
 
 	if toks[0].Err() != nil {
-		return nil, nil, exprErr{
+		return Expr{}, nil, exprErr{
 			reason: "could not parse token",
 			tok:    toks[0],
 		}
@@ -355,13 +333,13 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 		var ptoks []lexer.Token
 		ptoks, toks, err = sliceEnclosedToks(toks, openParen, closeParen)
 		if err != nil {
-			return nil, nil, err
+			return Expr{}, nil, err
 		}
 
 		if expr, ptoks, err = parse(ptoks); err != nil {
-			return nil, nil, err
+			return Expr{}, nil, err
 		} else if len(ptoks) > 0 {
-			return nil, nil, exprErr{
+			return Expr{}, nil, exprErr{
 				reason: "multiple expressions inside parenthesis",
 				tok:    starter,
 				tokCtx: "starting at",
@@ -373,17 +351,17 @@ func parseSingle(toks []lexer.Token) (Expr, []lexer.Token, error) {
 		var btoks []lexer.Token
 		btoks, toks, err = sliceEnclosedToks(toks, openCurly, closeCurly)
 		if err != nil {
-			return nil, nil, err
+			return Expr{}, nil, err
 		}
 
 		if expr, err = parseBlock(btoks); err != nil {
-			return nil, nil, err
+			return Expr{}, nil, err
 		}
 		return expr, toks, nil
 	}
 
 	if expr, err = parseNonPunct(toks[0]); err != nil {
-		return nil, nil, err
+		return Expr{}, nil, err
 	}
 	return expr, toks[1:], nil
 }
@@ -395,42 +373,46 @@ func parseNonPunct(tok lexer.Token) (Expr, error) {
 		return parseString(tok)
 	}
 
-	return nil, exprErr{
+	return Expr{}, exprErr{
 		reason: "unexpected non-punctuation token",
 		tok:    tok,
 	}
 }
 
 func parseIdentifier(t lexer.Token) (Expr, error) {
+	e := Expr{Token: t}
 	if t.Val[0] == '-' || (t.Val[0] >= '0' && t.Val[0] <= '9') {
 		n, err := strconv.ParseInt(t.Val, 10, 64)
 		if err != nil {
-			return nil, exprErr{
+			return Expr{}, exprErr{
 				err: err,
 				tok: t,
 			}
 		}
-		return Int{tok: tok(t), val: n}, nil
-	}
+		e.Actual = Int(n)
 
-	if t.Val == "true" {
-		return Bool{tok: tok(t), val: true}, nil
+	} else if t.Val == "true" {
+		e.Actual = Bool(true)
+
 	} else if t.Val == "false" {
-		return Bool{tok: tok(t), val: false}, nil
+		e.Actual = Bool(false)
+
+	} else {
+		e.Actual = Identifier(t.Val)
 	}
 
-	return Identifier{tok: tok(t), ident: t.Val}, nil
+	return e, nil
 }
 
 func parseString(t lexer.Token) (Expr, error) {
 	str, err := strconv.Unquote(t.Val)
 	if err != nil {
-		return nil, exprErr{
+		return Expr{}, exprErr{
 			err: err,
 			tok: t,
 		}
 	}
-	return String{tok: tok(t), str: str}, nil
+	return Expr{Token: t, Actual: String(str)}, nil
 }
 
 func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
@@ -443,92 +425,104 @@ func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, e
 	} else if toks[0].Equal(arrow) {
 		expr, toks, err := parse(toks[1:])
 		if err != nil {
-			return nil, nil, err
+			return Expr{}, nil, err
 		}
-		pipe, ok := expr.(Pipe)
+		pipe, ok := expr.Actual.(Pipe)
 		if !ok {
-			pipe = Pipe{exprs: []Expr{expr}}
+			pipe = Pipe{expr}
 		}
-		return Statement{in: root, pipe: pipe}, toks, nil
+		return Expr{Token: root.Token, Actual: Statement{in: root, pipe: pipe}}, toks, nil
 	}
 
 	return root, toks, nil
 }
 
 func parseTuple(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
-	rootTup, ok := root.(Tuple)
+	rootTup, ok := root.Actual.(Tuple)
 	if !ok {
-		rootTup = Tuple{exprs: []Expr{root}}
+		rootTup = Tuple{root}
+	}
+
+	// rootTup is modified throughout, be we need to make it into an Expr for
+	// every return, which is annoying. so make a function to do it on the fly
+	mkRoot := func() Expr {
+		return Expr{Token: rootTup[0].Token, Actual: rootTup}
 	}
 
 	if len(toks) < 2 {
-		return rootTup, toks, nil
+		return mkRoot(), toks, nil
 	} else if !toks[0].Equal(comma) {
 		if toks[0].TokenType == lexer.Punctuation {
-			return parseConnectingPunct(toks, rootTup)
+			return parseConnectingPunct(toks, mkRoot())
 		}
-		return rootTup, toks, nil
+		return mkRoot(), toks, nil
 	}
 
 	var expr Expr
 	var err error
 	if expr, toks, err = parseSingle(toks[1:]); err != nil {
-		return nil, nil, err
+		return Expr{}, nil, err
 	}
 
-	rootTup.exprs = append(rootTup.exprs, expr)
-	return parseTuple(toks, rootTup)
+	rootTup = append(rootTup, expr)
+	return parseTuple(toks, mkRoot())
 }
 
 func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
-	rootTup, ok := root.(Pipe)
+	rootPipe, ok := root.Actual.(Pipe)
 	if !ok {
-		rootTup = Pipe{exprs: []Expr{root}}
+		rootPipe = Pipe{root}
+	}
+
+	// rootPipe is modified throughout, be we need to make it into an Expr for
+	// every return, which is annoying. so make a function to do it on the fly
+	mkRoot := func() Expr {
+		return Expr{Token: rootPipe[0].Token, Actual: rootPipe}
 	}
 
 	if len(toks) < 2 {
-		return rootTup, toks, nil
+		return mkRoot(), toks, nil
 	} else if !toks[0].Equal(pipe) {
 		if toks[0].TokenType == lexer.Punctuation {
-			return parseConnectingPunct(toks, rootTup)
+			return parseConnectingPunct(toks, mkRoot())
 		}
-		return rootTup, toks, nil
+		return mkRoot(), toks, nil
 	}
 
 	var expr Expr
 	var err error
 	if expr, toks, err = parseSingle(toks[1:]); err != nil {
-		return nil, nil, err
+		return Expr{}, nil, err
 	}
 
-	rootTup.exprs = append(rootTup.exprs, expr)
-	return parsePipe(toks, rootTup)
+	rootPipe = append(rootPipe, expr)
+	return parsePipe(toks, mkRoot())
 }
 
 // parseBlock assumes that the given token list is the entire block, already
 // pulled from outer curly braces by sliceEnclosedToks, or determined to be the
 // entire block in some other way.
-func parseBlock(toks []lexer.Token) (Block, error) {
+func parseBlock(toks []lexer.Token) (Expr, error) {
 	b := Block{}
-
+	first := toks[0]
 	var expr Expr
 	var err error
 	for {
 		if len(toks) == 0 {
-			return b, nil
+			return Expr{Token: first, Actual: b}, nil
 		}
 
 		if expr, toks, err = parse(toks); err != nil {
-			return Block{}, err
+			return Expr{}, err
 		}
-		stmt, ok := expr.(Statement)
+		stmt, ok := expr.Actual.(Statement)
 		if !ok {
-			return Block{}, exprErr{
+			return Expr{}, exprErr{
 				reason: "blocks may only contain full statements",
-				tok:    expr.Token(),
+				tok:    expr.Token,
 				tokCtx: "non-statement here",
 			}
 		}
-		b.stmts = append(b.stmts, stmt)
+		b = append(b, stmt)
 	}
 }

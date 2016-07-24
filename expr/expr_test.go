@@ -37,13 +37,13 @@ func TestSliceEnclosedToks(t *T) {
 func assertParse(t *T, in []lexer.Token, expExpr Expr, expOut []lexer.Token) {
 	expr, out, err := parse(in)
 	require.Nil(t, err)
-	assert.True(t, expExpr.Equal(expr), "expr:%v expExpr:%v", expr, expExpr)
+	assert.True(t, expExpr.Actual.Equal(expr.Actual), "expr:%v expExpr:%v", expr, expExpr)
 	assert.Equal(t, expOut, out, "out:%v expOut:%v", out, expOut)
 }
 
 func TestParseSingle(t *T) {
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
-	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+	fooExpr := Expr{Actual: Identifier("foo")}
 
 	toks := []lexer.Token{foo}
 	assertParse(t, toks, fooExpr, []lexer.Token{})
@@ -60,11 +60,11 @@ func TestParseSingle(t *T) {
 
 func TestParseTuple(t *T) {
 	tup := func(ee ...Expr) Expr {
-		return Tuple{exprs: ee}
+		return Expr{Actual: Tuple(ee)}
 	}
 
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
-	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+	fooExpr := Expr{Actual: Identifier("foo")}
 
 	toks := []lexer.Token{foo, comma, foo}
 	assertParse(t, toks, tup(fooExpr, fooExpr), []lexer.Token{})
@@ -88,11 +88,11 @@ func TestParseTuple(t *T) {
 // This is basically the same as tuple
 func TestParsePipe(t *T) {
 	mkPipe := func(ee ...Expr) Expr {
-		return Pipe{exprs: ee}
+		return Expr{Actual: Pipe(ee)}
 	}
 
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
-	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+	fooExpr := Expr{Actual: Identifier("foo")}
 
 	toks := []lexer.Token{foo, pipe, foo}
 	assertParse(t, toks, mkPipe(fooExpr, fooExpr), []lexer.Token{})
@@ -112,18 +112,18 @@ func TestParsePipe(t *T) {
 	toks = []lexer.Token{foo, pipe, openParen, foo, pipe, foo, closeParen, pipe, foo, foo}
 	assertParse(t, toks, mkPipe(fooExpr, mkPipe(fooExpr, fooExpr), fooExpr), []lexer.Token{foo})
 
-	fooTupExpr := Tuple{exprs: []Expr{fooExpr, fooExpr}}
+	fooTupExpr := Expr{Actual: Tuple{fooExpr, fooExpr}}
 	toks = []lexer.Token{foo, comma, foo, pipe, foo}
 	assertParse(t, toks, mkPipe(fooTupExpr, fooExpr), []lexer.Token{})
 }
 
 func TestParseStatement(t *T) {
 	stmt := func(in Expr, ee ...Expr) Expr {
-		return Statement{in: in, pipe: Pipe{exprs: ee}}
+		return Expr{Actual: Statement{in: in, pipe: Pipe(ee)}}
 	}
 
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
-	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+	fooExpr := Expr{Actual: Identifier("foo")}
 
 	toks := []lexer.Token{foo, arrow, foo}
 	assertParse(t, toks, stmt(fooExpr, fooExpr), []lexer.Token{})
@@ -149,7 +149,7 @@ func TestParseStatement(t *T) {
 	toks = []lexer.Token{openParen, foo, closeParen, arrow, openParen, foo, pipe, foo, closeParen, foo}
 	assertParse(t, toks, stmt(fooExpr, fooExpr, fooExpr), []lexer.Token{foo})
 
-	fooTupExpr := Tuple{exprs: []Expr{fooExpr, fooExpr}}
+	fooTupExpr := Expr{Actual: Tuple{fooExpr, fooExpr}}
 	toks = []lexer.Token{foo, arrow, openParen, foo, comma, foo, closeParen, pipe, foo, foo}
 	assertParse(t, toks, stmt(fooExpr, fooTupExpr, fooExpr), []lexer.Token{foo})
 
@@ -162,14 +162,14 @@ func TestParseStatement(t *T) {
 
 func TestParseBlock(t *T) {
 	stmt := func(in Expr, ee ...Expr) Statement {
-		return Statement{in: in, pipe: Pipe{exprs: ee}}
+		return Statement{in: in, pipe: Pipe(ee)}
 	}
-	block := func(stmts ...Statement) Block {
-		return Block{stmts: stmts}
+	block := func(stmts ...Statement) Expr {
+		return Expr{Actual: Block(stmts)}
 	}
 
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
-	fooExpr := Identifier{tok: tok(foo), ident: "foo"}
+	fooExpr := Expr{Actual: Identifier("foo")}
 
 	toks := []lexer.Token{openCurly, foo, arrow, foo, closeCurly}
 	assertParse(t, toks, block(stmt(fooExpr, fooExpr)), []lexer.Token{})
