@@ -310,10 +310,10 @@ func readAllToks(r io.Reader) []lexer.Token {
 // For all parse methods it is assumed that toks is not empty
 
 var (
-	openParen  = lexer.Token{TokenType: lexer.Punctuation, Val: "("}
-	closeParen = lexer.Token{TokenType: lexer.Punctuation, Val: ")"}
-	openCurly  = lexer.Token{TokenType: lexer.Punctuation, Val: "{"}
-	closeCurly = lexer.Token{TokenType: lexer.Punctuation, Val: "}"}
+	openParen  = lexer.Token{TokenType: lexer.Wrapper, Val: "("}
+	closeParen = lexer.Token{TokenType: lexer.Wrapper, Val: ")"}
+	openCurly  = lexer.Token{TokenType: lexer.Wrapper, Val: "{"}
+	closeCurly = lexer.Token{TokenType: lexer.Wrapper, Val: "}"}
 	comma      = lexer.Token{TokenType: lexer.Punctuation, Val: ","}
 	pipe       = lexer.Token{TokenType: lexer.Punctuation, Val: "|"}
 	arrow      = lexer.Token{TokenType: lexer.Punctuation, Val: ">"}
@@ -457,6 +457,9 @@ func parseTuple(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 	if len(toks) < 2 {
 		return rootTup, toks, nil
 	} else if !toks[0].Equal(comma) {
+		if toks[0].TokenType == lexer.Punctuation {
+			return parseConnectingPunct(toks, rootTup)
+		}
 		return rootTup, toks, nil
 	}
 
@@ -479,6 +482,9 @@ func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 	if len(toks) < 2 {
 		return rootTup, toks, nil
 	} else if !toks[0].Equal(pipe) {
+		if toks[0].TokenType == lexer.Punctuation {
+			return parseConnectingPunct(toks, rootTup)
+		}
 		return rootTup, toks, nil
 	}
 

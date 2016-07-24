@@ -111,6 +111,10 @@ func TestParsePipe(t *T) {
 
 	toks = []lexer.Token{foo, pipe, openParen, foo, pipe, foo, closeParen, pipe, foo, foo}
 	assertParse(t, toks, mkPipe(fooExpr, mkPipe(fooExpr, fooExpr), fooExpr), []lexer.Token{foo})
+
+	fooTupExpr := Tuple{exprs: []Expr{fooExpr, fooExpr}}
+	toks = []lexer.Token{foo, comma, foo, pipe, foo}
+	assertParse(t, toks, mkPipe(fooTupExpr, fooExpr), []lexer.Token{})
 }
 
 func TestParseStatement(t *T) {
@@ -148,6 +152,12 @@ func TestParseStatement(t *T) {
 	fooTupExpr := Tuple{exprs: []Expr{fooExpr, fooExpr}}
 	toks = []lexer.Token{foo, arrow, openParen, foo, comma, foo, closeParen, pipe, foo, foo}
 	assertParse(t, toks, stmt(fooExpr, fooTupExpr, fooExpr), []lexer.Token{foo})
+
+	toks = []lexer.Token{foo, comma, foo, arrow, foo}
+	assertParse(t, toks, stmt(fooTupExpr, fooExpr), []lexer.Token{})
+
+	toks = []lexer.Token{openParen, foo, comma, foo, closeParen, arrow, foo}
+	assertParse(t, toks, stmt(fooTupExpr, fooExpr), []lexer.Token{})
 }
 
 func TestParseBlock(t *T) {

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 )
 
@@ -15,11 +14,16 @@ type TokenType string
 
 // Different token types
 const (
-	Identifier  TokenType = "identifier"
+	Identifier TokenType = "identifier"
+
+	// Punctuation are tokens which connect two other tokens
 	Punctuation TokenType = "punctuation"
-	String      TokenType = "string"
-	Err         TokenType = "err"
-	EOF         TokenType = "eof"
+
+	// Wrapper wraps one or more tokens
+	Wrapper TokenType = "wrapper"
+	String  TokenType = "string"
+	Err     TokenType = "err"
+	EOF     TokenType = "eof"
 )
 
 // Token is a single token which has been read in. All Tokens have a non-empty
@@ -194,8 +198,9 @@ func (l *Lexer) Next() Token {
 // the actual fsm
 
 var whitespaceSet = " \n\r\t\v\f"
-var punctuationSet = ",{}()<>|"
-var identifierSepSet = whitespaceSet + punctuationSet
+var punctuationSet = ",<>|"
+var wrapperSet = "{}()"
+var identifierSepSet = whitespaceSet + punctuationSet + wrapperSet
 
 func lex(l *Lexer) lexerFn {
 	r, err := l.readRune()
@@ -223,6 +228,10 @@ func lexSingleRune(l *Lexer, r rune) lexerFn {
 	case strings.ContainsRune(punctuationSet, r):
 		l.bufferRune(r)
 		l.emit(Punctuation)
+		return lex
+	case strings.ContainsRune(wrapperSet, r):
+		l.bufferRune(r)
+		l.emit(Wrapper)
 		return lex
 	case r == '"' || r == '\'' || r == '`':
 		canEscape := r != '`'
@@ -266,7 +275,6 @@ func lexLineComment(l *Lexer) lexerFn {
 // assumes the starting / has been read already
 func lexBlockComment(l *Lexer) lexerFn {
 	depth := 1
-	log.Printf("in block comment")
 
 	var recurse lexerFn
 	recurse = func(l *Lexer) lexerFn {
