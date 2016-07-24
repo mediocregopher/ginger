@@ -278,8 +278,8 @@ func sliceEnclosedToks(toks []lexer.Token, start, end lexer.Token) ([]lexer.Toke
 	}
 }
 
-// TODO we want to be able to have like ParseAsBlock as well
-
+// Parse reads in all expressions it can from the given io.Reader and returns
+// them
 func Parse(r io.Reader) ([]Expr, error) {
 	toks := readAllToks(r)
 	var ret []Expr
@@ -296,6 +296,13 @@ func Parse(r io.Reader) ([]Expr, error) {
 		ret = append(ret, expr)
 	}
 	return ret, nil
+}
+
+// ParseAsBlock reads the given io.Reader as if it was implicitly surrounded by
+// curly braces, making it into a Block. This means all expressions from the
+// io.Reader *must* be statements
+func ParseAsBlock(r io.Reader) (Block, error) {
+	return parseBlock(readAllToks(r))
 }
 
 func readAllToks(r io.Reader) []lexer.Token {
@@ -501,7 +508,7 @@ func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 // parseBlock assumes that the given token list is the entire block, already
 // pulled from outer curly braces by sliceEnclosedToks, or determined to be the
 // entire block in some other way.
-func parseBlock(toks []lexer.Token) (Expr, error) {
+func parseBlock(toks []lexer.Token) (Block, error) {
 	b := Block{}
 
 	var expr Expr
@@ -512,11 +519,11 @@ func parseBlock(toks []lexer.Token) (Expr, error) {
 		}
 
 		if expr, toks, err = parse(toks); err != nil {
-			return nil, err
+			return Block{}, err
 		}
 		stmt, ok := expr.(Statement)
 		if !ok {
-			return nil, exprErr{
+			return Block{}, exprErr{
 				reason: "blocks may only contain full statements",
 				tok:    expr.Token(),
 				tokCtx: "non-statement here",
