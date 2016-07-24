@@ -6,11 +6,17 @@ import (
 	"strconv"
 	"strings"
 
+	"llvm.org/llvm/bindings/go/llvm"
+
 	"github.com/mediocregopher/ginger/lexer"
 )
 
 // TODO empty blocks
 // TODO empty parenthesis
+
+// TODO having Equal as part of the Actual interface is going to be annoying.
+// The built in macros which return their own expressions don't really care
+// about it, and it's really only needed for tests I think.
 
 // Actual represents the actual expression in question, and has certain
 // properties. It is wrapped by Expr which also holds onto contextual
@@ -19,6 +25,9 @@ type Actual interface {
 	// Equal should return true if the type and value of the other expression
 	// are equal.
 	Equal(Actual) bool
+
+	// Initializes an llvm.Value and returns it
+	LLVMVal(llvm.Builder) llvm.Value
 }
 
 // Expr contains the actual expression as well as some contextual information
@@ -29,6 +38,16 @@ type Expr struct {
 
 	// Token is a nice-to-have, nothing will break if it's not there
 	Token lexer.Token
+
+	val *llvm.Value
+}
+
+func (e Expr) LLVMVal(builder llvm.Builder) llvm.Value {
+	if e.val == nil {
+		v := e.Actual.LLVMVal(builder)
+		e.val = &v
+	}
+	return *e.val
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,6 +64,10 @@ func (b Bool) Equal(e Actual) bool {
 	return bb == b
 }
 
+func (b Bool) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Int represents an integer value
@@ -57,6 +80,13 @@ func (i Int) Equal(e Actual) bool {
 		return false
 	}
 	return ii == i
+}
+
+// LLVMVal creates a new llvm value using the builder and returns it
+func (i Int) LLVMVal(builder llvm.Builder) llvm.Value {
+	v := builder.CreateAlloca(llvm.Int64Type(), "")
+	builder.CreateStore(llvm.ConstInt(llvm.Int64Type(), uint64(i), false), v)
+	return v
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,6 +103,10 @@ func (s String) Equal(e Actual) bool {
 	return ss == s
 }
 
+func (s String) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Identifier represents a binding to some other value which has been given a
@@ -86,6 +120,10 @@ func (id Identifier) Equal(e Actual) bool {
 		return false
 	}
 	return idid == id
+}
+
+func (id Identifier) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,6 +145,10 @@ func (m Macro) Equal(e Actual) bool {
 		return false
 	}
 	return m == mm
+}
+
+func (m Macro) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -135,6 +177,10 @@ func (tup Tuple) Equal(e Actual) bool {
 		}
 	}
 	return true
+}
+
+func (tup Tuple) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,6 +212,10 @@ func (p Pipe) Equal(e Actual) bool {
 	return true
 }
 
+func (p Pipe) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Statement represents an actual action which will be taken. The input value is
@@ -184,6 +234,10 @@ func (s Statement) String() string {
 func (s Statement) Equal(e Actual) bool {
 	ss, ok := e.(Statement)
 	return ok && s.in.Actual.Equal(ss.in.Actual) && s.pipe.Equal(ss.pipe)
+}
+
+func (s Statement) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -213,6 +267,10 @@ func (b Block) Equal(e Actual) bool {
 		}
 	}
 	return true
+}
+
+func (b Block) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
