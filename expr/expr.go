@@ -90,6 +90,27 @@ func (id Identifier) Equal(e Actual) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Macro is an identifier for a macro which can be used to transform
+// expressions. The tokens for macros start with a '%', but the Macro identifier
+// itself has that stripped off
+type Macro string
+
+// String returns the Macro with a '%' prepended to it
+func (m Macro) String() string {
+	return "%" + string(m)
+}
+
+// Equal implements the Actual method
+func (m Macro) Equal(e Actual) bool {
+	mm, ok := e.(Macro)
+	if !ok {
+		return false
+	}
+	return m == mm
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Tuple represents a fixed set of expressions which are interacted with as if
 // they were a single value
 type Tuple []Expr
@@ -391,11 +412,14 @@ func parseIdentifier(t lexer.Token) (Expr, error) {
 		}
 		e.Actual = Int(n)
 
-	} else if t.Val == "true" {
+	} else if t.Val == "%true" {
 		e.Actual = Bool(true)
 
-	} else if t.Val == "false" {
+	} else if t.Val == "%false" {
 		e.Actual = Bool(false)
+
+	} else if t.Val[0] == '%' {
+		e.Actual = Macro(t.Val[1:])
 
 	} else {
 		e.Actual = Identifier(t.Val)

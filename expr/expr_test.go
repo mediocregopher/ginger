@@ -43,7 +43,9 @@ func assertParse(t *T, in []lexer.Token, expExpr Expr, expOut []lexer.Token) {
 
 func TestParseSingle(t *T) {
 	foo := lexer.Token{TokenType: lexer.Identifier, Val: "foo"}
+	fooM := lexer.Token{TokenType: lexer.Identifier, Val: "%foo"}
 	fooExpr := Expr{Actual: Identifier("foo")}
+	fooMExpr := Expr{Actual: Macro("foo")}
 
 	toks := []lexer.Token{foo}
 	assertParse(t, toks, fooExpr, []lexer.Token{})
@@ -56,6 +58,9 @@ func TestParseSingle(t *T) {
 
 	toks = []lexer.Token{openParen, openParen, foo, closeParen, closeParen, foo}
 	assertParse(t, toks, fooExpr, []lexer.Token{foo})
+
+	toks = []lexer.Token{fooM, foo}
+	assertParse(t, toks, fooMExpr, []lexer.Token{foo})
 }
 
 func TestParseTuple(t *T) {
