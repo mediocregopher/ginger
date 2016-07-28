@@ -14,25 +14,20 @@ import (
 // TODO empty blocks
 // TODO empty parenthesis
 
-// TODO having Equal as part of the Actual interface is going to be annoying.
-// The built in macros which return their own expressions don't really care
-// about it, and it's really only needed for tests I think.
-//
-// Alternatively, don't have token be embedded in the expression. I'm not sure
-// if that's actually possible.
-
 // TODO need to figure out how to test LLVMVal stuff
 
 // Actual represents the actual expression in question, and has certain
 // properties. It is wrapped by Expr which also holds onto contextual
 // information, like the token to which Actual was originally parsed from
 type Actual interface {
-	// Equal should return true if the type and value of the other expression
-	// are equal.
-	Equal(Actual) bool
-
 	// Initializes an llvm.Value and returns it.
 	LLVMVal(llvm.Builder) llvm.Value
+}
+
+// equaler is used to compare two expressions. The comparison should not take
+// into account Token values, only the actual value being represented
+type equaler interface {
+	equal(equaler) bool
 }
 
 // Expr contains the actual expression as well as some contextual information
@@ -47,6 +42,9 @@ type Expr struct {
 	val *llvm.Value
 }
 
+// LLVMVal passes its arguments to the underlying Actual instance. It caches the
+// result, so if this is called multiple times the underlying one is only called
+// the first time.
 func (e Expr) LLVMVal(builder llvm.Builder) llvm.Value {
 	if e.val == nil {
 		v := e.Actual.LLVMVal(builder)
@@ -55,13 +53,27 @@ func (e Expr) LLVMVal(builder llvm.Builder) llvm.Value {
 	return *e.val
 }
 
+// will panic if either Expr's Actual doesn't implement equaler
+func (e Expr) equal(e2 Expr) bool {
+	eq1, ok1 := e.Actual.(equaler)
+	eq2, ok2 := e2.Actual.(equaler)
+	if !ok1 || !ok2 {
+		panic(fmt.Sprintf("can't compare %T and %T", e.Actual, e2.Actual))
+	}
+	return eq1.equal(eq2)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Bool represents a true or false value
 type Bool bool
 
-// Equal implements the Actual method
-func (b Bool) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (b Bool) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
+func (b Bool) equal(e equaler) bool {
 	bb, ok := e.(Bool)
 	if !ok {
 		return false
@@ -69,17 +81,19 @@ func (b Bool) Equal(e Actual) bool {
 	return bb == b
 }
 
-func (b Bool) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // Int represents an integer value
 type Int int64
 
-// Equal implements the Actual method
-func (i Int) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (i Int) LLVMVal(builder llvm.Builder) llvm.Value {
+	v := builder.CreateAlloca(llvm.Int64Type(), "")
+	builder.CreateStore(llvm.ConstInt(llvm.Int64Type(), uint64(i), false), v)
+	return v
+}
+
+func (i Int) equal(e equaler) bool {
 	ii, ok := e.(Int)
 	if !ok {
 		return false
@@ -87,29 +101,22 @@ func (i Int) Equal(e Actual) bool {
 	return ii == i
 }
 
-// LLVMVal creates a new llvm value using the builder and returns it
-func (i Int) LLVMVal(builder llvm.Builder) llvm.Value {
-	v := builder.CreateAlloca(llvm.Int64Type(), "")
-	builder.CreateStore(llvm.ConstInt(llvm.Int64Type(), uint64(i), false), v)
-	return v
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // String represents a string value
 type String string
 
-// Equal implements the Actual method
-func (s String) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (s String) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
+func (s String) equal(e equaler) bool {
 	ss, ok := e.(String)
 	if !ok {
 		return false
 	}
 	return ss == s
-}
-
-func (s String) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,17 +125,17 @@ func (s String) LLVMVal(builder llvm.Builder) llvm.Value {
 // name
 type Identifier string
 
-// Equal implements the Actual method
-func (id Identifier) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (id Identifier) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
+func (id Identifier) equal(e equaler) bool {
 	idid, ok := e.(Identifier)
 	if !ok {
 		return false
 	}
 	return idid == id
-}
-
-func (id Identifier) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,17 +150,17 @@ func (m Macro) String() string {
 	return "%" + string(m)
 }
 
-// Equal implements the Actual method
-func (m Macro) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (m Macro) LLVMVal(builder llvm.Builder) llvm.Value {
+	panic("Macros have no inherent LLVMVal")
+}
+
+func (m Macro) equal(e equaler) bool {
 	mm, ok := e.(Macro)
 	if !ok {
 		return false
 	}
 	return m == mm
-}
-
-func (m Macro) LLVMVal(builder llvm.Builder) llvm.Value {
-	panic("Macros have no inherent LLVMVal")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -170,22 +177,22 @@ func (tup Tuple) String() string {
 	return "(" + strings.Join(strs, ", ") + ")"
 }
 
-// Equal implements the Actual method
-func (tup Tuple) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (tup Tuple) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
+func (tup Tuple) equal(e equaler) bool {
 	tuptup, ok := e.(Tuple)
 	if !ok || len(tuptup) != len(tup) {
 		return false
 	}
 	for i := range tup {
-		if !tup[i].Actual.Equal(tuptup[i].Actual) {
+		if !tup[i].equal(tuptup[i]) {
 			return false
 		}
 	}
 	return true
-}
-
-func (tup Tuple) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -202,12 +209,7 @@ func (s Statement) String() string {
 	return fmt.Sprintf("(%v > %s)", s.In.Actual, s.To.Actual)
 }
 
-// Equal implements the Actual method
-func (s Statement) Equal(e Actual) bool {
-	ss, ok := e.(Statement)
-	return ok && s.In.Actual.Equal(ss.In.Actual) && s.To.Actual.Equal(ss.To.Actual)
-}
-
+// LLVMVal implements the Actual interface method
 func (s Statement) LLVMVal(builder llvm.Builder) llvm.Value {
 	m, ok := s.To.Actual.(Macro)
 	if !ok {
@@ -227,6 +229,11 @@ func (s Statement) LLVMVal(builder llvm.Builder) llvm.Value {
 	return newe.LLVMVal(builder)
 }
 
+func (s Statement) equal(e equaler) bool {
+	ss, ok := e.(Statement)
+	return ok && s.In.equal(ss.In) && s.To.equal(ss.To)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Block represents a set of statements which share a scope, i.e. If one
@@ -242,22 +249,22 @@ func (b Block) String() string {
 	return fmt.Sprintf("{ %s }", strings.Join(strs, " "))
 }
 
-// Equal implements the Actual method
-func (b Block) Equal(e Actual) bool {
+// LLVMVal implements the Actual interface method
+func (b Block) LLVMVal(builder llvm.Builder) llvm.Value {
+	return llvm.Value{}
+}
+
+func (b Block) equal(e equaler) bool {
 	bb, ok := e.(Block)
 	if !ok {
 		return false
 	}
 	for i := range b {
-		if !b[i].Equal(bb[i]) {
+		if !b[i].equal(bb[i]) {
 			return false
 		}
 	}
 	return true
-}
-
-func (b Block) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

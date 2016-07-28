@@ -8,8 +8,6 @@ import (
 
 type addActual []Expr
 
-func (aa addActual) Equal(Actual) bool { return false }
-
 func (aa addActual) LLVMVal(builder llvm.Builder) llvm.Value {
 	a := builder.CreateLoad(aa[0].LLVMVal(builder), "")
 	for i := range aa[1:] {

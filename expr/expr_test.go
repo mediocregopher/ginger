@@ -37,7 +37,7 @@ func TestSliceEnclosedToks(t *T) {
 func assertParse(t *T, in []lexer.Token, expExpr Expr, expOut []lexer.Token) {
 	expr, out, err := parse(in)
 	require.Nil(t, err)
-	assert.True(t, expExpr.Actual.Equal(expr.Actual), "expr:%v expExpr:%v", expr, expExpr)
+	assert.True(t, expExpr.equal(expr), "expr:%+v expExpr:%+v", expr, expExpr)
 	assert.Equal(t, expOut, out, "out:%v expOut:%v", out, expOut)
 }
 
