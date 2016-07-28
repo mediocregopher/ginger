@@ -17,6 +17,11 @@ import (
 // TODO having Equal as part of the Actual interface is going to be annoying.
 // The built in macros which return their own expressions don't really care
 // about it, and it's really only needed for tests I think.
+//
+// Alternatively, don't have token be embedded in the expression. I'm not sure
+// if that's actually possible.
+
+// TODO need to figure out how to test LLVMVal stuff
 
 // Actual represents the actual expression in question, and has certain
 // properties. It is wrapped by Expr which also holds onto contextual
@@ -180,41 +185,6 @@ func (tup Tuple) Equal(e Actual) bool {
 }
 
 func (tup Tuple) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// Pipe represents a set of expressions which operate on values and return new
-// values. The inputs of one expression in the pipe is the output of the
-// previous expression
-//
-// TODO remove this, sorry Pipe
-type Pipe []Expr
-
-func (p Pipe) String() string {
-	strs := make([]string, len(p))
-	for i := range p {
-		strs[i] = fmt.Sprint(p[i].Actual)
-	}
-	return "(" + strings.Join(strs, "|") + ")"
-}
-
-// Equal implements the Actual method
-func (p Pipe) Equal(e Actual) bool {
-	pp, ok := e.(Pipe)
-	if !ok || len(pp) != len(p) {
-		return false
-	}
-	for i := range p {
-		if !p[i].Actual.Equal(pp[i].Actual) {
-			return false
-		}
-	}
-	return true
-}
-
-func (p Pipe) LLVMVal(builder llvm.Builder) llvm.Value {
 	return llvm.Value{}
 }
 
@@ -396,7 +366,6 @@ var (
 	openCurly  = lexer.Token{TokenType: lexer.Wrapper, Val: "{"}
 	closeCurly = lexer.Token{TokenType: lexer.Wrapper, Val: "}"}
 	comma      = lexer.Token{TokenType: lexer.Punctuation, Val: ","}
-	pipe       = lexer.Token{TokenType: lexer.Punctuation, Val: "|"}
 	arrow      = lexer.Token{TokenType: lexer.Punctuation, Val: ">"}
 )
 
@@ -518,20 +487,12 @@ func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, e
 	if toks[0].Equal(comma) {
 		return parseTuple(toks, root)
 
-	} else if toks[0].Equal(pipe) {
-		return parsePipe(toks, root)
-
 	} else if toks[0].Equal(arrow) {
 		expr, toks, err := parse(toks[1:])
 		if err != nil {
 			return Expr{}, nil, err
 		}
-		pipe, ok := expr.Actual.(Pipe)
-		if !ok {
-			pipe = Pipe{expr}
-		}
-		pipeExpr := Expr{Actual: pipe, Token: expr.Token}
-		return Expr{Token: root.Token, Actual: Statement{In: root, To: pipeExpr}}, toks, nil
+		return Expr{Token: root.Token, Actual: Statement{In: root, To: expr}}, toks, nil
 	}
 
 	return root, toks, nil
@@ -566,37 +527,6 @@ func parseTuple(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
 
 	rootTup = append(rootTup, expr)
 	return parseTuple(toks, mkRoot())
-}
-
-func parsePipe(toks []lexer.Token, root Expr) (Expr, []lexer.Token, error) {
-	rootPipe, ok := root.Actual.(Pipe)
-	if !ok {
-		rootPipe = Pipe{root}
-	}
-
-	// rootPipe is modified throughout, be we need to make it into an Expr for
-	// every return, which is annoying. so make a function to do it on the fly
-	mkRoot := func() Expr {
-		return Expr{Token: rootPipe[0].Token, Actual: rootPipe}
-	}
-
-	if len(toks) < 2 {
-		return mkRoot(), toks, nil
-	} else if !toks[0].Equal(pipe) {
-		if toks[0].TokenType == lexer.Punctuation {
-			return parseConnectingPunct(toks, mkRoot())
-		}
-		return mkRoot(), toks, nil
-	}
-
-	var expr Expr
-	var err error
-	if expr, toks, err = parseSingle(toks[1:]); err != nil {
-		return Expr{}, nil, err
-	}
-
-	rootPipe = append(rootPipe, expr)
-	return parsePipe(toks, mkRoot())
 }
 
 // parseBlock assumes that the given token list is the entire block, already

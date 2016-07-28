@@ -32,7 +32,7 @@ var lexTestSrc = `
 		*/
 	*/
 
-	(punctuation,is{cool}<> )
+	(punctuation,is{cool}> )
 	-tab
 
 	"this is a string", "and so is this one"
@@ -67,9 +67,8 @@ func TestLex(t *T) {
 	assertNext(Wrapper, "{", 24, 17)
 	assertNext(Identifier, "cool", 24, 18)
 	assertNext(Wrapper, "}", 24, 22)
-	assertNext(Punctuation, "<", 24, 23)
-	assertNext(Punctuation, ">", 24, 24)
-	assertNext(Wrapper, ")", 24, 26)
+	assertNext(Punctuation, ">", 24, 23)
+	assertNext(Wrapper, ")", 24, 25)
 	assertNext(Identifier, "-tab", 25, 2)
 	assertNext(String, `"this is a string"`, 27, 2)
 	assertNext(Punctuation, ",", 27, 20)

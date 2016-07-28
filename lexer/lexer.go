@@ -198,7 +198,7 @@ func (l *Lexer) Next() Token {
 // the actual fsm
 
 var whitespaceSet = " \n\r\t\v\f"
-var punctuationSet = ",<>|"
+var punctuationSet = ",>"
 var wrapperSet = "{}()"
 var identifierSepSet = whitespaceSet + punctuationSet + wrapperSet
 
