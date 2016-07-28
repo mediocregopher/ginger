@@ -9,10 +9,10 @@ import (
 	"github.com/mediocregopher/ginger/lexer"
 )
 
-// TODO empty blocks
+// TODO empty blocks?
 // TODO empty parenthesis
-
 // TODO need to figure out how to test LLVMVal stuff
+// TODO once we're a bit more confident, make ActualFunc
 
 // Actual represents the actual expression in question, and has certain
 // properties. It is wrapped by Expr which also holds onto contextual
