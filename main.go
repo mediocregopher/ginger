@@ -8,19 +8,6 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
-type addActual []expr.Expr
-
-func (aa addActual) Equal(expr.Actual) bool { return false }
-
-func (aa addActual) LLVMVal(builder llvm.Builder) llvm.Value {
-	a := builder.CreateLoad(aa[0].LLVMVal(builder), "")
-	for i := range aa[1:] {
-		b := builder.CreateLoad(aa[i+1].LLVMVal(builder), "")
-		a = builder.CreateAdd(a, b, "")
-	}
-	return a
-}
-
 func main() {
 	//ee, err := expr.Parse(os.Stdin)
 	//if err != nil {
@@ -47,8 +34,11 @@ func main() {
 	a := expr.Expr{Actual: expr.Int(1)}
 	b := expr.Expr{Actual: expr.Int(2)}
 	c := expr.Expr{Actual: expr.Int(3)}
-	add := addActual{a, b, c}
-	result := add.LLVMVal(builder)
+	tup := expr.Expr{Actual: expr.Tuple{a, b, c}}
+	addMacro := expr.Expr{Actual: expr.Macro("add")}
+	stmt := expr.Expr{Actual: expr.Statement{In: tup, To: addMacro}}
+
+	result := stmt.LLVMVal(builder)
 	builder.CreateRet(result)
 
 	// verify it's all good

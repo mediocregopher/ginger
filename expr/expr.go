@@ -26,7 +26,7 @@ type Actual interface {
 	// are equal.
 	Equal(Actual) bool
 
-	// Initializes an llvm.Value and returns it
+	// Initializes an llvm.Value and returns it.
 	LLVMVal(llvm.Builder) llvm.Value
 }
 
@@ -148,7 +148,7 @@ func (m Macro) Equal(e Actual) bool {
 }
 
 func (m Macro) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
+	panic("Macros have no inherent LLVMVal")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -188,6 +188,8 @@ func (tup Tuple) LLVMVal(builder llvm.Builder) llvm.Value {
 // Pipe represents a set of expressions which operate on values and return new
 // values. The inputs of one expression in the pipe is the output of the
 // previous expression
+//
+// TODO remove this, sorry Pipe
 type Pipe []Expr
 
 func (p Pipe) String() string {
@@ -222,22 +224,37 @@ func (p Pipe) LLVMVal(builder llvm.Builder) llvm.Value {
 // used as the input to the pipe, and the output of the pipe is the output of
 // the statement
 type Statement struct {
-	in   Expr
-	pipe Pipe
+	In Expr
+	To Expr
 }
 
 func (s Statement) String() string {
-	return fmt.Sprintf("(%v > %s)", s.in.Actual, s.pipe.String())
+	return fmt.Sprintf("(%v > %s)", s.In.Actual, s.To.Actual)
 }
 
 // Equal implements the Actual method
 func (s Statement) Equal(e Actual) bool {
 	ss, ok := e.(Statement)
-	return ok && s.in.Actual.Equal(ss.in.Actual) && s.pipe.Equal(ss.pipe)
+	return ok && s.In.Actual.Equal(ss.In.Actual) && s.To.Actual.Equal(ss.To.Actual)
 }
 
 func (s Statement) LLVMVal(builder llvm.Builder) llvm.Value {
-	return llvm.Value{}
+	m, ok := s.To.Actual.(Macro)
+	if !ok {
+		// TODO proper error
+		panic("statement To is not a macro")
+	}
+	fn, ok := macros[m]
+	if !ok {
+		// TODO proper error
+		panic(fmt.Sprintf("unknown macro %q", m))
+	}
+	newe, err := fn(s.In)
+	if err != nil {
+		// TODO proper error
+		panic(err)
+	}
+	return newe.LLVMVal(builder)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -513,7 +530,8 @@ func parseConnectingPunct(toks []lexer.Token, root Expr) (Expr, []lexer.Token, e
 		if !ok {
 			pipe = Pipe{expr}
 		}
-		return Expr{Token: root.Token, Actual: Statement{in: root, pipe: pipe}}, toks, nil
+		pipeExpr := Expr{Actual: pipe, Token: expr.Token}
+		return Expr{Token: root.Token, Actual: Statement{In: root, To: pipeExpr}}, toks, nil
 	}
 
 	return root, toks, nil
