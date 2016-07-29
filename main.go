@@ -38,7 +38,7 @@ func main() {
 	addMacro := expr.Expr{Actual: expr.Macro("add")}
 	stmt := expr.Expr{Actual: expr.Statement{In: tup, To: addMacro}}
 
-	result := stmt.LLVMVal(builder)
+	result := stmt.LLVMVal(expr.RootCtx, builder)
 	builder.CreateRet(result)
 
 	// verify it's all good
