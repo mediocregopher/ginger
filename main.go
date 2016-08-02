@@ -22,45 +22,49 @@ func main() {
 	llvm.InitializeNativeAsmPrinter()
 
 	// setup our builder and module
-	builder := llvm.NewBuilder()
-	mod := llvm.NewModule("my_module")
+	lctx := expr.LLVMCtx{
+		B: llvm.NewBuilder(),
+		M: llvm.NewModule("my_module"),
+	}
 
-	// create our function prologue
-	main := llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false)
-	llvm.AddFunction(mod, "main", main)
-	block := llvm.AddBasicBlock(mod.NamedFunction("main"), "entry")
-	builder.SetInsertPoint(block, block.FirstInstruction())
-
+	// do the work in the function
 	a := expr.Expr{Actual: expr.Int(1)}
 	b := expr.Expr{Actual: expr.Int(2)}
 	c := expr.Expr{Actual: expr.Int(3)}
-	tup := expr.Expr{Actual: expr.Tuple{a, b, c}}
+	tup := expr.Expr{Actual: expr.Tuple([]expr.Expr{a, b, c})}
 	addMacro := expr.Expr{Actual: expr.Macro("add")}
 	stmt := expr.Expr{Actual: expr.Statement{In: tup, To: addMacro}}
+	block := expr.Block([]expr.Expr{stmt})
+	fn := block.LLVMVal(expr.RootCtx, lctx)
 
-	result := stmt.LLVMVal(expr.RootCtx, builder)
-	builder.CreateRet(result)
+	// create main and call our function
+	mainFn := llvm.AddFunction(lctx.M, "main", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
+	mainBlock := llvm.AddBasicBlock(mainFn, "entry")
+	lctx.B.SetInsertPoint(mainBlock, mainBlock.FirstInstruction())
+
+	ret := lctx.B.CreateCall(fn, []llvm.Value{}, "")
+	lctx.B.CreateRet(ret)
 
 	// verify it's all good
-	if err := llvm.VerifyModule(mod, llvm.ReturnStatusAction); err != nil {
+	if err := llvm.VerifyModule(lctx.M, llvm.ReturnStatusAction); err != nil {
 		panic(err)
 	}
 	fmt.Println("# verified")
 
 	// Dump the IR
 	fmt.Println("# dumping IR")
-	mod.Dump()
+	lctx.M.Dump()
 	fmt.Println("# done dumping IR")
 
 	// create our exe engine
 	fmt.Println("# creating new execution engine")
-	engine, err := llvm.NewExecutionEngine(mod)
+	engine, err := llvm.NewExecutionEngine(lctx.M)
 	if err != nil {
 		panic(err)
 	}
 
 	// run the function!
 	fmt.Println("# running the function main")
-	funcResult := engine.RunFunction(mod.NamedFunction("main"), []llvm.GenericValue{})
+	funcResult := engine.RunFunction(lctx.M.NamedFunction("main"), []llvm.GenericValue{})
 	fmt.Printf("%d\n", funcResult.Int(false))
 }

@@ -291,14 +291,13 @@ func parseBlock(toks []lexer.Token) (Expr, error) {
 		if expr, toks, err = parse(toks); err != nil {
 			return Expr{}, err
 		}
-		stmt, ok := expr.Actual.(Statement)
-		if !ok {
+		if _, ok := expr.Actual.(Statement); !ok {
 			return Expr{}, exprErr{
 				reason: "blocks may only contain full statements",
 				tok:    expr.Token,
 				tokCtx: "non-statement here",
 			}
 		}
-		b = append(b, stmt)
+		b = append(b, expr)
 	}
 }

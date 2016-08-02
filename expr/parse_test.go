@@ -131,10 +131,10 @@ func TestParseStatement(t *T) {
 }
 
 func TestParseBlock(t *T) {
-	stmt := func(in, to Expr) Statement {
-		return Statement{In: in, To: to}
+	stmt := func(in, to Expr) Expr {
+		return Expr{Actual: Statement{In: in, To: to}}
 	}
-	block := func(stmts ...Statement) Expr {
+	block := func(stmts ...Expr) Expr {
 		return Expr{Actual: Block(stmts)}
 	}
 

@@ -8,11 +8,11 @@ import (
 
 type addActual []Expr
 
-func (aa addActual) LLVMVal(ctx *Ctx, builder llvm.Builder) llvm.Value {
-	a := builder.CreateLoad(aa[0].LLVMVal(ctx, builder), "")
+func (aa addActual) LLVMVal(ctx *Ctx, lctx LLVMCtx) llvm.Value {
+	a := lctx.B.CreateLoad(aa[0].LLVMVal(ctx, lctx), "")
 	for i := range aa[1:] {
-		b := builder.CreateLoad(aa[i+1].LLVMVal(ctx, builder), "")
-		a = builder.CreateAdd(a, b, "")
+		b := lctx.B.CreateLoad(aa[i+1].LLVMVal(ctx, lctx), "")
+		a = lctx.B.CreateAdd(a, b, "")
 	}
 	return a
 }
