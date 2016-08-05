@@ -106,7 +106,7 @@ func (v Void) LLVMVal(ctx *Ctx, lctx LLVMCtx) llvm.Value {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/*
 // Bool represents a true or false value
 type Bool bool
 
@@ -132,7 +132,7 @@ func (b Bool) equal(e equaler) bool {
 	}
 	return bb == b
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 
 // Int represents an integer value
@@ -164,7 +164,7 @@ func (i Int) equal(e equaler) bool {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/*
 // String represents a string value
 type String string
 
@@ -190,7 +190,7 @@ func (s String) equal(e equaler) bool {
 	}
 	return ss == s
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 
 // Identifier represents a binding to some other value which has been given a
@@ -303,6 +303,7 @@ func (tup Tuple) equal(e equaler) bool {
 // used as the input to the pipe, and the output of the pipe is the output of
 // the statement
 type Statement struct {
+	// TODO change to Op and Arg
 	In Expr
 	To Expr
 }
