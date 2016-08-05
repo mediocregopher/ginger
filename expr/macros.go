@@ -8,6 +8,14 @@ import (
 
 type addActual []Expr
 
+func (aa addActual) LLVMInType(ctx *Ctx) llvm.Type {
+	panic("addActual has no InType")
+}
+
+func (aa addActual) LLVMOutType(ctx *Ctx) llvm.Type {
+	return aa[0].LLVMOutType(ctx)
+}
+
 func (aa addActual) LLVMVal(ctx *Ctx, lctx LLVMCtx) llvm.Value {
 	a := lctx.B.CreateLoad(aa[0].LLVMVal(ctx, lctx), "")
 	for i := range aa[1:] {
