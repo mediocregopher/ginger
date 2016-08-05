@@ -1,45 +1,23 @@
 package expr
 
-import (
-	"errors"
-
-	"llvm.org/llvm/bindings/go/llvm"
-)
-
-type addActual []Expr
-
-func (aa addActual) LLVMInType(ctx *Ctx) llvm.Type {
-	panic("addActual has no InType")
-}
-
-func (aa addActual) LLVMOutType(ctx *Ctx) llvm.Type {
-	return aa[0].LLVMOutType(ctx)
-}
-
-func (aa addActual) LLVMVal(ctx *Ctx, lctx LLVMCtx) llvm.Value {
-	a := lctx.B.CreateLoad(aa[0].LLVMVal(ctx, lctx), "")
-	for i := range aa[1:] {
-		b := lctx.B.CreateLoad(aa[i+1].LLVMVal(ctx, lctx), "")
-		a = lctx.B.CreateAdd(a, b, "")
-	}
-	return a
-}
+import "llvm.org/llvm/bindings/go/llvm"
 
 // RootCtx describes what's available to *all* contexts, and is what all
 // contexts should have as the root parent in the tree
 var RootCtx = &Ctx{
-	Macros: map[Macro]func(Expr) (Expr, error){
-		"add": func(e Expr) (Expr, error) {
-			tup, ok := e.Actual.(Tuple)
-			if !ok {
-				// TODO proper error
-				return Expr{}, errors.New("add only accepts a tuple")
+	Macros: map[Macro]MacroFn{
+		"add": func(ctx *Ctx, lctx LLVMCtx, e Expr) (llvm.Value, bool) {
+			tup := e.Actual.(Tuple)
+			buildInt := func(e Expr) llvm.Value {
+				return lctx.B.CreateLoad(e.Actual.(Int).build(lctx), "")
 			}
-			// TODO check that it's a tuple of integers too
-			return Expr{
-				Actual: addActual(tup),
-				Token:  e.Token,
-			}, nil
+
+			a := buildInt(tup[0])
+			for i := range tup[1:] {
+				b := buildInt(tup[i+1])
+				a = lctx.B.CreateAdd(a, b, "")
+			}
+			return a, true
 		},
 	},
 }

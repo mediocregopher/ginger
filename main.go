@@ -33,17 +33,20 @@ func main() {
 	c := expr.Expr{Actual: expr.Int(3)}
 	tup := expr.Expr{Actual: expr.Tuple([]expr.Expr{a, b, c})}
 	addMacro := expr.Expr{Actual: expr.Macro("add")}
-	stmt := expr.Expr{Actual: expr.Statement{In: tup, To: addMacro}}
-	block := expr.Block([]expr.Expr{stmt})
-	fn := block.LLVMVal(expr.RootCtx, lctx)
+	stmt := expr.Expr{Actual: expr.Statement{Op: addMacro, Arg: tup}}
+
+	//block := expr.Block([]expr.Expr{stmt})
+	//fn := block.LLVMVal(expr.RootCtx, lctx)
 
 	// create main and call our function
 	mainFn := llvm.AddFunction(lctx.M, "main", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
 	mainBlock := llvm.AddBasicBlock(mainFn, "entry")
 	lctx.B.SetInsertPoint(mainBlock, mainBlock.FirstInstruction())
+	expr.BuildStmt(expr.RootCtx, lctx, stmt)
+	lctx.B.CreateRet(expr.RootCtx.LastVal)
 
-	ret := lctx.B.CreateCall(fn, []llvm.Value{}, "")
-	lctx.B.CreateRet(ret)
+	//ret := lctx.B.CreateCall(fn, []llvm.Value{}, "")
+	//lctx.B.CreateRet(ret)
 
 	// verify it's all good
 	if err := llvm.VerifyModule(lctx.M, llvm.ReturnStatusAction); err != nil {
