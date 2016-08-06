@@ -29,10 +29,17 @@ func main() {
 	}
 
 	// do the work in the function
-	tup := expr.NewTuple(expr.Int(1), expr.Int(2))
-	addMacro := expr.Macro("add")
-	stmt := expr.Statement{Op: addMacro, Arg: tup}
-	stmt = expr.Statement{Op: addMacro, Arg: expr.NewTuple(stmt, expr.Int(3))}
+	add := expr.Macro("add")
+	bind := expr.Macro("bind")
+	idA := expr.Identifier("A")
+	idB := expr.Identifier("B")
+	idC := expr.Identifier("C")
+	stmts := []expr.Statement{
+		expr.NewStatement(bind, idA, expr.NewStatement(add, expr.Int(1), expr.Int(2))),
+		expr.NewStatement(bind, idB, expr.Int(3)),
+		expr.NewStatement(bind, idC, expr.NewStatement(add, idA, idB)),
+		expr.NewStatement(add, idC, idC),
+	}
 
 	//block := expr.Block([]expr.Expr{stmt})
 	//fn := block.LLVMVal(expr.RootCtx, lctx)
@@ -41,7 +48,7 @@ func main() {
 	mainFn := llvm.AddFunction(bctx.M, "main", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
 	mainBlock := llvm.AddBasicBlock(mainFn, "entry")
 	bctx.B.SetInsertPoint(mainBlock, mainBlock.FirstInstruction())
-	v := bctx.Build(stmt)
+	v := bctx.Build(stmts...)
 	bctx.B.CreateRet(v)
 
 	//ret := lctx.B.CreateCall(fn, []llvm.Value{}, "")

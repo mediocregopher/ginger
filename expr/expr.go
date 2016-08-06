@@ -141,6 +141,19 @@ type Statement struct {
 	Op, Arg Expr
 }
 
+// NewStatement returns a Statement whose Op is the first Expr. If the given
+// list is empty Arg will be nil, if its length is one Arg will be that single
+// Expr, otherwise Arg will be a Tuple of the list
+func NewStatement(e Expr, ee ...Expr) Statement {
+	s := Statement{Op: e}
+	if len(ee) > 1 {
+		s.Arg = NewTuple(ee...)
+	} else if len(ee) == 1 {
+		s.Arg = ee[0]
+	}
+	return s
+}
+
 func (s Statement) String() string {
 	return fmt.Sprintf("(%v %s)", s.Op, s.Arg)
 }

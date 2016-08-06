@@ -38,13 +38,12 @@ func (c *Ctx) GetMacro(m Macro) MacroFn {
 }
 
 // GetIdentifier returns the llvm.Value for the Identifier, or panics
-func (c *Ctx) GetIdentifier(i Identifier) llvm.Value {
+func (c *Ctx) GetIdentifier(i Identifier) (llvm.Value, bool) {
 	if v, ok := c.idents[i]; ok {
-		return v
+		return v, true
 	}
 	// The global context doesn't have any identifiers, so don't bother checking
-	panicf("identifier %q not found in context", i)
-	return llvm.Value{}
+	return llvm.Value{}, false
 }
 
 // NewWith returns a new Ctx instance which imports the given macros from the

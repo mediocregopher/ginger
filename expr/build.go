@@ -40,7 +40,10 @@ func (bctx BuildCtx) buildExpr(e Expr) Expr {
 	case Int:
 		return llvmVal(llvm.ConstInt(llvm.Int64Type(), uint64(ea), false))
 	case Identifier:
-		return bctx.buildExpr(bctx.C.GetIdentifier(ea))
+		if v, ok := bctx.C.GetIdentifier(ea); ok {
+			return llvmVal(v)
+		}
+		return ea
 	case Statement:
 		return bctx.BuildStmt(ea)
 	case Tuple:
