@@ -18,7 +18,7 @@ func randStr() string {
 func exprsJoin(ee []Expr) string {
 	strs := make([]string, len(ee))
 	for i := range ee {
-		strs[i] = fmt.Sprint(ee[i].Actual)
+		strs[i] = fmt.Sprint(ee[i])
 	}
 	return strings.Join(strs, ", ")
 }
@@ -28,7 +28,7 @@ func exprsEqual(ee1, ee2 []Expr) bool {
 		return false
 	}
 	for i := range ee1 {
-		if !ee1[i].equal(ee2[i]) {
+		if !exprEqual(ee1[i], ee2[i]) {
 			return false
 		}
 	}

@@ -4,20 +4,10 @@ import (
 	"fmt"
 
 	"llvm.org/llvm/bindings/go/llvm"
-
-	"github.com/mediocregopher/ginger/lexer"
 )
 
-// TODO empty blocks?
-// TODO empty parenthesis
-// TODO need to figure out how to test LLVMVal stuff
-// TODO once we're a bit more confident, make ActualFunc
-
-// Actual represents the actual expression in question. It is wrapped by Expr
-// which also holds onto contextual information, like the token to which Actual
-// was originally parsed from
-type Actual interface {
-}
+// Expr represents the actual expression in question.
+type Expr interface{}
 
 // equaler is used to compare two expressions. The comparison should not take
 // into account Token values, only the actual value being represented
@@ -25,30 +15,30 @@ type equaler interface {
 	equal(equaler) bool
 }
 
-// Expr contains the actual expression as well as some contextual information
-// wrapping it. Most interactions will be with this and not with the Actual
-// directly.
-type Expr struct {
-	Actual Actual
-
-	// Token is a nice-to-have, nothing will break if it's not there
-	Token lexer.Token
-
-	val *llvm.Value
-}
-
-// will panic if either Expr's Actual doesn't implement equaler
-func (e Expr) equal(e2 Expr) bool {
-	eq1, ok1 := e.Actual.(equaler)
-	eq2, ok2 := e2.Actual.(equaler)
+// will panic if either Expr doesn't implement equaler
+func exprEqual(e1, e2 Expr) bool {
+	eq1, ok1 := e1.(equaler)
+	eq2, ok2 := e2.(equaler)
 	if !ok1 || !ok2 {
-		panic(fmt.Sprintf("can't compare %T and %T", e.Actual, e2.Actual))
+		panic(fmt.Sprintf("can't compare %T and %T", e1, e2))
 	}
 	return eq1.equal(eq2)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// an Expr which simply wraps an existing llvm.Value
+type llvmVal llvm.Value
+
+/*
+func voidVal(lctx LLVMCtx) llvmVal {
+	return llvmVal{lctx.B.CreateRetVoid()}
+}
+*/
+
+////////////////////////////////////////////////////////////////////////////////
+
+/*
 // Void represents no data (size = 0)
 type Void struct{}
 
@@ -56,6 +46,7 @@ func (v Void) equal(e equaler) bool {
 	_, ok := e.(Void)
 	return ok
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 /*
@@ -74,12 +65,6 @@ func (b Bool) equal(e equaler) bool {
 
 // Int represents an integer value
 type Int int64
-
-func (i Int) build(lctx LLVMCtx) llvm.Value {
-	v := lctx.B.CreateAlloca(llvm.Int64Type(), "")
-	lctx.B.CreateStore(llvm.ConstInt(llvm.Int64Type(), uint64(i), false), v)
-	return v
-}
 
 func (i Int) equal(e equaler) bool {
 	ii, ok := e.(Int)
@@ -133,6 +118,11 @@ func (m Macro) equal(e equaler) bool {
 // they were a single value
 type Tuple []Expr
 
+// NewTuple returns a Tuple around the given list of Exprs
+func NewTuple(ee ...Expr) Tuple {
+	return Tuple(ee)
+}
+
 func (tup Tuple) String() string {
 	return "(" + exprsJoin(tup) + ")"
 }
@@ -152,12 +142,12 @@ type Statement struct {
 }
 
 func (s Statement) String() string {
-	return fmt.Sprintf("(%v %s)", s.Op.Actual, s.Arg.Actual)
+	return fmt.Sprintf("(%v %s)", s.Op, s.Arg)
 }
 
 func (s Statement) equal(e equaler) bool {
 	ss, ok := e.(Statement)
-	return ok && s.Op.equal(ss.Op) && s.Arg.equal(ss.Arg)
+	return ok && exprEqual(s.Op, ss.Op) && exprEqual(s.Arg, ss.Arg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

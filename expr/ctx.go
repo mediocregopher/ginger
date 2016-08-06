@@ -2,29 +2,64 @@ package expr
 
 import "llvm.org/llvm/bindings/go/llvm"
 
-type MacroFn func(*Ctx, LLVMCtx, Expr) (llvm.Value, bool)
+// MacroFn is a compiler function which takes in an existing Expr and returns
+// the llvm Value for it
+type MacroFn func(BuildCtx, Expr) Expr
 
-// Ctx contains all the Macros and Identifiers available. A Ctx is based on the
-// parent it was created from. If the current Ctx doesn't have a particular key
-// being looked up, the parent is called instead, and so on. A consequence of
-// this is that keys in the children take precedence over the parent's
+// Ctx contains all the Macros and Identifiers available. A Ctx also keeps a
+// reference to the global context, which has a number of macros available for
+// all contexts to use.
 type Ctx struct {
-	Parent *Ctx
-	Macros map[Macro]MacroFn
-
-	LastVal llvm.Value
+	global *Ctx
+	macros map[Macro]MacroFn
+	idents map[Identifier]llvm.Value
 }
 
-// GetMacro returns the first instance of the given of the given Macro found. If
-// not found nil is returned.
+// NewCtx returns a blank context instance
+func NewCtx() *Ctx {
+	return &Ctx{
+		global: globalCtx,
+		macros: map[Macro]MacroFn{},
+		idents: map[Identifier]llvm.Value{},
+	}
+}
+
+// GetMacro returns the MacroFn associated with the given identifier, or panics
+// if the macro isn't found
 func (c *Ctx) GetMacro(m Macro) MacroFn {
-	if c.Macros != nil {
-		if fn, ok := c.Macros[m]; ok {
-			return fn
-		}
+	if fn := c.macros[m]; fn != nil {
+		return fn
 	}
-	if c.Parent != nil {
-		return c.Parent.GetMacro(m)
+	if fn := c.global.macros[m]; fn != nil {
+		return fn
 	}
+	panicf("macro %q not found in context", m)
 	return nil
 }
+
+// GetIdentifier returns the llvm.Value for the Identifier, or panics
+func (c *Ctx) GetIdentifier(i Identifier) llvm.Value {
+	if v, ok := c.idents[i]; ok {
+		return v
+	}
+	// The global context doesn't have any identifiers, so don't bother checking
+	panicf("identifier %q not found in context", i)
+	return llvm.Value{}
+}
+
+// NewWith returns a new Ctx instance which imports the given macros from the
+// parent
+//func (c *Ctx) NewWith(mm ...Macro) *Ctx {
+//	nc := &Ctx{
+//		global: c.global,
+//		macros: map[Macro]MacroFn{},
+//	}
+//	for _, m := range mm {
+//		fn := c.macros[m]
+//		if fn == nil {
+//			panicf("no macro %q found in context", m)
+//		}
+//		nc.macros[m] = fn
+//	}
+//	return nc
+//}
