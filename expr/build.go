@@ -52,6 +52,11 @@ func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
 			ea[i] = bctx.buildExprTill(ea[i], fn)
 		}
 		return ea
+	case List:
+		for i := range ea {
+			ea[i] = bctx.buildExprTill(ea[i], fn)
+		}
+		return ea
 	default:
 		panicf("type %T can't express a value", ea)
 	}

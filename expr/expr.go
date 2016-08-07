@@ -139,6 +139,26 @@ func (tup Tuple) equal(e equaler) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// List represents an ordered set of Exprs, all of the same type. A List's size
+// does not affect its type signature, unlike a Tuple
+type List []Expr
+
+// NewList returns a List around the given list of Exprs
+func NewList(ee ...Expr) List {
+	return List(ee)
+}
+
+func (l List) String() string {
+	return "[" + exprsJoin(l) + "]"
+}
+
+func (l List) equal(e equaler) bool {
+	ll, ok := e.(List)
+	return ok && exprsEqual(l, ll)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Statement represents an actual action which will be taken. The input value is
 // used as the input to the pipe, and the output of the pipe is the output of
 // the statement
