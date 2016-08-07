@@ -22,8 +22,9 @@ func main() {
 	llvm.InitializeNativeAsmPrinter()
 
 	// setup our context, builder, and module
+	ctx := expr.NewCtx()
 	bctx := expr.BuildCtx{
-		C: expr.NewCtx(),
+		C: &ctx,
 		B: llvm.NewBuilder(),
 		M: llvm.NewModule("my_module"),
 	}

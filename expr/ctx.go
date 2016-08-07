@@ -14,17 +14,17 @@ type Ctx struct {
 }
 
 // NewCtx returns a blank context instance
-func NewCtx() *Ctx {
-	return &Ctx{
+func NewCtx() Ctx {
+	return Ctx{
 		global: globalCtx,
 		macros: map[Macro]MacroFn{},
 		idents: map[Identifier]Expr{},
 	}
 }
 
-// GetMacro returns the MacroFn associated with the given identifier, or panics
+// Macro returns the MacroFn associated with the given identifier, or panics
 // if the macro isn't found
-func (c *Ctx) GetMacro(m Macro) MacroFn {
+func (c Ctx) Macro(m Macro) MacroFn {
 	if fn := c.macros[m]; fn != nil {
 		return fn
 	}
@@ -35,25 +35,39 @@ func (c *Ctx) GetMacro(m Macro) MacroFn {
 	return nil
 }
 
-// GetIdentifier returns the llvm.Value for the Identifier, or panics
-func (c *Ctx) GetIdentifier(i Identifier) Expr {
+// Identifier returns the llvm.Value for the Identifier, or panics
+func (c Ctx) Identifier(i Identifier) Expr {
+	if e := c.idents[i]; e != nil {
+		return e
+	}
 	// The global context doesn't have any identifiers, so don't bother checking
-	return c.idents[i]
+	panicf("identifier %q not found", i)
+	panic("go is dumb")
 }
 
-// NewWith returns a new Ctx instance which imports the given macros from the
-// parent
-//func (c *Ctx) NewWith(mm ...Macro) *Ctx {
-//	nc := &Ctx{
-//		global: c.global,
-//		macros: map[Macro]MacroFn{},
-//	}
-//	for _, m := range mm {
-//		fn := c.macros[m]
-//		if fn == nil {
-//			panicf("no macro %q found in context", m)
-//		}
-//		nc.macros[m] = fn
-//	}
-//	return nc
-//}
+func (c Ctx) cp() Ctx {
+	cc := Ctx{
+		global: c.global,
+		macros: make(map[Macro]MacroFn, len(c.macros)),
+		idents: make(map[Identifier]Expr, len(c.idents)),
+	}
+	for m, mfn := range c.macros {
+		cc.macros[m] = mfn
+	}
+	for i, e := range c.idents {
+		cc.idents[i] = e
+	}
+	return cc
+}
+
+// Bind returns a new Ctx which is a copy of this one, but with the given
+// Identifier bound to the given Expr. Will panic if the Identifier is already
+// bound
+func (c Ctx) Bind(i Identifier, e Expr) Ctx {
+	if _, ok := c.idents[i]; ok {
+		panicf("identifier %q is already bound", i)
+	}
+	c = c.cp()
+	c.idents[i] = e
+	return c
+}

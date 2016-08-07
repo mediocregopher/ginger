@@ -23,13 +23,7 @@ func (bctx BuildCtx) Build(stmts ...Statement) llvm.Value {
 
 func (bctx BuildCtx) BuildStmt(s Statement) Expr {
 	m := s.Op.(Macro)
-
-	fn := bctx.C.GetMacro(m)
-	if fn == nil {
-		panicf("unknown macro: %q", m)
-	}
-
-	return fn(bctx, s.Arg)
+	return bctx.C.Macro(m)(bctx, s.Arg)
 }
 
 // may return nil if e is a Statement which has no return
@@ -50,10 +44,7 @@ func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
 	case Int:
 		return llvmVal(llvm.ConstInt(llvm.Int64Type(), uint64(ea), false))
 	case Identifier:
-		if ev := bctx.C.GetIdentifier(ea); ev != nil {
-			return ev
-		}
-		panicf("identifier %q not found", ea)
+		return bctx.C.Identifier(ea)
 	case Statement:
 		return bctx.BuildStmt(ea)
 	case Tuple:
@@ -85,10 +76,7 @@ var globalCtx = &Ctx{
 		"bind": func(bctx BuildCtx, e Expr) Expr {
 			tup := bctx.buildExprTill(e, isIdentifier).(Tuple)
 			id := bctx.buildExprTill(tup[0], isIdentifier).(Identifier)
-			if bctx.C.idents[id] != nil {
-				panicf("identifier %q is already bound", id)
-			}
-			bctx.C.idents[id] = bctx.buildExpr(tup[1])
+			*bctx.C = bctx.C.Bind(id, bctx.buildExpr(tup[1]))
 			return nil
 		},
 	},
