@@ -37,8 +37,8 @@ func main() {
 	stmts := []expr.Statement{
 		expr.NewStatement(bind, idA, expr.NewStatement(add, expr.Int(1), expr.Int(2))),
 		expr.NewStatement(bind, idB, expr.Int(3)),
-		expr.NewStatement(bind, idC, expr.NewStatement(add, idA, idB)),
-		expr.NewStatement(add, idC, idC),
+		expr.NewStatement(bind, idC, expr.NewTuple(idA, idB)),
+		expr.NewStatement(add, expr.NewStatement(add, idC), expr.NewStatement(add, idC)),
 	}
 
 	//block := expr.Block([]expr.Expr{stmt})

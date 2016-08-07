@@ -1,7 +1,5 @@
 package expr
 
-import "llvm.org/llvm/bindings/go/llvm"
-
 // MacroFn is a compiler function which takes in an existing Expr and returns
 // the llvm Value for it
 type MacroFn func(BuildCtx, Expr) Expr
@@ -12,7 +10,7 @@ type MacroFn func(BuildCtx, Expr) Expr
 type Ctx struct {
 	global *Ctx
 	macros map[Macro]MacroFn
-	idents map[Identifier]llvm.Value
+	idents map[Identifier]Expr
 }
 
 // NewCtx returns a blank context instance
@@ -20,7 +18,7 @@ func NewCtx() *Ctx {
 	return &Ctx{
 		global: globalCtx,
 		macros: map[Macro]MacroFn{},
-		idents: map[Identifier]llvm.Value{},
+		idents: map[Identifier]Expr{},
 	}
 }
 
@@ -38,12 +36,9 @@ func (c *Ctx) GetMacro(m Macro) MacroFn {
 }
 
 // GetIdentifier returns the llvm.Value for the Identifier, or panics
-func (c *Ctx) GetIdentifier(i Identifier) (llvm.Value, bool) {
-	if v, ok := c.idents[i]; ok {
-		return v, true
-	}
+func (c *Ctx) GetIdentifier(i Identifier) Expr {
 	// The global context doesn't have any identifiers, so don't bother checking
-	return llvm.Value{}, false
+	return c.idents[i]
 }
 
 // NewWith returns a new Ctx instance which imports the given macros from the

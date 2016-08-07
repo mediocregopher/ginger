@@ -50,8 +50,8 @@ func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
 	case Int:
 		return llvmVal(llvm.ConstInt(llvm.Int64Type(), uint64(ea), false))
 	case Identifier:
-		if v, ok := bctx.C.GetIdentifier(ea); ok {
-			return llvmVal(v)
+		if ev := bctx.C.GetIdentifier(ea); ev != nil {
+			return ev
 		}
 		panicf("identifier %q not found", ea)
 	case Statement:
@@ -85,7 +85,10 @@ var globalCtx = &Ctx{
 		"bind": func(bctx BuildCtx, e Expr) Expr {
 			tup := bctx.buildExprTill(e, isIdentifier).(Tuple)
 			id := bctx.buildExprTill(tup[0], isIdentifier).(Identifier)
-			bctx.C.idents[id] = bctx.buildVal(tup[1])
+			if bctx.C.idents[id] != nil {
+				panicf("identifier %q is already bound", id)
+			}
+			bctx.C.idents[id] = bctx.buildExpr(tup[1])
 			return nil
 		},
 	},
