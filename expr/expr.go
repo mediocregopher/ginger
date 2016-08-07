@@ -95,6 +95,11 @@ func (id Identifier) equal(e equaler) bool {
 	return ok && idid == id
 }
 
+func isIdentifier(e Expr) bool {
+	_, ok := e.(Identifier)
+	return ok
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Macro is an identifier for a macro which can be used to transform

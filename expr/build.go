@@ -29,11 +29,21 @@ func (bctx BuildCtx) BuildStmt(s Statement) Expr {
 		panicf("unknown macro: %q", m)
 	}
 
-	return fn(bctx, bctx.buildExpr(s.Arg))
+	return fn(bctx, s.Arg)
 }
 
 // may return nil if e is a Statement which has no return
 func (bctx BuildCtx) buildExpr(e Expr) Expr {
+	return bctx.buildExprTill(e, func(Expr) bool { return false })
+}
+
+// like buildExpr, but will stop short and stop recursing when the function
+// returns true
+func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
+	if fn(e) {
+		return e
+	}
+
 	switch ea := e.(type) {
 	case llvmVal:
 		return e
@@ -43,12 +53,12 @@ func (bctx BuildCtx) buildExpr(e Expr) Expr {
 		if v, ok := bctx.C.GetIdentifier(ea); ok {
 			return llvmVal(v)
 		}
-		return ea
+		panicf("identifier %q not found", ea)
 	case Statement:
 		return bctx.BuildStmt(ea)
 	case Tuple:
 		for i := range ea {
-			ea[i] = bctx.buildExpr(ea[i])
+			ea[i] = bctx.buildExprTill(ea[i], fn)
 		}
 		return ea
 	default:
@@ -66,15 +76,15 @@ func (bctx BuildCtx) buildVal(e Expr) llvm.Value {
 var globalCtx = &Ctx{
 	macros: map[Macro]MacroFn{
 		"add": func(bctx BuildCtx, e Expr) Expr {
-			tup := e.(Tuple)
+			tup := bctx.buildExpr(e).(Tuple)
 			a := bctx.buildVal(tup[0])
 			b := bctx.buildVal(tup[1])
 			return llvmVal(bctx.B.CreateAdd(a, b, ""))
 		},
 
 		"bind": func(bctx BuildCtx, e Expr) Expr {
-			tup := e.(Tuple)
-			id := bctx.buildExpr(tup[0]).(Identifier)
+			tup := bctx.buildExprTill(e, isIdentifier).(Tuple)
+			id := bctx.buildExprTill(tup[0], isIdentifier).(Identifier)
 			bctx.C.idents[id] = bctx.buildVal(tup[1])
 			return nil
 		},
