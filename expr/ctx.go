@@ -2,7 +2,7 @@ package expr
 
 // MacroFn is a compiler function which takes in an existing Expr and returns
 // the llvm Value for it
-type MacroFn func(BuildCtx, Expr) Expr
+type MacroFn func(BuildCtx, Ctx, Expr) Expr
 
 // Ctx contains all the Macros and Identifiers available. A Ctx also keeps a
 // reference to the global context, which has a number of macros available for
@@ -45,7 +45,8 @@ func (c Ctx) Identifier(i Identifier) Expr {
 	panic("go is dumb")
 }
 
-func (c Ctx) cp() Ctx {
+// Copy returns a deep copy of the Ctx
+func (c Ctx) Copy() Ctx {
 	cc := Ctx{
 		global: c.global,
 		macros: make(map[Macro]MacroFn, len(c.macros)),
@@ -63,11 +64,9 @@ func (c Ctx) cp() Ctx {
 // Bind returns a new Ctx which is a copy of this one, but with the given
 // Identifier bound to the given Expr. Will panic if the Identifier is already
 // bound
-func (c Ctx) Bind(i Identifier, e Expr) Ctx {
+func (c Ctx) Bind(i Identifier, e Expr) {
 	if _, ok := c.idents[i]; ok {
 		panicf("identifier %q is already bound", i)
 	}
-	c = c.cp()
 	c.idents[i] = e
-	return c
 }

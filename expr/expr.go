@@ -167,14 +167,16 @@ type Statement struct {
 }
 
 // NewStatement returns a Statement whose Op is the first Expr. If the given
-// list is empty Arg will be nil, if its length is one Arg will be that single
-// Expr, otherwise Arg will be a Tuple of the list
+// list is empty Arg will be 0-tuple, if its length is one Arg will be that
+// single Expr, otherwise Arg will be a Tuple of the list
 func NewStatement(e Expr, ee ...Expr) Statement {
 	s := Statement{Op: e}
 	if len(ee) > 1 {
 		s.Arg = NewTuple(ee...)
 	} else if len(ee) == 1 {
 		s.Arg = ee[0]
+	} else if len(ee) == 0 {
+		s.Arg = NewTuple()
 	}
 	return s
 }
@@ -188,51 +190,7 @@ func (s Statement) equal(e equaler) bool {
 	return ok && exprEqual(s.Op, ss.Op) && exprEqual(s.Arg, ss.Arg)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-// Block represents a set of statements which share a scope, i.e. If one
-// statement binds a variable the rest of the statements in the block can use
-// that variable
-type Block struct {
-	In    []Expr
-	Stmts []Expr
-	Out   []Expr
-}
-
-func (b Block) String() string {
-	return fmt.Sprintf(
-		"{[%s][%s][%s]}",
-		exprsJoin(b.In),
-		exprsJoin(b.Stmts),
-		exprsJoin(b.Out),
-	)
-}
-
-/*
-func (b Block) LLVMVal(ctx *Ctx, lctx LLVMCtx) llvm.Value {
-	name := randStr() // TODO make this based on token
-	// TODO make these based on actual statements
-	out := llvm.Int64Type()
-	in := []llvm.Type{}
-	fn := llvm.AddFunction(lctx.M, name, llvm.FunctionType(out, in, false))
-	block := llvm.AddBasicBlock(fn, "entry")
-	lctx.B.SetInsertPoint(block, block.FirstInstruction())
-
-	var v llvm.Value
-	for _, se := range b {
-		v = se.Actual.LLVMVal(ctx, lctx)
-	}
-	// last v is used as return
-	// TODO empty return
-	lctx.B.CreateRet(v)
-	return fn
-}
-*/
-
-func (b Block) equal(e equaler) bool {
-	bb, ok := e.(Block)
-	return ok &&
-		exprsEqual(b.In, bb.In) &&
-		exprsEqual(b.Stmts, bb.Stmts) &&
-		exprsEqual(b.Out, bb.Out)
+func isStmt(e Expr) bool {
+	_, ok := e.(Statement)
+	return ok
 }

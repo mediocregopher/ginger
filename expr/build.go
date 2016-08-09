@@ -1,18 +1,24 @@
 package expr
 
-import "llvm.org/llvm/bindings/go/llvm"
+import (
+	"fmt"
+
+	"llvm.org/llvm/bindings/go/llvm"
+)
 
 type BuildCtx struct {
-	C *Ctx
 	B llvm.Builder
 	M llvm.Module
 }
 
-func (bctx BuildCtx) Build(stmts ...Statement) llvm.Value {
+func (bctx BuildCtx) Build(ctx Ctx, stmts ...Statement) llvm.Value {
 	var lastVal llvm.Value
 	for _, stmt := range stmts {
-		if e := bctx.BuildStmt(stmt); e != nil {
-			lastVal = bctx.buildVal(e)
+		fmt.Println(stmt)
+		if e := bctx.BuildStmt(ctx, stmt); e != nil {
+			if lv, ok := e.(llvmVal); ok {
+				lastVal = llvm.Value(lv)
+			}
 		}
 	}
 	if (lastVal == llvm.Value{}) {
@@ -21,19 +27,19 @@ func (bctx BuildCtx) Build(stmts ...Statement) llvm.Value {
 	return lastVal
 }
 
-func (bctx BuildCtx) BuildStmt(s Statement) Expr {
+func (bctx BuildCtx) BuildStmt(ctx Ctx, s Statement) Expr {
 	m := s.Op.(Macro)
-	return bctx.C.Macro(m)(bctx, s.Arg)
+	return ctx.Macro(m)(bctx, ctx, s.Arg)
 }
 
 // may return nil if e is a Statement which has no return
-func (bctx BuildCtx) buildExpr(e Expr) Expr {
-	return bctx.buildExprTill(e, func(Expr) bool { return false })
+func (bctx BuildCtx) buildExpr(ctx Ctx, e Expr) Expr {
+	return bctx.buildExprTill(ctx, e, func(Expr) bool { return false })
 }
 
 // like buildExpr, but will stop short and stop recursing when the function
 // returns true
-func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
+func (bctx BuildCtx) buildExprTill(ctx Ctx, e Expr, fn func(e Expr) bool) Expr {
 	if fn(e) {
 		return e
 	}
@@ -44,45 +50,86 @@ func (bctx BuildCtx) buildExprTill(e Expr, fn func(e Expr) bool) Expr {
 	case Int:
 		return llvmVal(llvm.ConstInt(llvm.Int64Type(), uint64(ea), false))
 	case Identifier:
-		return bctx.C.Identifier(ea)
+		return ctx.Identifier(ea)
 	case Statement:
-		return bctx.BuildStmt(ea)
+		return bctx.BuildStmt(ctx, ea)
 	case Tuple:
 		for i := range ea {
-			ea[i] = bctx.buildExprTill(ea[i], fn)
+			ea[i] = bctx.buildExprTill(ctx, ea[i], fn)
 		}
 		return ea
 	case List:
 		for i := range ea {
-			ea[i] = bctx.buildExprTill(ea[i], fn)
+			ea[i] = bctx.buildExprTill(ctx, ea[i], fn)
 		}
 		return ea
+	case Ctx:
+		return ea
 	default:
-		panicf("type %T can't express a value", ea)
+		panicf("%v (type %T) can't express a value", ea, ea)
 	}
 	panic("go is dumb")
 }
 
-func (bctx BuildCtx) buildVal(e Expr) llvm.Value {
-	return llvm.Value(bctx.buildExpr(e).(llvmVal))
+func (bctx BuildCtx) buildVal(ctx Ctx, e Expr) llvm.Value {
+	return llvm.Value(bctx.buildExpr(ctx, e).(llvmVal))
 }
 
 // globalCtx describes what's available to *all* contexts, and is what all
-// contexts should have as the root parent in the tree
-var globalCtx = &Ctx{
-	macros: map[Macro]MacroFn{
-		"add": func(bctx BuildCtx, e Expr) Expr {
-			tup := bctx.buildExpr(e).(Tuple)
-			a := bctx.buildVal(tup[0])
-			b := bctx.buildVal(tup[1])
-			return llvmVal(bctx.B.CreateAdd(a, b, ""))
-		},
+// contexts should have as the root parent in the tree.
+//
+// We define in this weird way cause NewCtx actually references globalCtx
+var globalCtx *Ctx
+var _ = func() bool {
+	globalCtx = &Ctx{
+		macros: map[Macro]MacroFn{
+			"add": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				tup := bctx.buildExpr(ctx, e).(Tuple)
+				a := bctx.buildVal(ctx, tup[0])
+				b := bctx.buildVal(ctx, tup[1])
+				return llvmVal(bctx.B.CreateAdd(a, b, ""))
+			},
 
-		"bind": func(bctx BuildCtx, e Expr) Expr {
-			tup := bctx.buildExprTill(e, isIdentifier).(Tuple)
-			id := bctx.buildExprTill(tup[0], isIdentifier).(Identifier)
-			*bctx.C = bctx.C.Bind(id, bctx.buildExpr(tup[1]))
-			return nil
+			// TODO this chould be a user macro!!!! WUT this language is baller
+			"bind": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				tup := bctx.buildExprTill(ctx, e, isIdentifier).(Tuple)
+				id := bctx.buildExprTill(ctx, tup[0], isIdentifier).(Identifier)
+				ctx.Bind(id, bctx.buildExpr(ctx, tup[1]))
+				return NewTuple()
+			},
+
+			"ctxnew": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				return NewCtx()
+			},
+
+			"ctxthis": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				return ctx
+			},
+
+			"ctxbind": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				tup := bctx.buildExprTill(ctx, e, isIdentifier).(Tuple)
+				thisCtx := bctx.buildExpr(ctx, tup[0]).(Ctx)
+				id := bctx.buildExprTill(ctx, tup[1], isIdentifier).(Identifier)
+				thisCtx.Bind(id, bctx.buildExpr(ctx, tup[2]))
+				return NewTuple()
+			},
+
+			"ctxget": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				tup := bctx.buildExprTill(ctx, e, isIdentifier).(Tuple)
+				thisCtx := bctx.buildExpr(ctx, tup[0]).(Ctx)
+				id := bctx.buildExprTill(ctx, tup[1], isIdentifier).(Identifier)
+				return thisCtx.Identifier(id)
+			},
+
+			"do": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				tup := bctx.buildExprTill(ctx, e, isStmt).(Tuple)
+				thisCtx := tup[0].(Ctx)
+				for _, stmtE := range tup[1].(List) {
+					bctx.BuildStmt(thisCtx, stmtE.(Statement))
+				}
+				return NewTuple()
+			},
 		},
-	},
-}
+	}
+	return false
+}()

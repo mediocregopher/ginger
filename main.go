@@ -24,7 +24,6 @@ func main() {
 	// setup our context, builder, and module
 	ctx := expr.NewCtx()
 	bctx := expr.BuildCtx{
-		C: &ctx,
 		B: llvm.NewBuilder(),
 		M: llvm.NewModule("my_module"),
 	}
@@ -32,28 +31,58 @@ func main() {
 	// do the work in the function
 	add := expr.Macro("add")
 	bind := expr.Macro("bind")
+	do := expr.Macro("do")
+	ctxnew := expr.Macro("ctxnew")
+	ctxbind := expr.Macro("ctxbind")
+	ctxget := expr.Macro("ctxget")
+
+	ctx1 := expr.Identifier("ctx1")
+	ctx2 := expr.Identifier("ctx2")
 	idA := expr.Identifier("A")
 	idB := expr.Identifier("B")
-	idC := expr.Identifier("C")
-	stmts := []expr.Statement{
-		expr.NewStatement(bind, idA, expr.NewStatement(add, expr.Int(1), expr.Int(2))),
-		expr.NewStatement(bind, idB, expr.Int(3)),
-		expr.NewStatement(bind, idC, expr.NewTuple(idA, idB)),
-		expr.NewStatement(add, expr.NewStatement(add, idC), expr.NewStatement(add, idC)),
-	}
 
-	//block := expr.Block([]expr.Expr{stmt})
-	//fn := block.LLVMVal(expr.RootCtx, lctx)
+	//myAdd := expr.Identifier("myAdd")
+	out := expr.Identifier("out")
+	// TODO we couldn't actually use this either, because the builder was
+	// changing out the internal values of the List the first time it was hit,
+	// and then just using those the second time around
+	//myAddStmts := expr.NewList(
+	//	expr.NewStatement(bind, out, expr.NewStatement(add, idA, idB)),
+	//)
+
+	stmts := []expr.Statement{
+		// TODO revisit how bind and related macros (maybe all macros?) deal
+		// with arguments and their evaluation (keeping an identifier vs
+		// eval-ing it)
+		//expr.NewStatement(bind, myAdd, myAddStmts),
+
+		expr.NewStatement(bind, ctx1, expr.NewStatement(ctxnew)),
+		expr.NewStatement(ctxbind, ctx1, idA, expr.Int(1)),
+		expr.NewStatement(ctxbind, ctx1, idB, expr.Int(2)),
+		expr.NewStatement(do, ctx1, expr.NewList(
+			expr.NewStatement(bind, out, expr.NewStatement(add, idA, idB)),
+		)),
+
+		expr.NewStatement(bind, ctx2, expr.NewStatement(ctxnew)),
+		expr.NewStatement(ctxbind, ctx2, idA, expr.Int(3)),
+		expr.NewStatement(ctxbind, ctx2, idB, expr.Int(4)),
+		expr.NewStatement(do, ctx2, expr.NewList(
+			expr.NewStatement(bind, out, expr.NewStatement(add, idA, idB)),
+		)),
+
+		expr.NewStatement(
+			add,
+			expr.NewStatement(ctxget, ctx1, out),
+			expr.NewStatement(ctxget, ctx2, out),
+		),
+	}
 
 	// create main and call our function
 	mainFn := llvm.AddFunction(bctx.M, "main", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
 	mainBlock := llvm.AddBasicBlock(mainFn, "entry")
 	bctx.B.SetInsertPoint(mainBlock, mainBlock.FirstInstruction())
-	v := bctx.Build(stmts...)
+	v := bctx.Build(ctx, stmts...)
 	bctx.B.CreateRet(v)
-
-	//ret := lctx.B.CreateCall(fn, []llvm.Value{}, "")
-	//lctx.B.CreateRet(ret)
 
 	// verify it's all good
 	if err := llvm.VerifyModule(bctx.M, llvm.ReturnStatusAction); err != nil {
