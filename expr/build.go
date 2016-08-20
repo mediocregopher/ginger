@@ -35,9 +35,14 @@ func (bctx BuildCtx) BuildStmt(ctx Ctx, s Statement) Expr {
 	case Macro:
 		return ctx.Macro(o)(bctx, ctx, s.Arg)
 	case Identifier:
-		fn := ctx.Identifier(o).(llvmVal)
+		s.Op = ctx.Identifier(o).(llvmVal)
+		return bctx.BuildStmt(ctx, s)
+	case Statement:
+		s.Op = bctx.BuildStmt(ctx, o)
+		return bctx.BuildStmt(ctx, s)
+	case llvmVal:
 		arg := bctx.buildExpr(ctx, s.Arg).(llvmVal)
-		out := bctx.B.CreateCall(llvm.Value(fn), []llvm.Value{llvm.Value(arg)}, "")
+		out := bctx.B.CreateCall(llvm.Value(o), []llvm.Value{llvm.Value(arg)}, "")
 		return llvmVal(out)
 	default:
 		panic(fmt.Sprintf("non op type %v (%T)", s.Op, s.Op))

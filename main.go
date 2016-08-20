@@ -32,22 +32,20 @@ func main() {
 
 	log.Printf("making program")
 	add := expr.Macro("add")
-	bind := expr.Macro("bind")
+	//bind := expr.Macro("bind")
 	op := expr.Macro("op")
 	in := expr.Macro("in")
-	incr := expr.Identifier("incr")
-	stmts := []expr.Statement{
-		expr.NewStatement(bind, incr,
-			expr.NewStatement(op,
-				expr.NewList(
-					expr.NewStatement(add, expr.NewTuple(
-						expr.Int(1),
-						expr.NewStatement(in, expr.NewTuple()),
-					)),
-				),
-			),
-		),
 
+	incr := expr.NewStatement(op,
+		expr.NewList(
+			expr.NewStatement(add, expr.NewTuple(
+				expr.Int(1),
+				expr.NewStatement(in, expr.NewTuple()),
+			)),
+		),
+	)
+
+	stmts := []expr.Statement{
 		expr.NewStatement(
 			incr,
 			expr.Int(5),
