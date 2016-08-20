@@ -72,7 +72,7 @@ func (i Int) equal(e equaler) bool {
 }
 
 func (i Int) String() string {
-	return fmt.Sprint(int64(i))
+	return fmt.Sprintf("%d", i)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

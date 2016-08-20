@@ -48,13 +48,13 @@ func main() {
 	stmts := []expr.Statement{
 		expr.NewStatement(
 			incr,
-			expr.Int(5),
+			expr.NewStatement(incr, expr.Int(4)),
 		),
 	}
 
 	log.Printf("creating main function")
 	mainFn := llvm.AddFunction(bctx.M, "main", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
-	mainBlock := llvm.AddBasicBlock(mainFn, "entry")
+	mainBlock := llvm.AddBasicBlock(mainFn, "")
 	bctx.B.SetInsertPoint(mainBlock, mainBlock.FirstInstruction())
 	log.Printf("actually processing program")
 	out := bctx.Build(ctx, stmts...)

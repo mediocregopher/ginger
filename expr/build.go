@@ -35,11 +35,13 @@ func (bctx BuildCtx) BuildStmt(ctx Ctx, s Statement) Expr {
 	case Macro:
 		return ctx.Macro(o)(bctx, ctx, s.Arg)
 	case Identifier:
-		s.Op = ctx.Identifier(o).(llvmVal)
-		return bctx.BuildStmt(ctx, s)
+		s2 := s
+		s2.Op = ctx.Identifier(o).(llvmVal)
+		return bctx.BuildStmt(ctx, s2)
 	case Statement:
-		s.Op = bctx.BuildStmt(ctx, o)
-		return bctx.BuildStmt(ctx, s)
+		s2 := s
+		s2.Op = bctx.BuildStmt(ctx, o)
+		return bctx.BuildStmt(ctx, s2)
 	case llvmVal:
 		arg := bctx.buildExpr(ctx, s.Arg).(llvmVal)
 		out := bctx.B.CreateCall(llvm.Value(o), []llvm.Value{llvm.Value(arg)}, "")
@@ -71,15 +73,17 @@ func (bctx BuildCtx) buildExprTill(ctx Ctx, e Expr, fn func(e Expr) bool) Expr {
 	case Statement:
 		return bctx.BuildStmt(ctx, ea)
 	case Tuple:
+		ea2 := make(Tuple, len(ea))
 		for i := range ea {
-			ea[i] = bctx.buildExprTill(ctx, ea[i], fn)
+			ea2[i] = bctx.buildExprTill(ctx, ea[i], fn)
 		}
-		return ea
+		return ea2
 	case List:
+		ea2 := make(Tuple, len(ea))
 		for i := range ea {
-			ea[i] = bctx.buildExprTill(ctx, ea[i], fn)
+			ea2[i] = bctx.buildExprTill(ctx, ea[i], fn)
 		}
-		return ea
+		return ea2
 	case Ctx:
 		return ea
 	default:
@@ -157,7 +161,7 @@ var _ = func() bool {
 
 				// TODO obviously this needs to be fixed
 				fn := llvm.AddFunction(bctx.M, "", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{llvm.Int64Type()}, false))
-				fnbl := llvm.AddBasicBlock(fn, "entry")
+				fnbl := llvm.AddBasicBlock(fn, "")
 
 				prevbl := bctx.B.GetInsertBlock()
 				bctx.B.SetInsertPoint(fnbl, fnbl.FirstInstruction())
