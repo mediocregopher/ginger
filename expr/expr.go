@@ -71,6 +71,10 @@ func (i Int) equal(e equaler) bool {
 	return ok && ii == i
 }
 
+func (i Int) String() string {
+	return fmt.Sprint(int64(i))
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /*
 // String represents a string value
@@ -155,6 +159,11 @@ func (l List) String() string {
 func (l List) equal(e equaler) bool {
 	ll, ok := e.(List)
 	return ok && exprsEqual(l, ll)
+}
+
+func isList(e Expr) bool {
+	_, ok := e.(List)
+	return ok
 }
 
 ////////////////////////////////////////////////////////////////////////////////

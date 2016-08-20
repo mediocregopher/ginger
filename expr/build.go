@@ -2,6 +2,7 @@ package expr
 
 import (
 	"fmt"
+	"log"
 
 	"llvm.org/llvm/bindings/go/llvm"
 )
@@ -14,10 +15,11 @@ type BuildCtx struct {
 func (bctx BuildCtx) Build(ctx Ctx, stmts ...Statement) llvm.Value {
 	var lastVal llvm.Value
 	for _, stmt := range stmts {
-		fmt.Println(stmt)
 		if e := bctx.BuildStmt(ctx, stmt); e != nil {
 			if lv, ok := e.(llvmVal); ok {
 				lastVal = llvm.Value(lv)
+			} else {
+				log.Printf("BuildStmt returned non llvmVal from %v: %v (%T)", stmt, e, e)
 			}
 		}
 	}
@@ -28,8 +30,18 @@ func (bctx BuildCtx) Build(ctx Ctx, stmts ...Statement) llvm.Value {
 }
 
 func (bctx BuildCtx) BuildStmt(ctx Ctx, s Statement) Expr {
-	m := s.Op.(Macro)
-	return ctx.Macro(m)(bctx, ctx, s.Arg)
+	log.Printf("building: %v", s)
+	switch o := s.Op.(type) {
+	case Macro:
+		return ctx.Macro(o)(bctx, ctx, s.Arg)
+	case Identifier:
+		fn := ctx.Identifier(o).(llvmVal)
+		arg := bctx.buildExpr(ctx, s.Arg).(llvmVal)
+		out := bctx.B.CreateCall(llvm.Value(fn), []llvm.Value{llvm.Value(arg)}, "")
+		return llvmVal(out)
+	default:
+		panic(fmt.Sprintf("non op type %v (%T)", s.Op, s.Op))
+	}
 }
 
 // may return nil if e is a Statement which has no return
@@ -94,7 +106,8 @@ var _ = func() bool {
 			"bind": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
 				tup := bctx.buildExprTill(ctx, e, isIdentifier).(Tuple)
 				id := bctx.buildExprTill(ctx, tup[0], isIdentifier).(Identifier)
-				ctx.Bind(id, bctx.buildExpr(ctx, tup[1]))
+				val := bctx.buildExpr(ctx, tup[1])
+				ctx.Bind(id, val)
 				return NewTuple()
 			},
 
@@ -128,6 +141,30 @@ var _ = func() bool {
 					bctx.BuildStmt(thisCtx, stmtE.(Statement))
 				}
 				return NewTuple()
+			},
+
+			"op": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				l := bctx.buildExprTill(ctx, e, isList).(List)
+				stmts := make([]Statement, len(l))
+				for i := range l {
+					stmts[i] = l[i].(Statement)
+				}
+
+				// TODO obviously this needs to be fixed
+				fn := llvm.AddFunction(bctx.M, "", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{llvm.Int64Type()}, false))
+				fnbl := llvm.AddBasicBlock(fn, "entry")
+
+				prevbl := bctx.B.GetInsertBlock()
+				bctx.B.SetInsertPoint(fnbl, fnbl.FirstInstruction())
+				out := bctx.Build(NewCtx(), stmts...)
+				bctx.B.CreateRet(out)
+				bctx.B.SetInsertPointAtEnd(prevbl)
+				return llvmVal(fn)
+			},
+
+			"in": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
+				fn := bctx.B.GetInsertBlock().Parent()
+				return llvmVal(fn.Param(0))
 			},
 		},
 	}
