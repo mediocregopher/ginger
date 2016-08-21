@@ -18,17 +18,9 @@ func main() {
 	//	fmt.Println(e)
 	//}
 
-	log.Printf("initializing llvm")
-	llvm.LinkInMCJIT()
-	llvm.InitializeNativeTarget()
-	llvm.InitializeNativeAsmPrinter()
-
 	log.Printf("initializing build context")
 	ctx := expr.NewCtx()
-	bctx := expr.BuildCtx{
-		B: llvm.NewBuilder(),
-		M: llvm.NewModule("my_module"),
-	}
+	bctx := expr.NewBuildCtx("my_module")
 
 	log.Printf("making program")
 	add := expr.Macro("add")

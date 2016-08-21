@@ -7,9 +7,23 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
+func init() {
+	log.Printf("initializing llvm")
+	llvm.LinkInMCJIT()
+	llvm.InitializeNativeTarget()
+	llvm.InitializeNativeAsmPrinter()
+}
+
 type BuildCtx struct {
 	B llvm.Builder
 	M llvm.Module
+}
+
+func NewBuildCtx(moduleName string) BuildCtx {
+	return BuildCtx{
+		B: llvm.NewBuilder(),
+		M: llvm.NewModule(moduleName),
+	}
 }
 
 func (bctx BuildCtx) Build(ctx Ctx, stmts ...Statement) llvm.Value {
