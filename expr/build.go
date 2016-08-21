@@ -87,11 +87,35 @@ func (bctx BuildCtx) buildExprTill(ctx Ctx, e Expr, fn func(e Expr) bool) Expr {
 	case Statement:
 		return bctx.BuildStmt(ctx, ea)
 	case Tuple:
+		// if the tuple is empty then it is a void
+		if len(ea) == 0 {
+			return llvmVal(llvm.Undef(llvm.VoidType()))
+		}
+
 		ea2 := make(Tuple, len(ea))
 		for i := range ea {
 			ea2[i] = bctx.buildExprTill(ctx, ea[i], fn)
 		}
-		return ea2
+
+		// if the fields of the tuple are all llvmVal then we can make a proper
+		// struct
+		vals := make([]llvm.Value, len(ea2))
+		typs := make([]llvm.Type, len(ea2))
+		for i := range ea2 {
+			if v, ok := ea2[i].(llvmVal); ok {
+				val := llvm.Value(v)
+				vals[i] = val
+				typs[i] = val.Type()
+			} else {
+				return ea2
+			}
+		}
+
+		str := llvm.Undef(llvm.StructType(typs, false))
+		for i := range vals {
+			str = bctx.B.CreateInsertValue(str, vals[i], i, "")
+		}
+		return llvmVal(str)
 	case List:
 		ea2 := make(Tuple, len(ea))
 		for i := range ea {
@@ -119,9 +143,9 @@ var _ = func() bool {
 	globalCtx = &Ctx{
 		macros: map[Macro]MacroFn{
 			"add": func(bctx BuildCtx, ctx Ctx, e Expr) Expr {
-				tup := bctx.buildExpr(ctx, e).(Tuple)
-				a := bctx.buildVal(ctx, tup[0])
-				b := bctx.buildVal(ctx, tup[1])
+				tup := bctx.buildExpr(ctx, e).(llvmVal)
+				a := bctx.B.CreateExtractValue(llvm.Value(tup), 0, "")
+				b := bctx.B.CreateExtractValue(llvm.Value(tup), 1, "")
 				return llvmVal(bctx.B.CreateAdd(a, b, ""))
 			},
 

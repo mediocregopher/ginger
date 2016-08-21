@@ -141,6 +141,11 @@ func (tup Tuple) equal(e equaler) bool {
 	return ok && exprsEqual(tup, tuptup)
 }
 
+func isTuple(e Expr) bool {
+	_, ok := e.(Tuple)
+	return ok
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // List represents an ordered set of Exprs, all of the same type. A List's size
