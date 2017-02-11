@@ -2,13 +2,30 @@ package main
 
 import (
 	"fmt"
-	"log"
 
-	"github.com/mediocregopher/ginger/expr"
-
-	"llvm.org/llvm/bindings/go/llvm"
+	"github.com/mediocregopher/ginger/lang"
+	"github.com/mediocregopher/ginger/vm"
 )
 
+func main() {
+	t := lang.Tuple{lang.AAdd, lang.Tuple{
+		lang.Tuple{lang.AInt, lang.Const("1")},
+		lang.Tuple{lang.AInt, lang.Const("2")},
+	}}
+
+	mod, err := vm.Build(t)
+	if err != nil {
+		panic(err)
+	}
+	defer mod.Dispose()
+
+	mod.Dump()
+
+	out, err := mod.Run()
+	fmt.Printf("\n\n########\nout: %v %v\n", out, err)
+}
+
+/*
 func main() {
 	//ee, err := expr.Parse(os.Stdin)
 	//if err != nil {
@@ -73,3 +90,4 @@ func main() {
 	funcResult := engine.RunFunction(bctx.M.NamedFunction("main"), []llvm.GenericValue{})
 	fmt.Printf("\nOUTPUT:\n%d\n", funcResult.Int(false))
 }
+*/
