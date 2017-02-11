@@ -1,8 +1,8 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/mediocregopher/ginger/lang"
@@ -19,9 +19,10 @@ type Val struct {
 // or compiled. A Module should be Dispose()'d of once it's no longer being
 // used.
 type Module struct {
-	b      llvm.Builder
-	m      llvm.Module
-	mainFn llvm.Value
+	b         llvm.Builder
+	m         llvm.Module
+	mainFn    llvm.Value
+	buildCmds []buildCmd
 }
 
 var initOnce sync.Once
@@ -37,18 +38,13 @@ func Build(t lang.Term) (*Module, error) {
 		b: llvm.NewBuilder(),
 		m: llvm.NewModule(""),
 	}
+	mod.buildCmds = buildCmds(mod)
 
-	// TODO figure out types
-	mod.mainFn = llvm.AddFunction(mod.m, "", llvm.FunctionType(llvm.Int64Type(), []llvm.Type{}, false))
-	block := llvm.AddBasicBlock(mod.mainFn, "")
-	mod.b.SetInsertPoint(block, block.FirstInstruction())
-
-	out, err := mod.build(t)
-	if err != nil {
+	var err error
+	if mod.mainFn, err = mod.buildFn(t); err != nil {
 		mod.Dispose()
 		return nil, err
 	}
-	mod.b.CreateRet(out.v)
 
 	if err := llvm.VerifyModule(mod.m, llvm.ReturnStatusAction); err != nil {
 		mod.Dispose()
@@ -65,73 +61,73 @@ func (mod *Module) Dispose() {
 	//mod.b.Dispose()
 }
 
-func (mod *Module) build(t lang.Term) (Val, error) {
-	aPat := func(a lang.Atom) lang.Tuple {
-		return lang.Tuple{lang.AAtom, a}
+func (mod *Module) matchingBuildCmd(t lang.Term) (buildCmd, error) {
+	for _, cmd := range mod.buildCmds {
+		if !cmd.matches(t) {
+			continue
+		}
+		return cmd, nil
 	}
-	cPat := func(t lang.Term) lang.Tuple {
-		return lang.Tuple{lang.AConst, t}
+	return buildCmd{}, fmt.Errorf("unknown compiler command %v", t)
+}
+
+func (mod *Module) inType(t lang.Term) (llvm.Type, error) {
+	cmd, err := mod.matchingBuildCmd(t)
+	if err != nil {
+		return llvm.Type{}, err
 	}
-	tPat := func(el ...lang.Term) lang.Tuple {
-		return lang.Tuple{lang.ATuple, lang.Tuple(el)}
+	return cmd.inType(t.(lang.Tuple)[1])
+}
+
+func (mod *Module) outType(t lang.Term) (llvm.Type, error) {
+	cmd, err := mod.matchingBuildCmd(t)
+	if err != nil {
+		return llvm.Type{}, err
 	}
-	match := func(a lang.Atom, b lang.Tuple) bool {
-		return lang.Match(tPat(aPat(a), b), t)
+	return cmd.outType(t.(lang.Tuple)[1])
+}
+
+func (mod *Module) build(t lang.Term) (llvm.Value, error) {
+	cmd, err := mod.matchingBuildCmd(t)
+	if err != nil {
+		return llvm.Value{}, err
+	}
+	return cmd.build(t.(lang.Tuple)[1])
+}
+
+func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
+	if len(tt) == 0 {
+		return llvm.Value{}, errors.New("function cannot be empty")
 	}
 
-	switch {
-	// (int 42)
-	case match(lang.AInt, cPat(lang.AUnder)):
-		con := t.(lang.Tuple)[1].(lang.Const)
-		coni, err := strconv.ParseInt(string(con), 10, 64)
-		if err != nil {
-			return Val{}, err
-		}
-		return Val{
-			// TODO why does this have to be cast?
-			v: llvm.ConstInt(llvm.Int64Type(), uint64(coni), false),
-		}, nil
-
-	// (tup ((atom foo) (const 10)))
-	case match(lang.ATuple, lang.Tuple{lang.ATuple, lang.AUnder}):
-		tup := t.(lang.Tuple)[1].(lang.Tuple)
-		// if the tuple is empty then it is a void
-		if len(tup) == 0 {
-			return Val{v: llvm.Undef(llvm.VoidType())}, nil
-		}
-
-		var err error
-		vals := make([]Val, len(tup))
-		typs := make([]llvm.Type, len(tup))
-		for i := range tup {
-			if vals[i], err = mod.build(tup[i]); err != nil {
-				return Val{}, err
-			}
-			typs[i] = vals[i].v.Type()
-		}
-
-		str := llvm.Undef(llvm.StructType(typs, false))
-		for i := range vals {
-			str = mod.b.CreateInsertValue(str, vals[i].v, i, "")
-		}
-		return Val{v: str}, nil
-
-	// (add ((const 5) (var foo)))
-	case match(lang.AAdd, tPat(lang.TDblUnder, lang.TDblUnder)):
-		tup := t.(lang.Tuple)[1].(lang.Tuple)
-		v1, err := mod.build(tup[0])
-		if err != nil {
-			return Val{}, err
-		}
-		v2, err := mod.build(tup[1])
-		if err != nil {
-			return Val{}, err
-		}
-		return Val{v: mod.b.CreateAdd(v1.v, v2.v, "")}, nil
-
-	default:
-		return Val{}, fmt.Errorf("unknown compiler command %v", t)
+	inType, err := mod.inType(tt[0])
+	if err != nil {
+		return llvm.Value{}, err
 	}
+	var inTypes []llvm.Type
+	if inType.TypeKind() == llvm.VoidTypeKind {
+		inTypes = []llvm.Type{}
+	} else {
+		inTypes = []llvm.Type{inType}
+	}
+
+	outType, err := mod.outType(tt[len(tt)-1])
+	if err != nil {
+		return llvm.Value{}, err
+	}
+
+	fn := llvm.AddFunction(mod.m, "", llvm.FunctionType(outType, inTypes, false))
+	block := llvm.AddBasicBlock(fn, "")
+	mod.b.SetInsertPoint(block, block.FirstInstruction())
+
+	var out llvm.Value
+	for _, t := range tt {
+		if out, err = mod.build(t); err != nil {
+			return llvm.Value{}, err
+		}
+	}
+	mod.b.CreateRet(out)
+	return fn, nil
 }
 
 // Dump dumps the Module's IR to stdout
