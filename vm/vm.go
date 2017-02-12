@@ -10,9 +10,9 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
-// Val holds onto a value which has been created within the VM
-type Val struct {
-	v llvm.Value
+type val struct {
+	typ lang.Term
+	v   llvm.Value
 }
 
 // Module contains a compiled set of code which can be run, dumped in IR form,
@@ -87,14 +87,15 @@ func (mod *Module) outType(t lang.Term) (llvm.Type, error) {
 	return cmd.outType(t.(lang.Tuple)[1])
 }
 
-func (mod *Module) build(t lang.Term) (llvm.Value, error) {
+func (mod *Module) build(t lang.Term) (val, error) {
 	cmd, err := mod.matchingBuildCmd(t)
 	if err != nil {
-		return llvm.Value{}, err
+		return val{}, err
 	}
 	return cmd.build(t.(lang.Tuple)[1])
 }
 
+// TODO make this return a val once we get function types
 func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
 	if len(tt) == 0 {
 		return llvm.Value{}, errors.New("function cannot be empty")
@@ -120,13 +121,13 @@ func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
 	block := llvm.AddBasicBlock(fn, "")
 	mod.b.SetInsertPoint(block, block.FirstInstruction())
 
-	var out llvm.Value
+	var out val
 	for _, t := range tt {
 		if out, err = mod.build(t); err != nil {
 			return llvm.Value{}, err
 		}
 	}
-	mod.b.CreateRet(out)
+	mod.b.CreateRet(out.v)
 	return fn, nil
 }
 
