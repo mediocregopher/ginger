@@ -13,6 +13,5 @@ var (
 	TDblUnder = Tuple{AUnder, AUnder}
 
 	// VM commands
-	AInt = Atom("int")
 	AAdd = Atom("add")
 )

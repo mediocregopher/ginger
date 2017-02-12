@@ -44,14 +44,14 @@ func buildCmds(mod *Module) []buildCmd {
 		return lang.Tuple{lang.AConst, t}
 	}
 	tPat := func(el ...lang.Term) lang.Tuple {
-		return lang.Tuple{lang.ATuple, lang.Tuple(el)}
+		return lang.Tuple{Tuple, lang.Tuple(el)}
 	}
 	buildPat := func(a lang.Atom, b lang.Tuple) lang.Tuple {
 		return tPat(aPat(a), b)
 	}
 	return []buildCmd{
 		{ // (int 42)
-			pattern: buildPat(lang.AInt, cPat(lang.AUnder)),
+			pattern: buildPat(Int, cPat(lang.AUnder)),
 			outTypeFn: func(t lang.Term) (llvm.Type, error) {
 				return llvm.Int64Type(), nil
 			},
@@ -64,13 +64,13 @@ func buildCmds(mod *Module) []buildCmd {
 				return val{
 					// TODO why does this have to be cast?
 					v:   llvm.ConstInt(llvm.Int64Type(), uint64(coni), false),
-					typ: lang.AInt,
+					typ: Int,
 				}, nil
 			},
 		},
 
 		{ // (tup ((atom foo) (const 10)))
-			pattern: buildPat(lang.ATuple, lang.Tuple{lang.ATuple, lang.AUnder}),
+			pattern: buildPat(Tuple, lang.Tuple{Tuple, lang.AUnder}),
 			outTypeFn: func(t lang.Term) (llvm.Type, error) {
 				tup := t.(lang.Tuple)
 				if len(tup) == 0 {
@@ -91,7 +91,7 @@ func buildCmds(mod *Module) []buildCmd {
 				if len(tup) == 0 {
 					return val{
 						v:   llvm.Undef(llvm.VoidType()),
-						typ: lang.Tuple{lang.ATuple, lang.Tuple{}},
+						typ: lang.Tuple{Tuple, lang.Tuple{}},
 					}, nil
 				}
 
@@ -113,7 +113,7 @@ func buildCmds(mod *Module) []buildCmd {
 				}
 				return val{
 					v:   str,
-					typ: lang.Tuple{lang.ATuple, lang.Tuple(ttyps)},
+					typ: lang.Tuple{Tuple, lang.Tuple(ttyps)},
 				}, nil
 			},
 		},

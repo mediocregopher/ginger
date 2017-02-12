@@ -9,8 +9,8 @@ import (
 
 func main() {
 	t := lang.Tuple{lang.AAdd, lang.Tuple{
-		lang.Tuple{lang.AInt, lang.Const("1")},
-		lang.Tuple{lang.AInt, lang.Const("2")},
+		lang.Tuple{vm.Int, lang.Const("1")},
+		lang.Tuple{vm.Int, lang.Const("2")},
 	}}
 
 	mod, err := vm.Build(t)
