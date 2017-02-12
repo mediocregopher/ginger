@@ -8,10 +8,15 @@ import (
 )
 
 func main() {
-	t := lang.Tuple{vm.Add, lang.Tuple{vm.Tuple, lang.Tuple{
-		lang.Tuple{vm.Int, lang.Const("1")},
-		lang.Tuple{vm.Int, lang.Const("2")},
-	}}}
+	mkcmd := func(a lang.Atom, args ...lang.Term) lang.Tuple {
+		return lang.Tuple{a, lang.Tuple{vm.Tuple, lang.Tuple(args)}}
+	}
+	mkint := func(i string) lang.Tuple {
+		return lang.Tuple{vm.Int, lang.Const(i)}
+	}
+
+	t := mkcmd(vm.Add, mkint("1"),
+		mkcmd(vm.Add, mkint("2"), mkint("3")))
 
 	mod, err := vm.Build(t)
 	if err != nil {

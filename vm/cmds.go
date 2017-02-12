@@ -20,6 +20,10 @@ type valType struct {
 	llvm llvm.Type
 }
 
+func (vt valType) isInt() bool {
+	return lang.Equal(Int, vt.term)
+}
+
 // most types don't have an input, so we use this as a shortcut
 type voidIn struct{}
 
@@ -92,7 +96,7 @@ func (tc tupCmd) build(mod *Module) (llvm.Value, error) {
 
 type addCmd struct {
 	voidIn
-	a, b intCmd
+	a, b cmd
 }
 
 func (ac addCmd) outType() valType {
@@ -166,14 +170,10 @@ func matchCmd(t lang.Term) (cmd, error) {
 		els, err := vAsTup(2)
 		if err != nil {
 			return nil, err
-		} else if _, ok := els[0].(intCmd); !ok {
-			return nil, errors.New("add args must be numbers")
-		} else if _, ok := els[1].(intCmd); !ok {
-			return nil, errors.New("add args must be numbers")
-		} else if !lang.Equal(els[0].outType().term, els[1].outType().term) {
-			return nil, errors.New("add args must be the same type")
+		} else if !els[0].outType().isInt() || !els[1].outType().isInt() {
+			return nil, errors.New("add args must be numbers of the same type")
 		}
-		return addCmd{a: els[0].(intCmd), b: els[1].(intCmd)}, nil
+		return addCmd{a: els[0], b: els[1]}, nil
 	default:
 		return nil, fmt.Errorf("cmd %v unknown, or its args are malformed", t)
 	}
