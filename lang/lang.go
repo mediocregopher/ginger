@@ -6,6 +6,19 @@ import (
 	"strings"
 )
 
+// Commonly used Terms
+var (
+	// Language structure types
+	AAtom  = Atom("atom")
+	AConst = Atom("const")
+	ATuple = Atom("tup")
+	AList  = Atom("list")
+
+	// Match shortcuts
+	AUnder    = Atom("_")
+	TDblUnder = Tuple{AUnder, AUnder}
+)
+
 // Term is a unit of language which carries some meaning. Some Terms are
 // actually comprised of multiple sub-Terms.
 type Term interface {
@@ -33,7 +46,7 @@ func (a Atom) String() string {
 
 // Type implements the method for Term
 func (a Atom) Type() Term {
-	return Atom("atom")
+	return AAtom
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +60,7 @@ func (a Const) String() string {
 
 // Type implements the method for Term
 func (a Const) Type() Term {
-	return Const("const")
+	return AConst
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +84,7 @@ func (t Tuple) Type() Term {
 	for i := range t {
 		tt[i] = t[i].Type()
 	}
-	return Tuple{Atom("tup"), tt}
+	return Tuple{ATuple, tt}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,5 +114,5 @@ func (l list) String() string {
 
 // Type implements the method for Term
 func (l list) Type() Term {
-	return Tuple{Atom("list"), l.typ}
+	return Tuple{AList, l.typ}
 }
