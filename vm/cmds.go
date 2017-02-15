@@ -30,7 +30,8 @@ func (vt valType) eq(vt2 valType) bool {
 
 // primitive valTypes
 var (
-	valTypeInt = valType{term: Int, llvm: llvm.Int64Type()}
+	valTypeVoid = valType{term: lang.Tuple{}, llvm: llvm.VoidType()}
+	valTypeInt  = valType{term: Int, llvm: llvm.Int64Type()}
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -39,10 +40,7 @@ var (
 type voidIn struct{}
 
 func (voidIn) inType() valType {
-	return valType{
-		term: lang.Tuple{},
-		llvm: llvm.VoidType(),
-	}
+	return valTypeVoid
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -94,8 +92,9 @@ func (to tupOp) build(mod *Module) (llvm.Value, error) {
 	var err error
 	for i := range to.els {
 		if val, err = to.els[i].build(mod); err != nil {
-			str = mod.b.CreateInsertValue(str, val, i, "")
+			return llvm.Value{}, err
 		}
+		str = mod.b.CreateInsertValue(str, val, i, "")
 	}
 	return str, err
 }
@@ -130,6 +129,48 @@ func (teo tupElOp) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type assignOp struct {
+	name string
+	op
+}
+
+func (ao assignOp) build(mod *Module) (llvm.Value, error) {
+	v, err := ao.op.build(mod)
+	if err != nil {
+		return llvm.Value{}, err
+	}
+	mod.ctx[ao.name] = builtOp{op: ao.op, v: v}
+	return v, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type builtOp struct {
+	op
+	v llvm.Value
+}
+
+func (bo builtOp) build(*Module) (llvm.Value, error) {
+	return bo.v, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type varOp struct {
+	op
+	name string
+}
+
+func (vo varOp) build(mod *Module) (llvm.Value, error) {
+	o, err := mod.ctx.get(vo.name)
+	if err != nil {
+		return llvm.Value{}, err
+	}
+	return o.build(mod)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 type addOp struct {
 	voidIn
 	a, b op
@@ -153,7 +194,7 @@ func (ao addOp) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func termToOp(t lang.Term) (op, error) {
+func termToOp(ctx varCtx, t lang.Term) (op, error) {
 	aPat := func(a lang.Atom) lang.Tuple {
 		return lang.Tuple{lang.AAtom, a}
 	}
@@ -172,7 +213,7 @@ func termToOp(t lang.Term) (op, error) {
 
 	// for when v is a Tuple argument, convenience function for casting
 	vAsTup := func(n int) ([]op, error) {
-		vop, err := termToOp(v)
+		vop, err := termToOp(ctx, v)
 		if err != nil {
 			return nil, err
 		}
@@ -198,11 +239,37 @@ func termToOp(t lang.Term) (op, error) {
 		tc := tupOp{els: make([]op, len(tup))}
 		var err error
 		for i := range tup {
-			if tc.els[i], err = termToOp(tup[i]); err != nil {
+			if tc.els[i], err = termToOp(ctx, tup[i]); err != nil {
 				return nil, err
 			}
 		}
 		return tc, nil
+	case Assign:
+		if !lang.Match(tPat(aPat(lang.AUnder), lang.TDblUnder), v) {
+			return nil, errors.New("assign requires 2-tuple arg")
+		}
+		tup := v.(lang.Tuple)
+		name := tup[0].String()
+		o, err := termToOp(ctx, tup[1])
+		if err != nil {
+			return nil, err
+		}
+		ao := assignOp{op: o, name: name}
+		ctx[name] = o
+		return ao, nil
+	case Var:
+		if !lang.Match(aPat(lang.AUnder), v) {
+			return nil, errors.New("var requires atom arg")
+		}
+		name := v.(lang.Atom).String()
+		o, err := ctx.get(name)
+		if err != nil {
+			return nil, err
+		}
+		return varOp{op: o, name: name}, nil
+
+	// Add is special in some way, I think it's a function not a compiler op,
+	// not sure yet though
 	case Add:
 		els, err := vAsTup(2)
 		if err != nil {

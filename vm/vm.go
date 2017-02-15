@@ -17,10 +17,21 @@ var (
 	Int   = lang.Atom("int")
 )
 
-// Commands supported by the vm. Each of the types are also commands
+// Ops supported by the vm
 var (
-	Add = lang.Atom("add")
+	Add    = lang.Atom("add")
+	Assign = lang.Atom("assign")
+	Var    = lang.Atom("var")
 )
+
+type varCtx map[string]op
+
+func (c varCtx) get(v string) (op, error) {
+	if o, ok := c[v]; ok {
+		return o, nil
+	}
+	return nil, fmt.Errorf("unknown assigned %q in this context", v)
+}
 
 // Module contains a compiled set of code which can be run, dumped in IR form,
 // or compiled. A Module should be Dispose()'d of once it's no longer being
@@ -28,25 +39,28 @@ var (
 type Module struct {
 	b      llvm.Builder
 	m      llvm.Module
+	ctx    varCtx
 	mainFn llvm.Value
 }
 
 var initOnce sync.Once
 
-// Build creates a new Module by compiling the given Term as code
-func Build(t lang.Term) (*Module, error) {
+// Build creates a new Module by compiling the given Terms as code
+// TODO only take in a single Term, implement List and use that with a do op
+func Build(tt ...lang.Term) (*Module, error) {
 	initOnce.Do(func() {
 		llvm.LinkInMCJIT()
 		llvm.InitializeNativeTarget()
 		llvm.InitializeNativeAsmPrinter()
 	})
 	mod := &Module{
-		b: llvm.NewBuilder(),
-		m: llvm.NewModule(""),
+		b:   llvm.NewBuilder(),
+		m:   llvm.NewModule(""),
+		ctx: varCtx{},
 	}
 
 	var err error
-	if mod.mainFn, err = mod.buildFn(t); err != nil {
+	if mod.mainFn, err = mod.buildFn(tt...); err != nil {
 		mod.Dispose()
 		return nil, err
 	}
@@ -75,7 +89,7 @@ func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
 	ops := make([]op, len(tt))
 	var err error
 	for i := range tt {
-		if ops[i], err = termToOp(tt[i]); err != nil {
+		if ops[i], err = termToOp(mod.ctx, tt[i]); err != nil {
 			return llvm.Value{}, err
 		}
 	}
@@ -95,7 +109,7 @@ func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
 	var out llvm.Value
 	for i := range ops {
 		if out, err = ops[i].build(mod); err != nil {
-			return llvm.Value{}, nil
+			return llvm.Value{}, err
 		}
 	}
 	mod.b.CreateRet(out)

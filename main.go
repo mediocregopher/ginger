@@ -9,16 +9,32 @@ import (
 
 func main() {
 	mkcmd := func(a lang.Atom, args ...lang.Term) lang.Tuple {
-		return lang.Tuple{a, lang.Tuple{vm.Tuple, lang.Tuple(args)}}
+		if len(args) == 1 {
+			return lang.Tuple{a, args[0]}
+		}
+		return lang.Tuple{a, lang.Tuple(args)}
 	}
 	mkint := func(i string) lang.Tuple {
 		return lang.Tuple{vm.Int, lang.Const(i)}
 	}
 
-	t := mkcmd(vm.Add, mkint("1"),
-		mkcmd(vm.Add, mkint("2"), mkint("3")))
+	//foo := lang.Atom("foo")
+	//tt := []lang.Term{
+	//	mkcmd(vm.Assign, foo, mkint("1")),
+	//	mkcmd(vm.Add, mkcmd(vm.Tuple, mkcmd(vm.Var, foo), mkint("2"))),
+	//}
 
-	mod, err := vm.Build(t)
+	foo := lang.Atom("foo")
+	bar := lang.Atom("bar")
+	baz := lang.Atom("baz")
+	tt := []lang.Term{
+		mkcmd(vm.Assign, foo, mkcmd(vm.Tuple, mkint("1"), mkint("2"))),
+		mkcmd(vm.Assign, bar, mkcmd(vm.Add, mkcmd(vm.Var, foo))),
+		mkcmd(vm.Assign, baz, mkcmd(vm.Add, mkcmd(vm.Var, foo))),
+		mkcmd(vm.Add, mkcmd(vm.Tuple, mkcmd(vm.Var, bar), mkcmd(vm.Var, baz))),
+	}
+
+	mod, err := vm.Build(tt...)
 	if err != nil {
 		panic(err)
 	}
