@@ -9,7 +9,7 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
-type cmd interface {
+type op interface {
 	inType() valType
 	outType() valType
 	build(*Module) (llvm.Value, error)
@@ -24,6 +24,17 @@ func (vt valType) isInt() bool {
 	return lang.Equal(Int, vt.term)
 }
 
+func (vt valType) eq(vt2 valType) bool {
+	return lang.Equal(vt.term, vt2.term) && vt.llvm == vt2.llvm
+}
+
+// primitive valTypes
+var (
+	valTypeInt = valType{term: Int, llvm: llvm.Int64Type()}
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
 // most types don't have an input, so we use this as a shortcut
 type voidIn struct{}
 
@@ -36,20 +47,17 @@ func (voidIn) inType() valType {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type intCmd struct {
+type intOp struct {
 	voidIn
 	c lang.Const
 }
 
-func (ic intCmd) outType() valType {
-	return valType{
-		term: Int,
-		llvm: llvm.Int64Type(),
-	}
+func (io intOp) outType() valType {
+	return valTypeInt
 }
 
-func (ic intCmd) build(mod *Module) (llvm.Value, error) {
-	ci, err := strconv.ParseInt(string(ic.c), 10, 64)
+func (io intOp) build(mod *Module) (llvm.Value, error) {
+	ci, err := strconv.ParseInt(string(io.c), 10, 64)
 	if err != nil {
 		return llvm.Value{}, err
 	}
@@ -58,16 +66,16 @@ func (ic intCmd) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type tupCmd struct {
+type tupOp struct {
 	voidIn
-	els []cmd
+	els []op
 }
 
-func (tc tupCmd) outType() valType {
-	termTypes := make(lang.Tuple, len(tc.els))
-	llvmTypes := make([]llvm.Type, len(tc.els))
-	for i := range tc.els {
-		elValType := tc.els[i].outType()
+func (to tupOp) outType() valType {
+	termTypes := make(lang.Tuple, len(to.els))
+	llvmTypes := make([]llvm.Type, len(to.els))
+	for i := range to.els {
+		elValType := to.els[i].outType()
 		termTypes[i] = elValType.term
 		llvmTypes[i] = elValType.llvm
 	}
@@ -80,12 +88,12 @@ func (tc tupCmd) outType() valType {
 	return vt
 }
 
-func (tc tupCmd) build(mod *Module) (llvm.Value, error) {
-	str := llvm.Undef(tc.outType().llvm)
+func (to tupOp) build(mod *Module) (llvm.Value, error) {
+	str := llvm.Undef(to.outType().llvm)
 	var val llvm.Value
 	var err error
-	for i := range tc.els {
-		if val, err = tc.els[i].build(mod); err != nil {
+	for i := range to.els {
+		if val, err = to.els[i].build(mod); err != nil {
 			str = mod.b.CreateInsertValue(str, val, i, "")
 		}
 	}
@@ -94,21 +102,21 @@ func (tc tupCmd) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type addCmd struct {
+type addOp struct {
 	voidIn
-	a, b cmd
+	a, b op
 }
 
-func (ac addCmd) outType() valType {
-	return ac.a.outType()
+func (ao addOp) outType() valType {
+	return ao.a.outType()
 }
 
-func (ac addCmd) build(mod *Module) (llvm.Value, error) {
-	av, err := ac.a.build(mod)
+func (ao addOp) build(mod *Module) (llvm.Value, error) {
+	av, err := ao.a.build(mod)
 	if err != nil {
 		return llvm.Value{}, err
 	}
-	bv, err := ac.b.build(mod)
+	bv, err := ao.b.build(mod)
 	if err != nil {
 		return llvm.Value{}, err
 	}
@@ -117,7 +125,7 @@ func (ac addCmd) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func matchCmd(t lang.Term) (cmd, error) {
+func termToOp(t lang.Term) (op, error) {
 	aPat := func(a lang.Atom) lang.Tuple {
 		return lang.Tuple{lang.AAtom, a}
 	}
@@ -135,14 +143,14 @@ func matchCmd(t lang.Term) (cmd, error) {
 	v := t.(lang.Tuple)[1]
 
 	// for when v is a Tuple argument, convenience function for casting
-	vAsTup := func(n int) ([]cmd, error) {
-		vcmd, err := matchCmd(v)
+	vAsTup := func(n int) ([]op, error) {
+		vop, err := termToOp(v)
 		if err != nil {
 			return nil, err
 		}
-		vtup, ok := vcmd.(tupCmd)
+		vtup, ok := vop.(tupOp)
 		if !ok || len(vtup.els) != n {
-			return nil, fmt.Errorf("cmd %v expects a %d-tuple argument", k, n)
+			return nil, fmt.Errorf("op %v expects a %d-tuple argument", k, n)
 		}
 		return vtup.els, nil
 	}
@@ -152,16 +160,16 @@ func matchCmd(t lang.Term) (cmd, error) {
 		if !lang.Match(cPat(lang.AUnder), v) {
 			return nil, errors.New("int requires constant arg")
 		}
-		return intCmd{c: v.(lang.Const)}, nil
+		return intOp{c: v.(lang.Const)}, nil
 	case Tuple:
 		if !lang.Match(lang.Tuple{Tuple, lang.AUnder}, v) {
 			return nil, errors.New("tup requires tuple arg")
 		}
 		tup := v.(lang.Tuple)
-		tc := tupCmd{els: make([]cmd, len(tup))}
+		tc := tupOp{els: make([]op, len(tup))}
 		var err error
 		for i := range tup {
-			if tc.els[i], err = matchCmd(tup[i]); err != nil {
+			if tc.els[i], err = termToOp(tup[i]); err != nil {
 				return nil, err
 			}
 		}
@@ -170,11 +178,13 @@ func matchCmd(t lang.Term) (cmd, error) {
 		els, err := vAsTup(2)
 		if err != nil {
 			return nil, err
-		} else if !els[0].outType().isInt() || !els[1].outType().isInt() {
+		} else if !els[0].outType().eq(valTypeInt) {
+			return nil, errors.New("add args must be numbers of the same type")
+		} else if !els[1].outType().eq(valTypeInt) {
 			return nil, errors.New("add args must be numbers of the same type")
 		}
-		return addCmd{a: els[0], b: els[1]}, nil
+		return addOp{a: els[0], b: els[1]}, nil
 	default:
-		return nil, fmt.Errorf("cmd %v unknown, or its args are malformed", t)
+		return nil, fmt.Errorf("op %v unknown, or its args are malformed", t)
 	}
 }

@@ -72,29 +72,29 @@ func (mod *Module) buildFn(tt ...lang.Term) (llvm.Value, error) {
 		return llvm.Value{}, errors.New("function cannot be empty")
 	}
 
-	cmds := make([]cmd, len(tt))
+	ops := make([]op, len(tt))
 	var err error
 	for i := range tt {
-		if cmds[i], err = matchCmd(tt[i]); err != nil {
+		if ops[i], err = termToOp(tt[i]); err != nil {
 			return llvm.Value{}, err
 		}
 	}
 
 	var llvmIns []llvm.Type
-	if in := cmds[0].inType(); in.llvm.TypeKind() == llvm.VoidTypeKind {
+	if in := ops[0].inType(); in.llvm.TypeKind() == llvm.VoidTypeKind {
 		llvmIns = []llvm.Type{}
 	} else {
 		llvmIns = []llvm.Type{in.llvm}
 	}
-	llvmOut := cmds[len(cmds)-1].outType().llvm
+	llvmOut := ops[len(ops)-1].outType().llvm
 
 	fn := llvm.AddFunction(mod.m, "", llvm.FunctionType(llvmOut, llvmIns, false))
 	block := llvm.AddBasicBlock(fn, "")
 	mod.b.SetInsertPoint(block, block.FirstInstruction())
 
 	var out llvm.Value
-	for i := range cmds {
-		if out, err = cmds[i].build(mod); err != nil {
+	for i := range ops {
+		if out, err = ops[i].build(mod); err != nil {
 			return llvm.Value{}, nil
 		}
 	}
