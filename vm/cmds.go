@@ -102,6 +102,34 @@ func (to tupOp) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type tupElOp struct {
+	voidIn
+	tup op
+	i   int
+}
+
+func (teo tupElOp) outType() valType {
+	tupType := teo.tup.outType()
+	return valType{
+		llvm: tupType.llvm.StructElementTypes()[teo.i],
+		term: tupType.term.(lang.Tuple)[1].(lang.Tuple)[1],
+	}
+}
+
+func (teo tupElOp) build(mod *Module) (llvm.Value, error) {
+	if to, ok := teo.tup.(tupOp); ok {
+		return to.els[teo.i].build(mod)
+	}
+
+	tv, err := teo.tup.build(mod)
+	if err != nil {
+		return llvm.Value{}, err
+	}
+	return mod.b.CreateExtractValue(tv, teo.i, ""), nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 type addOp struct {
 	voidIn
 	a, b op
@@ -148,11 +176,12 @@ func termToOp(t lang.Term) (op, error) {
 		if err != nil {
 			return nil, err
 		}
-		vtup, ok := vop.(tupOp)
-		if !ok || len(vtup.els) != n {
-			return nil, fmt.Errorf("op %v expects a %d-tuple argument", k, n)
+		ops := make([]op, n)
+		for i := range ops {
+			ops[i] = tupElOp{tup: vop, i: i}
 		}
-		return vtup.els, nil
+
+		return ops, nil
 	}
 
 	switch k {
