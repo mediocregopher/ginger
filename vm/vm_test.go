@@ -8,6 +8,7 @@ import (
 
 func TestCompiler(t *T) {
 	mkcmd := func(a lang.Atom, args ...lang.Term) lang.Tuple {
+		// TODO a 1-tuple should be the same as its element?
 		if len(args) == 1 {
 			return lang.Tuple{a, args[0]}
 		}
@@ -24,9 +25,9 @@ func TestCompiler(t *T) {
 
 	one := mkint("1")
 	two := mkint("2")
-	foo := lang.Atom("foo")
-	bar := lang.Atom("bar")
-	baz := lang.Atom("baz")
+	foo := mkcmd(Var, lang.Atom("foo"))
+	bar := mkcmd(Var, lang.Atom("bar"))
+	baz := mkcmd(Var, lang.Atom("baz"))
 
 	tests := []test{
 		{
@@ -42,23 +43,23 @@ func TestCompiler(t *T) {
 		{
 			in: []lang.Term{
 				mkcmd(Assign, foo, one),
-				mkcmd(Add, mkcmd(Tuple, mkcmd(Var, foo), two)),
+				mkcmd(Add, mkcmd(Tuple, foo, two)),
 			},
 			exp: 3,
 		},
 		{
 			in: []lang.Term{
 				mkcmd(Assign, foo, mkcmd(Tuple, one, two)),
-				mkcmd(Add, mkcmd(Var, foo)),
+				mkcmd(Add, foo),
 			},
 			exp: 3,
 		},
 		{
 			in: []lang.Term{
 				mkcmd(Assign, foo, mkcmd(Tuple, one, two)),
-				mkcmd(Assign, bar, mkcmd(Add, mkcmd(Var, foo))),
-				mkcmd(Assign, baz, mkcmd(Add, mkcmd(Var, foo))),
-				mkcmd(Add, mkcmd(Tuple, mkcmd(Var, bar), mkcmd(Var, baz))),
+				mkcmd(Assign, bar, mkcmd(Add, foo)),
+				mkcmd(Assign, baz, mkcmd(Add, foo)),
+				mkcmd(Add, mkcmd(Tuple, bar, baz)),
 			},
 			exp: 6,
 		},

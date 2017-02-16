@@ -129,44 +129,38 @@ func (teo tupElOp) build(mod *Module) (llvm.Value, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type assignOp struct {
-	name string
-	op
-}
-
-func (ao assignOp) build(mod *Module) (llvm.Value, error) {
-	v, err := ao.op.build(mod)
-	if err != nil {
-		return llvm.Value{}, err
-	}
-	mod.ctx[ao.name] = builtOp{op: ao.op, v: v}
-	return v, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-type builtOp struct {
-	op
-	v llvm.Value
-}
-
-func (bo builtOp) build(*Module) (llvm.Value, error) {
-	return bo.v, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 type varOp struct {
 	op
-	name string
+	v     llvm.Value
+	built bool
 }
 
-func (vo varOp) build(mod *Module) (llvm.Value, error) {
-	o, err := mod.ctx.get(vo.name)
-	if err != nil {
-		return llvm.Value{}, err
+func (vo *varOp) build(mod *Module) (llvm.Value, error) {
+	if !vo.built {
+		var err error
+		if vo.v, err = vo.op.build(mod); err != nil {
+			return llvm.Value{}, err
+		}
+		vo.built = true
 	}
-	return o.build(mod)
+	return vo.v, nil
+}
+
+type varCtx map[string]*varOp
+
+func (c varCtx) assign(name string, vo *varOp) error {
+	if _, ok := c[name]; ok {
+		return fmt.Errorf("var %q already assigned", name)
+	}
+	c[name] = vo
+	return nil
+}
+
+func (c varCtx) get(name string) (*varOp, error) {
+	if o, ok := c[name]; ok {
+		return o, nil
+	}
+	return nil, fmt.Errorf("var %q referenced before assignment", name)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -244,29 +238,29 @@ func termToOp(ctx varCtx, t lang.Term) (op, error) {
 			}
 		}
 		return tc, nil
-	case Assign:
-		if !lang.Match(tPat(aPat(lang.AUnder), lang.TDblUnder), v) {
-			return nil, errors.New("assign requires 2-tuple arg")
-		}
-		tup := v.(lang.Tuple)
-		name := tup[0].String()
-		o, err := termToOp(ctx, tup[1])
-		if err != nil {
-			return nil, err
-		}
-		ao := assignOp{op: o, name: name}
-		ctx[name] = o
-		return ao, nil
 	case Var:
 		if !lang.Match(aPat(lang.AUnder), v) {
 			return nil, errors.New("var requires atom arg")
 		}
 		name := v.(lang.Atom).String()
-		o, err := ctx.get(name)
+		return ctx.get(name)
+
+	case Assign:
+		if !lang.Match(tPat(tPat(aPat(Var), aPat(lang.AUnder)), lang.TDblUnder), v) {
+			return nil, errors.New("assign requires 2-tuple arg, the first being a var")
+		}
+		tup := v.(lang.Tuple)
+		name := tup[0].(lang.Tuple)[1].String()
+		o, err := termToOp(ctx, tup[1])
 		if err != nil {
 			return nil, err
 		}
-		return varOp{op: o, name: name}, nil
+
+		vo := &varOp{op: o}
+		if err := ctx.assign(name, vo); err != nil {
+			return nil, err
+		}
+		return vo, nil
 
 	// Add is special in some way, I think it's a function not a compiler op,
 	// not sure yet though

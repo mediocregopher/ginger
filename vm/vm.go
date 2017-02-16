@@ -24,14 +24,7 @@ var (
 	Var    = lang.Atom("var")
 )
 
-type varCtx map[string]op
-
-func (c varCtx) get(v string) (op, error) {
-	if o, ok := c[v]; ok {
-		return o, nil
-	}
-	return nil, fmt.Errorf("unknown assigned %q in this context", v)
-}
+////////////////////////////////////////////////////////////////////////////////
 
 // Module contains a compiled set of code which can be run, dumped in IR form,
 // or compiled. A Module should be Dispose()'d of once it's no longer being
