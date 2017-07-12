@@ -1,0 +1,423 @@
+I need to prioritize the future of this project a bit more. I've been thinking
+I'm going to figure this thing out at this level, but I shouldn't even be
+working here without a higher level view.
+
+I can't finish this project without financial help. I don't think I can get a v0
+up without financial help. What this means at minimum, no matter what, I'm going
+to have to:
+
+- Develop a full concept of the language that can get it to where I want to go
+    - Figure out where I want it to go
+- Write the concept into a manifesto of the language
+- Write the concept into a proposal for course of action to take in developing
+  the language further
+
+I'm unsure about what this language actually is, or is actually going to look
+like, but I'm sure of those things. So those are the lowest hanging fruit, and I
+should start working on them pronto. It's likely I'll need to experiment with
+some ideas which will require coding, and maybe even some big ideas, but those
+should all be done under the auspices of developing the concepts of the
+language, and not the compiler of the language itself.
+
+#########
+
+Elemental types:
+
+* Tuples
+* Arrays
+* Integers
+
+#########
+
+Been doing thinking and research on ginger's elemental types and what their
+properties should be. Ran into roadblock where I was asking myself these
+questions:
+
+* Can I do this without atoms?
+* What are different ways atoms can be encoded?
+* Can I define language types (elementals) without defining an encoding for
+  them?
+
+I also came up with two new possible types:
+
+* Stream, effectively an interface which produces discreet packets (each has a
+  length), where the production of one packet indicates the size of the next one
+  at the same time.
+* Tagged, sort of like a stream, effectively a type which says "We don't know
+  what this will be at compile-time, but we know it will be prefixed with some
+  kind of tag indicating its type and size.
+    * Maybe only the size is important
+    * Maybe precludes user defined types that aren't composites of the
+      elementals? Maybe that's ok?
+
+Ran into this:
+https://www.ps.uni-saarland.de/~duchier/python/continuations.htm://www.ps.uni-saarland.de/~duchier/python/continuations.html
+https://en.wikipedia.org/wiki/Continuation#First-class_continuations
+
+which is interesting. A lot of my problems now are derived from stack-based
+systems and their need for knowing the size input and output data, continuations
+seem to be an alternative system?
+
+I found this:
+
+http://lambda-the-ultimate.org/node/4512
+
+I don't understand any of it, I should definitely learn feather
+
+I should finish reading this:
+http://www.blackhat.com/presentations/bh-usa-07/Ferguson/Whitepaper/bh-usa-07-ferguson-WP.pdf
+
+#########
+
+Ok, so I'm back at this for the first time in a while, and I've got a good thing
+going. The vm package is working out well, Using tuples and atoms as the basis
+of a language is pretty effective (thanks erlang!). I've got basic variable
+assignment working as well. No functions yet. Here's the things I still need to
+figure out or implement:
+
+* lang
+    * constant size arrays
+        * using them for a "do" macro
+    * figure out constant, string, int, etc... look at what erlang's actual
+      primitive types are for a hint
+    * figure out all needed macros for creating and working with lang types
+* vm
+    * figure out the differentiation between compiler macros and runtime calls
+        * probably separate the two into two separate call systems
+    * the current use of varCtx is still pretty ugly, the do macro might help
+      clean it up
+* functions
+    * are they a primitive? I guess so....
+    * declaration and type
+    * variable deconstruction
+    * scoping/closures
+* compiler macros, need vm's Run to output a lang.Term
+* need to learn about linking
+    * figure out how to include llvm library in compiled binary and make it
+      callable. runtime macros will come from this
+    * linking in of other ginger code? or how to import in general
+* comiler, a general purpose binary for taking ginger code and turning it
+  into machine code using the vm package
+    * swappable syntax, including syntax-dependent macros
+* close the loop?
+
+############
+
+I really want contexts to work. They _feel_ right, as far as abstractions go.
+And they're clean, if I can work out the details.
+
+Just had a stupid idea, might as well write it down though.
+
+Similar to how the DNA and RNA in our cells work, each Context is created with
+some starting set of data on it. This will be the initial protein block. Based
+on the data there some set of Statements (the RNA) will "latch" on and do
+whatever work they're programmed to do. That work could include making new
+Contexts and "releasing" them into the ether, where they would get latched onto
+(or not).
+
+There's so many problems with this idea, it's not even a little viable. But here
+goes:
+
+* Order of execution becomes super duper fuzzy. It would be really difficult to
+  think about how your program is actually going to work.
+
+* Having Statement sets just latch onto Contexts is super janky. They would get
+  registered I guess, and it would be pretty straightforward to differentiate
+  one Context from another, but what about conflicts? If two Statements want to
+  latch onto the same Context then what? If we wanted to keep the metaphor one
+  would just get randomly chosen over the other, but obviously that's insane.
+
+############
+
+I explained some of this to ibrahim already, but I might as well get it all
+down, cause I've expanded on it a bit since.
+
+Basically, ops (functions) are fucking everything up. The biggest reason for
+this is that they are really really hard to implement without a type annotation
+system. The previous big braindump is about that, but basically I can't figure
+out a way that feels clean and good enough to be called a "solution" to type
+inference. I really don't want to have to add type annotations just to support
+functions, at least not until I explore all of my options.
+
+The only other option I've come up with so far is the context thing. It's nice
+because it covers a lot of ground without adding a lot of complexity. Really the
+biggest problem with it is it doesn't allow for creating new things which look
+like operations. Instead, everything is done with the %do operator, which feels
+janky.
+
+One solution I just thought of is to get rid of the %do operator and simply make
+it so that a list of Statements can be used as the operator in another
+Statement. This would _probably_ allow for everything that I want to do. One
+outstanding problem I'm facing is figuring out if all Statements should take a
+Context or not.
+
+* If they did it would be a lot more explicit what's going on. There wouldn't be
+  an ethereal "this context" that would need to be managed and thought about. It
+  would also make things like using a set of Statements as an operator a lot
+  more straightforward, since without Contexts in the Statement it'll be weird
+  to "do" a set of Statements in another Context.
+
+* On the other hand, it's quite a bit more boilerplate. For the most part most
+  Statements are going to want to be run in "this" context. Also this wouldn't
+  really decrease the number of necessary macros, since one would still be
+  needed in order to retrieve the "root" Context.
+
+* One option would be for a Statement's Context to be optional. I don't really
+  like this option, it makes a very fundamental datatype (a Statement) a bit
+  fuzzier.
+
+* Another thing to think about is that I might just rethink how %bind works so
+  that it doesn't operate on an ethereal "this" Context. %ctxbind is one attempt
+  at this, but there's probably other ways.
+
+* One issue I just thought of with having a set of Statements be used as an
+  operator is that the argument to that Statement becomes.... weird. What even
+  is it? Something the set of Statements can access somehow? Then we still need
+  something like the %in operator.
+
+Let me backtrack a bit. What's the actual problem? The actual thing I'm
+struggling with is allowing for code re-use, specifically pure functions. I
+don't think there's any way anyone could argue that pure functions are not an
+effective building block in all of programming, so I think I can make that my
+statement of faith: pure functions are good and worthwhile, impure functions
+are.... fine.
+
+Implementing them, however, is quite difficult. Moreso than I thought it would
+be. The big inhibitor is the method by which I actually pass input data into the
+function's body. From an implementation standpoint it's difficult because I
+*need* to know how many bytes on the stack the arguments take up. From a syntax
+standpoint this is difficult without a type annotation system. And from a
+usability standpoint this is difficult because it's a task the programmer has to
+do which doesn't really have to do with the actual purpose or content of the
+function, it's just a book-keeping exercise.
+
+So the stack is what's screwing us over here. It's a nice idea, but ultimately
+makes what we're trying to do difficult. I'm not sure if there's ever going to
+be a method of implementing pure functions that doesn't involve argument/return
+value copying though, and therefore which doesn't involve knowing the byte size
+of your arguments ahead of time.
+
+It's probably not worth backtracking this much either. For starters, cpus are
+heavily optimized for stack based operations, and much of the way we currently
+think about programming is also based on the stack. It would take a lot of
+backtracking if we ever moved to something else, if there even is anything else
+worth moving to.
+
+If that's the case, how is the stack actually used then?
+
+* There's a stack pointer which points at an address on the stack, the stack
+  being a contiguous range of memory addresses. The place the stack points to is
+  the "top" of the stack, all higher addresses are considered unused (no matter
+  what's in them). All the values in the stack are available to the currently
+  executing code, it simply needs to know either their absolute address or their
+  relative position to the stack pointer.
+
+* When a function is "called" the arguments to it are copied onto the top of the
+  stack, the stack pointer is increased to reflect the new stack height, and the
+  function's body is jumped to. Inside the body the function need only pop
+  values off the stack as it expects them, as long as it was called properly it
+  doesn't matter how or when the function was called. Once it's done operating
+  the function ensures all the input values have been popped off the stack, and
+  subsequently pushes the return values onto the stack, and jumps back to the
+  caller (the return address was also stored on the stack).
+
+That's not quite right, but it's close enough for most cases. The more I'm
+reading about this the more I think it's not going to be worth it to backtrack
+passed the stack. There's a lot of compiler and machine specific crap that gets
+involved at that low of a level, and I don't think it's worth getting into it.
+LLVM did all of that for me, I should learn how to make use of that to make what
+I want happen.
+
+But what do I actually want? That's the hard part. I guess I've come full
+circle. I pretty much *need* to use llvm functions. But I can't do it without
+declaring the types ahead of time. Ugghh.
+
+################################
+
+So here's the current problem:
+
+I have the concept of a list of statements representing a code block. It's
+possible/probable that more than this will be needed to represent a code block,
+but we'll see.
+
+There's two different ways I think it's logical to use a block:
+
+* As a way of running statements within a new context which inherits all of its
+  bindings from the parent. This would be used for things like if statements and
+  loops, and behaves the way a code block behaves in most other languages.
+
+* To define a operator body. An operator's body is effectively the same as the
+  first use-case, except that it has input/output as well. An operator can be
+  bound to an identifier and used in any statement.
+
+So the hard part, really, is that second point. I have the first done already.
+The second one isn't too hard to "fake" using our current context system, but it
+can't be made to be used as an operator in a statement. Here's how to fake it
+though:
+
+* Define the list of statements
+* Make a new context
+* Bind the "input" bindings into the new context
+* Run %do with that new context and list of statements
+* Pull the "output" bindings out of that new context
+
+And that's it. It's a bit complicated but it ultimately works and effectively
+inlines a function call.
+
+It's important that this looks like a normal operator call though, because I
+believe in guy steele. Here's the current problems I'm having:
+
+* Defining the input/output values is the big one. In the inline method those
+  were defined implicitly based on what the statements actually use, and the
+  compiler would fail if any were missing or the wrong type. But here we ideally
+  want to define an actual llvm function and not inline everytime. So we need to
+  somehow "know" what the input/output is, and their types.
+
+    * The output value isn't actually *that* difficult. We just look at the
+      output type of the last statement in the list and use that.
+
+    * The input is where it gets tricky. One idea would be to use a statement
+      with no input as the first statement in the list, and that would define
+      the input type. The way macros work this could potentially "just work",
+      but it's tricky.
+
+    * It would also be kind of difficult to make work with operators that take
+      in multiple parameters too. For example, `bind A, 1` would be the normal
+      syntax for binding, but if we want to bind an input value it gets weirder.
+
+        * We could use a "future" kind of syntax, like `bind A, _` or something
+          like that, but that would requre a new expression type and also just
+          be kind of weird.
+
+        * We could have a single macro which always returns the input, like
+          `%in` or something. So the bind would become `bind A, %in` or
+          `bind (A, B), %in` if we ever get destructuring. This isn't a terrible
+          solution, though a bit unfortunate in that it could get confusing with
+          different operators all using the same input variable effectively. It
+          also might be a bit difficult to implement, since it kind of forces us
+          to only have a single argument to the LLVM function? Hard to say how
+          that would work. Possibly all llvm functions could be made to take in
+          a struct, but that would be ghetto af. Not doing a struct would take a
+          special interaction though.... It might not be possible to do this
+          without a struct =/
+
+* Somehow allowing to define the context which gets used on each call to the
+  operator, instead of always using a blank one, would be nice.
+
+    * The big part of this problem is actually the syntax for calling the
+      operator. It's pretty easy to have this handled within the operator by the
+      %thisctx macro. But we want the operator to be callable by the same syntax
+      as all other operator calls, and currently that doesn't have any way of
+      passing in a new context.
+
+    * Additionally, if we're implementing the operator as an LLVM function then
+      there's not really any way to pass in that context to it without making
+      those variables global or something, which is shitty.
+
+* So writing all this out it really feels like I'm dealing with two separate
+  types that just happen to look similar:
+
+    * Block: a list of statements which run with a variable context.
+
+    * Operator: a list of statements which run with a fixed (empty?) context,
+      and have input/output.
+
+* There's so very nearly a symmetry there. Things that are inconsistent:
+
+    * A block doesn't have input/output
+
+        * It sort of does, in the form of the context it's being run with and
+          %ctxget, but not an explicit input/output like the operator has.
+
+        * If this could be reconciled I think this whole shitshow could be made
+          to have some consistency.
+
+        * Using %in this pretty much "just works". But it's still weird. Really
+          we'd want to turn the block into a one-off operator everytime we use
+          it. This is possible.
+
+    * An operator's context must be empty
+
+        * It doesn't *have* to be, defining the ctx which goes with the operator
+          could be part of however an operator is created.
+
+* So after all of that, I think operators and blocks are kind of the same.
+
+    * They both use %in to take in input, and both output using the last statement
+      in their list of statements.
+
+    * They both have a context bound to them, operators are fixed but a block
+      changes.
+
+    * An operator is a block with a bound context.
+
+##############@@@@@@@@@#$%^&^%$#@#$%^&*
+
+* New problem: type inference. LLVM requires that a function's definition have
+  the type specified up-front. This kind of blows. Well actually, it blows a lot
+  more than kind of. There's two things that need to be infered from a List of
+  Statements then: the input type and the output type. There's two approaches
+  I've thought of in the current setup.
+
+    * There's two approaches to determining the type of an operator: analyze the
+      code as ginger expressions, or build the actual llvm structures and
+      analyze those.
+
+        * Looking at the ginger expressions is definitely somewhat fuzzy. We can
+          look at all the statements and sub-statements until we find an
+          instance of %in, then look at what that's in input into. But if it's
+          simply binding into an Identifier then we have to find the identifier.
+          If it's destructuring then that gets even *more* complicated.
+
+            * Destructuring is what really makes this approach difficult.
+              Presumably there's going to be a function that takes in an
+              Identifier (or %in I guess?) and a set of Statements and returns
+              the type for that Identifier. If we find that %in is destructured
+              into a tuple then we would run that function for each constituent
+              Identifier and put it all together. But then this inference
+              function is really coupled to %bind, which kind of blows. Also we
+              may one day want to support destructuring into non-tuples as well,
+              which would make this even harder.
+
+            * We could make it the job of the macro definition to know its input
+              and output types, as well as the types of any bindings it makes.
+              That places some burden on user macros in the future, but then
+              maybe it can be inferred for user macros? That's a lot of hope. It
+              would also mean the macro would need the full set of statements
+              that will ever run in the same Context as it, so it can determine
+              the types of any bindings it makes.
+
+       * The second method is to build the statements into LLVM structures and
+         then look at those structures. This has the benefit of being
+         non-ambiguous once we actually find the answer. LLVM is super strongly
+         typed, and re-iterates the types involved for every operation. So if
+         the llvm builder builds it then we need only look for the first usage
+         of every argument/return and we'll know the types involved.
+
+            * This requires us to use structs for tuples, and not actually use
+              multiple arguments. Otherwise it won't be possible to know the
+              difference between a 3 argument function and a 4 argument one
+              which doesn't use its 4th argument (which shouldn't really happen,
+              but could).
+
+            * The main hinderence is that the llvm builder is really not
+              designed for this sort of thing. We could conceivably create a
+              "dummy" function with bogus types and write the body, analyze the
+              body, erase the function, and start over with a non-dummy
+              function. But it's the "analyze the body" step that's difficult.
+              It's difficult to find the types of things without the llvm.Value
+              objects in hand, but since building is set up as a recursive
+              process that becomes non-trivial. This really feels like the way
+              to go though, I think it's actually doable.
+
+                * This could be something we tack onto llvmVal, and then make
+                  Build return extra data about what types the Statements it
+                  handled input and output.
+
+* For other setups that would enable this a bit better, the one that keeps
+  coming to mind is a more pipeline style system. Things like %bind would need
+  to be refactored from something that takes a Tuple to something that only
+  takes an Identifier and returns a macro which will bind to that Identifier.
+  This doesn't *really* solve the type problem I guess, since whatever is input
+  into the Identifier's bind doesn't necessarily have a type attached to it.
+  Sooo yeah nvm.
