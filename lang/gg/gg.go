@@ -8,6 +8,8 @@ import (
 	"hash"
 )
 
+// TODO rename half-edge to open-edge
+
 // Identifier is implemented by any value which can return a unique string for
 // itself via an Identify method
 type Identifier interface {
@@ -121,6 +123,18 @@ func (v vertex) hasHalfEdge(he HalfEdge) bool {
 	return false
 }
 
+func (v vertex) cpAndDelHalfEdge(he HalfEdge) (vertex, bool) {
+	heID := identify(he)
+	for i, in := range v.in {
+		if identify(in) == heID {
+			v = v.cp()
+			v.in = append(v.in[:i], v.in[i+1:]...)
+			return v, true
+		}
+	}
+	return v, false
+}
+
 // Graph is a wrapper around a set of connected Vertices
 type Graph struct {
 	vM   map[string]vertex // only contains value vertices
@@ -182,11 +196,11 @@ func JunctionOut(in []HalfEdge, edgeVal Identifier) HalfEdge {
 	}
 }
 
-// ValueIn takes a HalfEdge and connects it to the Value Vertex containing val,
-// and returns the new Graph which reflects that connection. Any Vertices
+// AddValueIn takes a HalfEdge and connects it to the Value Vertex containing
+// val, returning the new Graph which reflects that connection. Any Vertices
 // referenced within the HalfEdge which do not yet exist in the Graph will also
 // be created in this step.
-func (g *Graph) ValueIn(he HalfEdge, val Identifier) *Graph {
+func (g *Graph) AddValueIn(he HalfEdge, val Identifier) *Graph {
 	to := vertex{
 		VertexType: Value,
 		val:        val,
@@ -217,18 +231,121 @@ func (g *Graph) ValueIn(he HalfEdge, val Identifier) *Graph {
 			if _, ok := g.vM[vID]; !ok {
 				g.vM[vID] = v
 			}
-		}
-		for _, e := range v.in {
-			persist(e.fromV)
+		} else {
+			for _, e := range v.in {
+				persist(e.fromV)
+			}
 		}
 	}
 	delete(g.vM, toID)
 	persist(to)
+	for _, e := range to.in {
+		persist(e.fromV)
+	}
 
 	return g
 }
 
-// TODO Merge
+// DelValueIn takes a HalfEdge and disconnects it from the Value Vertex
+// containing val, returning the new Graph which reflects the disconnection. If
+// the Value Vertex doesn't exist within the graph, or it doesn't have the given
+// HalfEdge, no changes are made. Any vertices referenced by the HalfEdge for
+// which that edge is their only outgoing edge will be removed from the Graph.
+func (g *Graph) DelValueIn(he HalfEdge, val Identifier) *Graph {
+	to := vertex{
+		VertexType: Value,
+		val:        val,
+	}
+	toID := identify(to)
+
+	// pull to out of the graph. if it's not there then bail
+	var ok bool
+	if to, ok = g.vM[toID]; !ok {
+		return g
+	}
+
+	// get new copy of to without the half-edge, or return if the half-edge
+	// wasn't even in to
+	to, ok = to.cpAndDelHalfEdge(he)
+	if !ok {
+		return g
+	}
+	g = g.cp()
+	g.vM[toID] = to
+
+	// connectedTo returns whether the vertex has any connections with the
+	// vertex of the given id, descending recursively
+	var connectedTo func(string, vertex) bool
+	connectedTo = func(vID string, curr vertex) bool {
+		for _, in := range curr.in {
+			if in.fromV.VertexType == Value && identify(in.fromV) == vID {
+				return true
+			} else if in.fromV.VertexType == Junction && connectedTo(vID, in.fromV) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// isOrphaned returns whether the given vertex has any connections to other
+	// nodes in the graph
+	isOrphaned := func(v vertex) bool {
+		vID := identify(v)
+		if v, ok := g.vM[vID]; ok && len(v.in) > 0 {
+			return false
+		}
+		for vID2, v2 := range g.vM {
+			if vID2 == vID {
+				continue
+			} else if connectedTo(vID, v2) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// if to is orphaned get rid of it
+	if isOrphaned(to) {
+		delete(g.vM, toID)
+	}
+
+	// rmOrphaned descends down the given HalfEdge and removes any Value
+	// Vertices referenced in it which are now orphaned
+	var rmOrphaned func(HalfEdge)
+	rmOrphaned = func(he HalfEdge) {
+		if he.fromV.VertexType == Value && isOrphaned(he.fromV) {
+			delete(g.vM, identify(he.fromV))
+		} else if he.fromV.VertexType == Junction {
+			for _, juncHe := range he.fromV.in {
+				rmOrphaned(juncHe)
+			}
+		}
+	}
+	rmOrphaned(he)
+
+	return g
+}
+
+// Union takes in another Graph and returns a new one which is the union of the
+// two. Value vertices which are shared between the two will be merged so that
+// the new vertex has the input edges of both.
+func (g *Graph) Union(g2 *Graph) *Graph {
+	g = g.cp()
+	for vID, v2 := range g2.vM {
+		v, ok := g.vM[vID]
+		if !ok {
+			v = v2
+		} else {
+			for _, v2e := range v2.in {
+				if !v.hasHalfEdge(v2e) {
+					v.in = append(v.in, v2e)
+				}
+			}
+		}
+		g.vM[vID] = v
+	}
+	return g
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Graph traversal
@@ -285,6 +402,16 @@ func (g *Graph) makeView() {
 func (g *Graph) Value(val Identifier) *Vertex {
 	g.makeView()
 	return g.view[identify(val)]
+}
+
+// Values returns all Value Vertices in the Graph
+func (g *Graph) Values() []*Vertex {
+	g.makeView()
+	vv := make([]*Vertex, 0, len(g.view))
+	for _, v := range g.view {
+		vv = append(vv, v)
+	}
+	return vv
 }
 
 // Equal returns whether or not the two Graphs are equivalent in value
