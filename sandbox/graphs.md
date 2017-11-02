@@ -20,9 +20,8 @@
         - Unordered set of edges
 
         - Edge
-            - Identified by a 2-tuple of (Vertex, Vertex), with each tuple being
-              unique within a graph
-            - Has exactly one attribute value attached
+            - Identified by a 3-tuple of (Vertex, $val, Vertex), with each tuple
+              being unique within a graph
 
         - Vertex
             - Has ordered set of in edges
