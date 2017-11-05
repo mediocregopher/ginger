@@ -437,3 +437,43 @@ func Equal(g1, g2 *Graph) bool {
 	}
 	return true
 }
+
+// Walk will traverse the Graph, calling the callback on every Vertex in the
+// Graph once. If startWith is non-nil then that Vertex will be the first one
+// passed to the callback and used as the starting point of the traversal. If
+// the callback returns false the traversal is stopped.
+func (g *Graph) Walk(startWith *Vertex, callback func(*Vertex) bool) {
+	g.makeView()
+	if len(g.view) == 0 {
+		return
+	}
+
+	seen := make(map[*Vertex]bool, len(g.view))
+	var innerWalk func(*Vertex) bool
+	innerWalk = func(v *Vertex) bool {
+		if seen[v] {
+			return true
+		} else if !callback(v) {
+			return false
+		}
+		seen[v] = true
+		for _, e := range v.In {
+			if !innerWalk(e.From) {
+				return false
+			}
+		}
+		return true
+	}
+
+	if startWith != nil {
+		if !innerWalk(startWith) {
+			return
+		}
+	}
+
+	for _, v := range g.view {
+		if !innerWalk(v) {
+			return
+		}
+	}
+}
