@@ -8,8 +8,6 @@ import (
 	"hash"
 )
 
-// TODO rename half-edge to open-edge
-
 // Identifier is implemented by any value which can return a unique string for
 // itself via an Identify method
 type Identifier interface {
@@ -53,9 +51,9 @@ type Vertex struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// HalfEdge is an un-realized Edge which can't be used for anything except
+// OpenEdge is an un-realized Edge which can't be used for anything except
 // constructing graphs. It has no meaning on its own.
-type HalfEdge struct {
+type OpenEdge struct {
 	// fromV will be the source vertex as-if the vertex (and any sub-vertices of
 	// it) doesn't already exist in the graph. If it or it's sub-vertices does
 	// already that will need to be taken into account when persisting into the
@@ -65,19 +63,19 @@ type HalfEdge struct {
 }
 
 // Identify implements the Identifier interface
-func (he HalfEdge) Identify(h hash.Hash) {
-	fmt.Fprintln(h, "halfEdge")
-	he.fromV.Identify(h)
-	he.val.Identify(h)
+func (oe OpenEdge) Identify(h hash.Hash) {
+	fmt.Fprintln(h, "openEdge")
+	oe.fromV.Identify(h)
+	oe.val.Identify(h)
 }
 
 // vertex is a representation of a vertex in the graph. Each Graph contains a
 // set of all the Value vertex instances it knows about. Each of these contains
-// all the input HalfEdges which are known for it. So you can think of these
-// "top-level" Value vertex instances as root nodes in a tree, and each HalfEdge
+// all the input OpenEdges which are known for it. So you can think of these
+// "top-level" Value vertex instances as root nodes in a tree, and each OpenEdge
 // as a branch.
 //
-// If a HalfEdge contains a fromV which is a Value that vertex won't have its in
+// If a OpenEdge contains a fromV which is a Value that vertex won't have its in
 // slice populated no matter what. If fromV is a Junction it will be populated,
 // with any sub-Value's not being populated and so-on recursively
 //
@@ -86,7 +84,7 @@ func (he HalfEdge) Identify(h hash.Hash) {
 type vertex struct {
 	VertexType
 	val Identifier
-	in  []HalfEdge
+	in  []OpenEdge
 }
 
 // A Value vertex is unique by the value it contains
@@ -108,25 +106,25 @@ func (v vertex) Identify(h hash.Hash) {
 
 func (v vertex) cp() vertex {
 	cp := v
-	cp.in = make([]HalfEdge, len(v.in))
+	cp.in = make([]OpenEdge, len(v.in))
 	copy(cp.in, v.in)
 	return cp
 }
 
-func (v vertex) hasHalfEdge(he HalfEdge) bool {
-	heID := identify(he)
+func (v vertex) hasOpenEdge(oe OpenEdge) bool {
+	oeID := identify(oe)
 	for _, in := range v.in {
-		if identify(in) == heID {
+		if identify(in) == oeID {
 			return true
 		}
 	}
 	return false
 }
 
-func (v vertex) cpAndDelHalfEdge(he HalfEdge) (vertex, bool) {
-	heID := identify(he)
+func (v vertex) cpAndDelOpenEdge(oe OpenEdge) (vertex, bool) {
+	oeID := identify(oe)
 	for i, in := range v.in {
-		if identify(in) == heID {
+		if identify(in) == oeID {
 			v = v.cp()
 			v.in = append(v.in[:i], v.in[i+1:]...)
 			return v, true
@@ -162,15 +160,15 @@ func (g *Graph) cp() *Graph {
 ////////////////////////////////////////////////////////////////////////////////
 // Graph creation
 
-// ValueOut creates a HalfEdge which, when used to construct a Graph, represents
+// ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) leaving the Value Vertex containing
 // val.
 //
 // When constructing Graphs Value vertices are de-duplicated on their value. So
-// multiple ValueOut HalfEdges constructed with the same val will be leaving the
+// multiple ValueOut OpenEdges constructed with the same val will be leaving the
 // same Vertex instance in the constructed Graph.
-func ValueOut(val, edgeVal Identifier) HalfEdge {
-	return HalfEdge{
+func ValueOut(val, edgeVal Identifier) OpenEdge {
+	return OpenEdge{
 		fromV: vertex{
 			VertexType: Value,
 			val:        val,
@@ -179,15 +177,15 @@ func ValueOut(val, edgeVal Identifier) HalfEdge {
 	}
 }
 
-// JunctionOut creates a HalfEdge which, when used to construct a Graph,
+// JunctionOut creates a OpenEdge which, when used to construct a Graph,
 // represents an edge (with edgeVal attached to it) leaving the Junction Vertex
 // comprised of the given ordered-set of input edges.
 //
 // When constructing Graphs Junction vertices are de-duplicated on their input
-// edges. So multiple Junction HalfEdges constructed with the same set of input
+// edges. So multiple Junction OpenEdges constructed with the same set of input
 // edges will be leaving the same Junction instance in the constructed Graph.
-func JunctionOut(in []HalfEdge, edgeVal Identifier) HalfEdge {
-	return HalfEdge{
+func JunctionOut(in []OpenEdge, edgeVal Identifier) OpenEdge {
+	return OpenEdge{
 		fromV: vertex{
 			VertexType: Junction,
 			in:         in,
@@ -196,11 +194,11 @@ func JunctionOut(in []HalfEdge, edgeVal Identifier) HalfEdge {
 	}
 }
 
-// AddValueIn takes a HalfEdge and connects it to the Value Vertex containing
+// AddValueIn takes a OpenEdge and connects it to the Value Vertex containing
 // val, returning the new Graph which reflects that connection. Any Vertices
-// referenced within the HalfEdge which do not yet exist in the Graph will also
+// referenced within toe OpenEdge which do not yet exist in the Graph will also
 // be created in this step.
-func (g *Graph) AddValueIn(he HalfEdge, val Identifier) *Graph {
+func (g *Graph) AddValueIn(oe OpenEdge, val Identifier) *Graph {
 	to := vertex{
 		VertexType: Value,
 		val:        val,
@@ -214,12 +212,12 @@ func (g *Graph) AddValueIn(he HalfEdge, val Identifier) *Graph {
 	}
 
 	// if the incoming edge already exists in to then there's nothing to do
-	if to.hasHalfEdge(he) {
+	if to.hasOpenEdge(oe) {
 		return g
 	}
 
 	to = to.cp()
-	to.in = append(to.in, he)
+	to.in = append(to.in, oe)
 	g = g.cp()
 
 	// starting with to (which we always overwrite) go through vM and
@@ -246,12 +244,12 @@ func (g *Graph) AddValueIn(he HalfEdge, val Identifier) *Graph {
 	return g
 }
 
-// DelValueIn takes a HalfEdge and disconnects it from the Value Vertex
+// DelValueIn takes a OpenEdge and disconnects it from the Value Vertex
 // containing val, returning the new Graph which reflects the disconnection. If
 // the Value Vertex doesn't exist within the graph, or it doesn't have the given
-// HalfEdge, no changes are made. Any vertices referenced by the HalfEdge for
+// OpenEdge, no changes are made. Any vertices referenced by toe OpenEdge for
 // which that edge is their only outgoing edge will be removed from the Graph.
-func (g *Graph) DelValueIn(he HalfEdge, val Identifier) *Graph {
+func (g *Graph) DelValueIn(oe OpenEdge, val Identifier) *Graph {
 	to := vertex{
 		VertexType: Value,
 		val:        val,
@@ -266,7 +264,7 @@ func (g *Graph) DelValueIn(he HalfEdge, val Identifier) *Graph {
 
 	// get new copy of to without the half-edge, or return if the half-edge
 	// wasn't even in to
-	to, ok = to.cpAndDelHalfEdge(he)
+	to, ok = to.cpAndDelOpenEdge(oe)
 	if !ok {
 		return g
 	}
@@ -309,19 +307,19 @@ func (g *Graph) DelValueIn(he HalfEdge, val Identifier) *Graph {
 		delete(g.vM, toID)
 	}
 
-	// rmOrphaned descends down the given HalfEdge and removes any Value
+	// rmOrphaned descends down the given OpenEdge and removes any Value
 	// Vertices referenced in it which are now orphaned
-	var rmOrphaned func(HalfEdge)
-	rmOrphaned = func(he HalfEdge) {
-		if he.fromV.VertexType == Value && isOrphaned(he.fromV) {
-			delete(g.vM, identify(he.fromV))
-		} else if he.fromV.VertexType == Junction {
-			for _, juncHe := range he.fromV.in {
+	var rmOrphaned func(OpenEdge)
+	rmOrphaned = func(oe OpenEdge) {
+		if oe.fromV.VertexType == Value && isOrphaned(oe.fromV) {
+			delete(g.vM, identify(oe.fromV))
+		} else if oe.fromV.VertexType == Junction {
+			for _, juncHe := range oe.fromV.in {
 				rmOrphaned(juncHe)
 			}
 		}
 	}
-	rmOrphaned(he)
+	rmOrphaned(oe)
 
 	return g
 }
@@ -337,7 +335,7 @@ func (g *Graph) Union(g2 *Graph) *Graph {
 			v = v2
 		} else {
 			for _, v2e := range v2.in {
-				if !v.hasHalfEdge(v2e) {
+				if !v.hasOpenEdge(v2e) {
 					v.in = append(v.in, v2e)
 				}
 			}
@@ -432,7 +430,7 @@ func Equal(g1, g2 *Graph) bool {
 			return false
 		}
 		for _, in := range v1.in {
-			if !v2.hasHalfEdge(in) {
+			if !v2.hasOpenEdge(in) {
 				return false
 			}
 		}

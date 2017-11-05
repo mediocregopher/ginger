@@ -156,7 +156,7 @@ func TestGraph(t *T) {
 			func() *Graph {
 				e0 := ValueOut(id("v0"), id("e0"))
 				e1 := ValueOut(id("v1"), id("e1"))
-				ej0 := JunctionOut([]HalfEdge{e0, e1}, id("ej0"))
+				ej0 := JunctionOut([]OpenEdge{e0, e1}, id("ej0"))
 				return Null.AddValueIn(ej0, id("v2"))
 			},
 			value("v0"), value("v1"),
@@ -171,11 +171,11 @@ func TestGraph(t *T) {
 			func() *Graph {
 				e00 := ValueOut(id("v0"), id("e00"))
 				e10 := ValueOut(id("v1"), id("e10"))
-				ej0 := JunctionOut([]HalfEdge{e00, e10}, id("ej0"))
+				ej0 := JunctionOut([]OpenEdge{e00, e10}, id("ej0"))
 				e01 := ValueOut(id("v0"), id("e01"))
 				e11 := ValueOut(id("v1"), id("e11"))
-				ej1 := JunctionOut([]HalfEdge{e01, e11}, id("ej1"))
-				ej2 := JunctionOut([]HalfEdge{ej0, ej1}, id("ej2"))
+				ej1 := JunctionOut([]OpenEdge{e01, e11}, id("ej1"))
+				ej2 := JunctionOut([]OpenEdge{ej0, ej1}, id("ej2"))
 				return Null.AddValueIn(ej2, id("v2"))
 			},
 			value("v0"), value("v1"),
@@ -196,7 +196,7 @@ func TestGraph(t *T) {
 			func() *Graph {
 				e0 := ValueOut(id("v0"), id("e0"))
 				e1 := ValueOut(id("v1"), id("e1"))
-				ej0 := JunctionOut([]HalfEdge{e0, e1}, id("ej0"))
+				ej0 := JunctionOut([]OpenEdge{e0, e1}, id("ej0"))
 				g0 := Null.AddValueIn(ej0, id("v2"))
 				e20 := ValueOut(id("v2"), id("e20"))
 				g1 := g0.AddValueIn(e20, id("v0"))
@@ -275,27 +275,27 @@ func TestGraphDelValueIn(t *T) {
 	}
 
 	{ // removing only edge
-		he := ValueOut(id("v0"), id("e0"))
-		g0 := Null.AddValueIn(he, id("v1"))
-		g1 := g0.DelValueIn(he, id("v1"))
+		oe := ValueOut(id("v0"), id("e0"))
+		g0 := Null.AddValueIn(oe, id("v1"))
+		g1 := g0.DelValueIn(oe, id("v1"))
 		assert.True(t, Equal(Null, g1))
 	}
 
 	{ // removing only edge (junction)
-		he := JunctionOut([]HalfEdge{
+		oe := JunctionOut([]OpenEdge{
 			ValueOut(id("v0"), id("e0")),
 			ValueOut(id("v1"), id("e1")),
 		}, id("ej0"))
-		g0 := Null.AddValueIn(he, id("v2"))
-		g1 := g0.DelValueIn(he, id("v2"))
+		g0 := Null.AddValueIn(oe, id("v2"))
+		g1 := g0.DelValueIn(oe, id("v2"))
 		assert.True(t, Equal(Null, g1))
 	}
 
 	{ // removing one of two edges
-		he := ValueOut(id("v1"), id("e0"))
+		oe := ValueOut(id("v1"), id("e0"))
 		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v2"))
-		g1 := g0.AddValueIn(he, id("v2"))
-		g2 := g1.DelValueIn(he, id("v2"))
+		g1 := g0.AddValueIn(oe, id("v2"))
+		g2 := g1.DelValueIn(oe, id("v2"))
 		assert.True(t, Equal(g0, g2))
 		assert.NotNil(t, g2.Value(id("v0")))
 		assert.Nil(t, g2.Value(id("v1")))
@@ -306,11 +306,11 @@ func TestGraphDelValueIn(t *T) {
 		e0 := ValueOut(id("v0"), id("e0"))
 		e1 := ValueOut(id("v1"), id("e1"))
 		e2 := ValueOut(id("v2"), id("e2"))
-		heA := JunctionOut([]HalfEdge{e0, e1}, id("heA"))
-		heB := JunctionOut([]HalfEdge{e1, e2}, id("heB"))
-		g0a := Null.AddValueIn(heA, id("v3"))
-		g0b := Null.AddValueIn(heB, id("v3"))
-		g1 := g0a.Union(g0b).DelValueIn(heA, id("v3"))
+		oeA := JunctionOut([]OpenEdge{e0, e1}, id("oeA"))
+		oeB := JunctionOut([]OpenEdge{e1, e2}, id("oeB"))
+		g0a := Null.AddValueIn(oeA, id("v3"))
+		g0b := Null.AddValueIn(oeB, id("v3"))
+		g1 := g0a.Union(g0b).DelValueIn(oeA, id("v3"))
 		assert.True(t, Equal(g1, g0b))
 		assert.Nil(t, g1.Value(id("v0")))
 		assert.NotNil(t, g1.Value(id("v1")))
@@ -329,7 +329,7 @@ func TestGraphDelValueIn(t *T) {
 	}
 
 	{ // removing to's only edge, sub-nodes have edge to each other
-		ej := JunctionOut([]HalfEdge{
+		ej := JunctionOut([]OpenEdge{
 			ValueOut(id("v0"), id("ej0")),
 			ValueOut(id("v1"), id("ej0")),
 		}, id("ej"))
@@ -370,11 +370,11 @@ func TestGraphUnion(t *T) {
 	}
 
 	{ // Two disparate graphs with junctions
-		ga := Null.AddValueIn(JunctionOut([]HalfEdge{
+		ga := Null.AddValueIn(JunctionOut([]OpenEdge{
 			ValueOut(id("va0"), id("ea0")),
 			ValueOut(id("va1"), id("ea1")),
 		}, id("eaj")), id("va2"))
-		gb := Null.AddValueIn(JunctionOut([]HalfEdge{
+		gb := Null.AddValueIn(JunctionOut([]OpenEdge{
 			ValueOut(id("vb0"), id("eb0")),
 			ValueOut(id("vb1"), id("eb1")),
 		}, id("ebj")), id("vb2"))
@@ -413,11 +413,11 @@ func TestGraphUnion(t *T) {
 	}
 
 	{ // two partially overlapping graphs with junctions
-		g0 := Null.AddValueIn(JunctionOut([]HalfEdge{
+		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
 			ValueOut(id("v0"), id("e0")),
 			ValueOut(id("v1"), id("e1")),
 		}, id("ej0")), id("v2"))
-		g1 := Null.AddValueIn(JunctionOut([]HalfEdge{
+		g1 := Null.AddValueIn(JunctionOut([]OpenEdge{
 			ValueOut(id("v0"), id("e0")),
 			ValueOut(id("v1"), id("e1")),
 		}, id("ej1")), id("v2"))
@@ -444,7 +444,7 @@ func TestGraphUnion(t *T) {
 	}
 
 	{ // Two equal graphs with junctions
-		g0 := Null.AddValueIn(JunctionOut([]HalfEdge{
+		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
 			ValueOut(id("v0"), id("e0")),
 			ValueOut(id("v1"), id("e1")),
 		}, id("ej0")), id("v2"))
@@ -500,8 +500,8 @@ func TestGraphEqual(t *T) {
 	{ // junction basic test
 		e0 := ValueOut(id("v0"), id("e0"))
 		e1 := ValueOut(id("v1"), id("e1"))
-		ga := Null.AddValueIn(JunctionOut([]HalfEdge{e0, e1}, id("ej")), id("v2"))
-		gb := Null.AddValueIn(JunctionOut([]HalfEdge{e1, e0}, id("ej")), id("v2"))
+		ga := Null.AddValueIn(JunctionOut([]OpenEdge{e0, e1}, id("ej")), id("v2"))
+		gb := Null.AddValueIn(JunctionOut([]OpenEdge{e1, e0}, id("ej")), id("v2"))
 		assertEqual(ga, ga)
 		assertNotEqual(ga, gb)
 	}
