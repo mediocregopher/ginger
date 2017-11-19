@@ -2,19 +2,37 @@ package main
 
 import (
 	"fmt"
+	"hash"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/mediocregopher/ginger/gg"
 	"github.com/mediocregopher/ginger/gim/geo"
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
+// Leave room for:
+// - Changing the "flow" direction
+// - Absolute positioning of some/all vertices
+
+// TODO
+// - actually use flowDir
+// - assign edges to "slots" on boxes
+// - figure out how to keep boxes sorted on their levels (e.g. the "b" nodes)
+
 const (
 	framerate   = 10
 	frameperiod = time.Second / time.Duration(framerate)
+	rounder     = geo.Ceil
 )
+
+type str string
+
+func (s str) Identify(h hash.Hash) {
+	fmt.Fprintln(h, s)
+}
 
 func debugf(str string, args ...interface{}) {
 	if !strings.HasSuffix(str, "\n") {
@@ -23,88 +41,130 @@ func debugf(str string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, str, args...)
 }
 
-// TODO
-// * Use actual gg graphs and not fake "boxes"
-//   - This will involve wrapping the vertices in some way, to preserve position
-// * Once gg graphs are used we can use that birds-eye-view to make better
-//   decisions about edge placement
+func mkGraph() *gg.Graph {
+	aE0 := gg.ValueOut(str("a"), str("aE0"))
+	aE1 := gg.ValueOut(str("a"), str("aE1"))
+	aE2 := gg.ValueOut(str("a"), str("aE2"))
+	aE3 := gg.ValueOut(str("a"), str("aE3"))
+	g := gg.Null
+	g = g.AddValueIn(aE0, str("b0"))
+	g = g.AddValueIn(aE1, str("b1"))
+	g = g.AddValueIn(aE2, str("b2"))
+	g = g.AddValueIn(aE3, str("b3"))
+
+	jE := gg.JunctionOut([]gg.OpenEdge{
+		gg.ValueOut(str("b0"), str("")),
+		gg.ValueOut(str("b1"), str("")),
+		gg.ValueOut(str("b2"), str("")),
+		gg.ValueOut(str("b3"), str("")),
+	}, str("jE"))
+	g = g.AddValueIn(jE, str("c"))
+	return g
+}
+
+//func mkGraph() *gg.Graph {
+//	g := gg.Null
+//	g = g.AddValueIn(gg.ValueOut(str("a"), str("e")), str("b"))
+//	return g
+//}
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
+	term.Reset()
+	termSize := term.WindowSize()
+	g := mkGraph()
 
-	type movingBox struct {
-		box
-		xRight bool
-		yDown  bool
+	// level 0 is at the bottom of the screen, cause life is easier that way
+	levels := map[*gg.Vertex]int{}
+	getLevel := func(v *gg.Vertex) int {
+		// if any of the tos have a level, this will be greater than the max
+		toMax := -1
+		for _, e := range v.Out {
+			lvl, ok := levels[e.To]
+			if !ok {
+				continue
+			} else if lvl > toMax {
+				toMax = lvl
+			}
+		}
+
+		if toMax >= 0 {
+			return toMax + 1
+		}
+
+		// otherwise level is 0
+		return 0
 	}
 
-	randBox := func() movingBox {
-		tsize := term.WindowSize()
-		return movingBox{
-			box: box{
-				pos:  geo.XY{rand.Intn(tsize[0]), rand.Intn(tsize[1])},
-				size: geo.XY{30, 2},
-			},
-			xRight: rand.Intn(1) == 0,
-			yDown:  rand.Intn(1) == 0,
+	g.Walk(g.Value(str("c")), func(v *gg.Vertex) bool {
+		levels[v] = getLevel(v)
+		return true
+	})
+
+	// consolidate by level
+	byLevel := map[int][]*gg.Vertex{}
+	maxLvl := -1
+	for v, lvl := range levels {
+		byLevel[lvl] = append(byLevel[lvl], v)
+		if lvl > maxLvl {
+			maxLvl = lvl
 		}
 	}
 
-	boxes := []movingBox{
-		randBox(),
-		randBox(),
-		randBox(),
-		randBox(),
-		randBox(),
+	// create boxes
+	boxes := map[*gg.Vertex]box{}
+	for lvl := 0; lvl <= maxLvl; lvl++ {
+		vv := byLevel[lvl]
+		for i, v := range vv {
+			b := boxFromVertex(v, geo.Right)
+			bSize := b.rect().Size
+			b.topLeft = geo.XY{
+				10*(i-(len(vv)/2)) - (bSize[0] / 2),
+				lvl * -10,
+			}
+			boxes[v] = b
+		}
+	}
+
+	// center boxes. first find overall dimensions, use that to create delta
+	// vector which would move that to the center
+	var graphRect geo.Rect
+	for _, b := range boxes {
+		graphRect = graphRect.Union(b.rect())
+	}
+
+	graphMid := graphRect.Center(rounder)
+	screenMid := geo.Zero.Midpoint(termSize, rounder)
+	delta := screenMid.Sub(graphMid)
+
+	// translate all boxes by delta
+	for v, b := range boxes {
+		b.topLeft = b.topLeft.Add(delta)
+		boxes[v] = b
+	}
+
+	// create lines
+	var lines [][2]box
+	for v := range levels {
+		b := boxes[v]
+		for _, e := range v.In {
+			bFrom := boxes[e.From]
+			lines = append(lines, [2]box{bFrom, b})
+		}
 	}
 
 	for range time.Tick(frameperiod) {
-
 		// update phase
-		termSize := term.WindowSize()
-		for i := range boxes {
-			b := &boxes[i]
-			b.body = fmt.Sprintf("%d) %v", i, b.rectCorner(geo.Left, geo.Up))
-			b.body += fmt.Sprintf(" | %v\n", b.rectCorner(geo.Right, geo.Up))
-			b.body += fmt.Sprintf("   %v", b.rectCorner(geo.Left, geo.Down))
-			b.body += fmt.Sprintf(" | %v", b.rectCorner(geo.Right, geo.Down))
-
-			size := b.rectSize()
-			if b.pos[0] <= 0 {
-				b.xRight = true
-			} else if b.pos[0]+size[0] >= termSize[0] {
-				b.xRight = false
-			}
-			if b.pos[1] <= 0 {
-				b.yDown = true
-			} else if b.pos[1]+size[1] >= termSize[1] {
-				b.yDown = false
-			}
-
-			if b.xRight {
-				b.pos[0] += 3
-			} else {
-				b.pos[0] -= 3
-			}
-			if b.yDown {
-				b.pos[1]++
-			} else {
-				b.pos[1]--
-			}
-		}
+		// nufin
 
 		// draw phase
 		term.Reset()
-		for i := range boxes {
-			boxes[i].draw(term)
+		for v := range boxes {
+			boxes[v].draw(term)
 		}
-		term.Flush()
-		for i := range boxes {
-			if i == 0 {
-				continue
-			}
-			basicLine(term, boxes[i-1].box, boxes[i].box)
+		for _, line := range lines {
+			basicLine(term, line[0], line[1])
 		}
 		term.Flush()
 	}

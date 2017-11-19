@@ -10,21 +10,22 @@ import (
 // boxEdgeAdj returns the midpoint of a box's edge, using the given direction
 // (single-dimension unit-vector) to know which edge to look at.
 func boxEdgeAdj(box box, dir geo.XY) geo.XY {
+	boxRect := box.rect()
 	var a, b geo.XY
 	switch dir {
 	case geo.Up:
-		a, b = box.rectCorner(geo.Left, geo.Up), box.rectCorner(geo.Right, geo.Up)
+		a, b = boxRect.Corner(geo.Left, geo.Up), boxRect.Corner(geo.Right, geo.Up)
 	case geo.Down:
-		a, b = box.rectCorner(geo.Left, geo.Down), box.rectCorner(geo.Right, geo.Down)
+		a, b = boxRect.Corner(geo.Left, geo.Down), boxRect.Corner(geo.Right, geo.Down)
 	case geo.Left:
-		a, b = box.rectCorner(geo.Left, geo.Up), box.rectCorner(geo.Left, geo.Down)
+		a, b = boxRect.Corner(geo.Left, geo.Up), boxRect.Corner(geo.Left, geo.Down)
 	case geo.Right:
-		a, b = box.rectCorner(geo.Right, geo.Up), box.rectCorner(geo.Right, geo.Down)
+		a, b = boxRect.Corner(geo.Right, geo.Up), boxRect.Corner(geo.Right, geo.Down)
 	default:
 		panic(fmt.Sprintf("unsupported direction: %#v", dir))
 	}
 
-	mid := a.Midpoint(b, 0)
+	mid := a.Midpoint(b, rounder)
 	return mid
 }
 
@@ -40,9 +41,10 @@ var dirs = []geo.XY{
 // and Left. The secondary direction will never be zero if primary is given,
 // even if the two boxes are in-line
 func boxesRelDir(from, to box) (geo.XY, geo.XY) {
+	fromRect, toRect := from.rect(), to.rect()
 	rels := make([]int, len(dirs))
 	for i, dir := range dirs {
-		rels[i] = to.rectEdge(dir.Inv()) - from.rectEdge(dir)
+		rels[i] = toRect.Edge(dir.Inv()) - fromRect.Edge(dir)
 		if dir == geo.Up || dir == geo.Left {
 			rels[i] *= -1
 		}
@@ -85,9 +87,6 @@ func boxesRelDir(from, to box) (geo.XY, geo.XY) {
 
 	return primary, secondary
 }
-
-// liner will draw a line from one box to another
-type liner func(*terminal.Terminal, box, box)
 
 var lineSegments = func() map[[2]geo.XY]string {
 	m := map[[2]geo.XY]string{
@@ -134,7 +133,7 @@ func basicLine(term *terminal.Terminal, from, to box) {
 	dirInv := dir.Inv()
 	start := boxEdgeAdj(from, dir)
 	end := boxEdgeAdj(to, dirInv)
-	mid := start.Midpoint(end, 0)
+	mid := start.Midpoint(end, rounder)
 
 	along := func(xy, dir geo.XY) int {
 		if dir[0] != 0 {

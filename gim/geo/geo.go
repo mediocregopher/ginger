@@ -1,8 +1,6 @@
 // Package geo implements basic geometric concepts used by gim
 package geo
 
-import "math"
-
 // XY describes a 2-dimensional position or vector. The origin of the
 // 2-dimensional space is a 0,0, with the x-axis going to the left and the
 // y-axis going down.
@@ -33,6 +31,16 @@ func (xy XY) Mul(xy2 XY) XY {
 	return xy
 }
 
+// Div returns the results of dividing the two XYs' field individually, using
+// the Rounder to resolve floating results
+func (xy XY) Div(xy2 XY, r Rounder) XY {
+	xyf, xy2f := xy.toF64(), xy2.toF64()
+	return XY{
+		r.Round(xyf[0] / xy2f[0]),
+		r.Round(xyf[1] / xy2f[1]),
+	}
+}
+
 // Scale returns the result of multiplying both of the XY's fields by the scalar
 func (xy XY) Scale(scalar int) XY {
 	return xy.Mul(XY{scalar, scalar})
@@ -49,21 +57,6 @@ func (xy XY) Sub(xy2 XY) XY {
 	return xy.Add(xy2.Inv())
 }
 
-func round(f float64, r int) int {
-	switch {
-	case r < 0:
-		f = math.Floor(f)
-	case r == 0:
-		if f < 0 {
-			f = math.Ceil(f - 0.5)
-		}
-		f = math.Floor(f + 0.5)
-	case r > 0:
-		f = math.Ceil(f)
-	}
-	return int(f)
-}
-
 func (xy XY) toF64() [2]float64 {
 	return [2]float64{
 		float64(xy[0]),
@@ -72,16 +65,29 @@ func (xy XY) toF64() [2]float64 {
 }
 
 // Midpoint returns the midpoint between the two XYs. The rounder indicates what
-// to do about non-whole values when they're come across:
-// - rounder < 0 : floor
-// - rounder = 0 : round
-// - rounder > 0 : ceil
-func (xy XY) Midpoint(xy2 XY, rounder int) XY {
-	xyf, xy2f := xy.toF64(), xy2.toF64()
-	xf := xyf[0] + ((xy2f[0] - xyf[0]) / 2)
-	yf := xyf[1] + ((xy2f[1] - xyf[1]) / 2)
-	return XY{
-		round(xf, rounder),
-		round(yf, rounder),
+// to do about non-whole values when they're come across
+func (xy XY) Midpoint(xy2 XY, r Rounder) XY {
+	return xy.Add(xy2.Sub(xy).Div(XY{2, 2}, r))
+}
+
+// Min returns an XY whose fields are the minimum values of the two XYs'
+// fields compared individually
+func (xy XY) Min(xy2 XY) XY {
+	for i := range xy {
+		if xy2[i] < xy[i] {
+			xy[i] = xy2[i]
+		}
 	}
+	return xy
+}
+
+// Max returns an XY whose fields are the Maximum values of the two XYs'
+// fields compared individually
+func (xy XY) Max(xy2 XY) XY {
+	for i := range xy {
+		if xy2[i] > xy[i] {
+			xy[i] = xy2[i]
+		}
+	}
+	return xy
 }
