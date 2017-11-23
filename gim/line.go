@@ -1,101 +1,18 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/mediocregopher/ginger/gim/geo"
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
-// boxEdgeAdj returns the midpoint of a box's edge, using the given direction
-// (single-dimension unit-vector) to know which edge to look at.
-func boxEdgeAdj(box box, dir geo.XY) geo.XY {
-	boxRect := box.rect()
-	var a, b geo.XY
-	switch dir {
-	case geo.Up:
-		a, b = boxRect.Corner(geo.Left, geo.Up), boxRect.Corner(geo.Right, geo.Up)
-	case geo.Down:
-		a, b = boxRect.Corner(geo.Left, geo.Down), boxRect.Corner(geo.Right, geo.Down)
-	case geo.Left:
-		a, b = boxRect.Corner(geo.Left, geo.Up), boxRect.Corner(geo.Left, geo.Down)
-	case geo.Right:
-		a, b = boxRect.Corner(geo.Right, geo.Up), boxRect.Corner(geo.Right, geo.Down)
-	default:
-		panic(fmt.Sprintf("unsupported direction: %#v", dir))
-	}
-
-	mid := a.Midpoint(b, rounder)
-	return mid
-}
-
-var dirs = []geo.XY{
-	geo.Up,
-	geo.Down,
-	geo.Left,
-	geo.Right,
-}
-
-// boxesRelDir returns the "best" direction between from and to. Returns
-// geo.Zero if they overlap. It also returns the secondary direction. E.g. Down
-// and Left. The secondary direction will never be zero if primary is given,
-// even if the two boxes are in-line
-func boxesRelDir(from, to box) (geo.XY, geo.XY) {
-	fromRect, toRect := from.rect(), to.rect()
-	rels := make([]int, len(dirs))
-	for i, dir := range dirs {
-		rels[i] = toRect.Edge(dir.Inv()) - fromRect.Edge(dir)
-		if dir == geo.Up || dir == geo.Left {
-			rels[i] *= -1
-		}
-	}
-
-	// find primary
-	var primary geo.XY
-	var primaryMax int
-	for i, rel := range rels {
-		if rel < 0 {
-			continue
-		} else if rel > primaryMax || i == 0 {
-			primary = dirs[i]
-			primaryMax = rel
-		}
-	}
-
-	// if all rels were negative the boxes are overlapping, return zeros
-	if primary == geo.Zero {
-		return geo.Zero, geo.Zero
-	}
-
-	// now find secondary, which must be perpendicular to primary
-	var secondary geo.XY
-	var secondaryMax int
-	var secondarySet bool
-	for i, rel := range rels {
-		if dirs[i] == primary {
-			continue
-		} else if dirs[i][0] == 0 && primary[0] == 0 {
-			continue
-		} else if dirs[i][1] == 0 && primary[1] == 0 {
-			continue
-		} else if !secondarySet || rel > secondaryMax {
-			secondary = dirs[i]
-			secondaryMax = rel
-			secondarySet = true
-		}
-	}
-
-	return primary, secondary
-}
-
 var lineSegments = func() map[[2]geo.XY]string {
 	m := map[[2]geo.XY]string{
-		{{-1, 0}, {1, 0}}:  "─",
-		{{0, 1}, {0, -1}}:  "│",
-		{{1, 0}, {0, 1}}:   "┌",
-		{{-1, 0}, {0, 1}}:  "┐",
-		{{1, 0}, {0, -1}}:  "└",
-		{{-1, 0}, {0, -1}}: "┘",
+		{geo.Left, geo.Right}: "─",
+		{geo.Down, geo.Up}:    "│",
+		{geo.Right, geo.Down}: "┌",
+		{geo.Left, geo.Down}:  "┐",
+		{geo.Right, geo.Up}:   "└",
+		{geo.Left, geo.Up}:    "┘",
 	}
 
 	// the inverse segments use the same characters
@@ -122,17 +39,48 @@ var arrows = map[geo.XY]string{
 	geo.Right: ">",
 }
 
-func basicLine(term *terminal.Terminal, from, to box) {
-	dir, dirSec := boxesRelDir(from, to)
+type line [2]*box
 
-	// if the boxes overlap then don't draw anything
-	if dir == geo.Zero {
-		return
+// given the "primary" direction the line should be headed, picks a possible
+// secondary one which may be used to detour along the path in order to reach
+// the destination (in the case that the two boxes are diagonal from each other)
+func (l line) secondaryDir(primary geo.XY) geo.XY {
+	fromRect, toRect := l[0].rect(), l[1].rect()
+	rels := make([]int, len(geo.Units))
+	for i, dir := range geo.Units {
+		rels[i] = toRect.Edge(dir.Inv()) - fromRect.Edge(dir)
+		if dir == geo.Up || dir == geo.Left {
+			rels[i] *= -1
+		}
 	}
 
+	var secondary geo.XY
+	var secondaryMax int
+	var secondarySet bool
+	for i, rel := range rels {
+		if geo.Units[i] == primary {
+			continue
+		} else if geo.Units[i][0] == 0 && primary[0] == 0 {
+			continue
+		} else if geo.Units[i][1] == 0 && primary[1] == 0 {
+			continue
+		} else if !secondarySet || rel > secondaryMax {
+			secondary = geo.Units[i]
+			secondaryMax = rel
+			secondarySet = true
+		}
+	}
+
+	return secondary
+}
+
+func (l line) draw(term *terminal.Terminal, dir geo.XY) {
+	from, to := *l[0], *l[1]
+	dirSec := l.secondaryDir(dir)
+
 	dirInv := dir.Inv()
-	start := boxEdgeAdj(from, dir)
-	end := boxEdgeAdj(to, dirInv)
+	start := from.rect().EdgeMidpoint(dir, rounder)
+	end := to.rect().EdgeMidpoint(dirInv, rounder)
 	mid := start.Midpoint(end, rounder)
 
 	along := func(xy, dir geo.XY) int {

@@ -17,6 +17,14 @@ var (
 	Right = XY{1, 0}
 )
 
+// Units is the set of unit vectors
+var Units = []XY{
+	Up,
+	Down,
+	Left,
+	Right,
+}
+
 // Add returns the result of adding the two XYs' fields individually
 func (xy XY) Add(xy2 XY) XY {
 	xy[0] += xy2[0]

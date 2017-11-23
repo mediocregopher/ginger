@@ -49,6 +49,27 @@ func (r Rect) Corner(xDir, yDir XY) XY {
 	}
 }
 
+// EdgeMidpoint returns the point which is the midpoint of the edge dientified by the
+// direction (Up/Down/Left/Right)
+func (r Rect) EdgeMidpoint(dir XY, rounder Rounder) XY {
+	var a, b XY
+	switch dir {
+	case Up:
+		a, b = r.Corner(Left, Up), r.Corner(Right, Up)
+	case Down:
+		a, b = r.Corner(Left, Down), r.Corner(Right, Down)
+	case Left:
+		a, b = r.Corner(Left, Up), r.Corner(Left, Down)
+	case Right:
+		a, b = r.Corner(Right, Up), r.Corner(Right, Down)
+	default:
+		panic(fmt.Sprintf("unsupported direction: %#v", dir))
+	}
+
+	mid := a.Midpoint(b, rounder)
+	return mid
+}
+
 func (r Rect) halfSize(rounder Rounder) XY {
 	return r.Size.Div(XY{2, 2}, rounder)
 }

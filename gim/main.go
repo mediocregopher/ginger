@@ -18,9 +18,9 @@ import (
 // - Absolute positioning of some/all vertices
 
 // TODO
-// - actually use flowDir
 // - assign edges to "slots" on boxes
 // - figure out how to keep boxes sorted on their levels (e.g. the "b" nodes)
+// - be able to draw circular graphs
 
 const (
 	framerate   = 10
@@ -72,100 +72,18 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
 	term.Reset()
-	termSize := term.WindowSize()
-	g := mkGraph()
+	term.HideCursor()
 
-	// level 0 is at the bottom of the screen, cause life is easier that way
-	levels := map[*gg.Vertex]int{}
-	getLevel := func(v *gg.Vertex) int {
-		// if any of the tos have a level, this will be greater than the max
-		toMax := -1
-		for _, e := range v.Out {
-			lvl, ok := levels[e.To]
-			if !ok {
-				continue
-			} else if lvl > toMax {
-				toMax = lvl
-			}
-		}
-
-		if toMax >= 0 {
-			return toMax + 1
-		}
-
-		// otherwise level is 0
-		return 0
-	}
-
-	g.Walk(g.Value(str("c")), func(v *gg.Vertex) bool {
-		levels[v] = getLevel(v)
-		return true
-	})
-
-	// consolidate by level
-	byLevel := map[int][]*gg.Vertex{}
-	maxLvl := -1
-	for v, lvl := range levels {
-		byLevel[lvl] = append(byLevel[lvl], v)
-		if lvl > maxLvl {
-			maxLvl = lvl
-		}
-	}
-
-	// create boxes
-	boxes := map[*gg.Vertex]box{}
-	for lvl := 0; lvl <= maxLvl; lvl++ {
-		vv := byLevel[lvl]
-		for i, v := range vv {
-			b := boxFromVertex(v, geo.Right)
-			bSize := b.rect().Size
-			b.topLeft = geo.XY{
-				10*(i-(len(vv)/2)) - (bSize[0] / 2),
-				lvl * -10,
-			}
-			boxes[v] = b
-		}
-	}
-
-	// center boxes. first find overall dimensions, use that to create delta
-	// vector which would move that to the center
-	var graphRect geo.Rect
-	for _, b := range boxes {
-		graphRect = graphRect.Union(b.rect())
-	}
-
-	graphMid := graphRect.Center(rounder)
-	screenMid := geo.Zero.Midpoint(termSize, rounder)
-	delta := screenMid.Sub(graphMid)
-
-	// translate all boxes by delta
-	for v, b := range boxes {
-		b.topLeft = b.topLeft.Add(delta)
-		boxes[v] = b
-	}
-
-	// create lines
-	var lines [][2]box
-	for v := range levels {
-		b := boxes[v]
-		for _, e := range v.In {
-			bFrom := boxes[e.From]
-			lines = append(lines, [2]box{bFrom, b})
-		}
+	v := view{
+		g:       mkGraph(),
+		flowDir: geo.Down,
+		start:   str("c"),
+		center:  geo.Zero.Midpoint(term.WindowSize(), rounder),
 	}
 
 	for range time.Tick(frameperiod) {
-		// update phase
-		// nufin
-
-		// draw phase
 		term.Reset()
-		for v := range boxes {
-			boxes[v].draw(term)
-		}
-		for _, line := range lines {
-			basicLine(term, line[0], line[1])
-		}
+		v.draw(term)
 		term.Flush()
 	}
 }

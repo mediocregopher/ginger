@@ -83,6 +83,16 @@ func (t *Terminal) MoveCursor(by geo.XY) {
 	t.MoveCursorTo(t.pos.Add(by))
 }
 
+// HideCursor causes the cursor to not actually be shown
+func (t *Terminal) HideCursor() {
+	fmt.Fprintf(t.buf, "\033[?25l")
+}
+
+// ShowCursor causes the cursor to be shown, if it was previously hidden
+func (t *Terminal) ShowCursor() {
+	fmt.Fprintf(t.buf, "\033[?25h")
+}
+
 // Reset completely clears all drawn characters on the screen and returns the
 // cursor to the origin
 func (t *Terminal) Reset() {
