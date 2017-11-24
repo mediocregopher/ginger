@@ -8,6 +8,8 @@ import (
 	"hash"
 )
 
+// TODO instead of Identifier being public, make it encoding.TextMarshaler
+
 // Identifier is implemented by any value which can return a unique string for
 // itself via an Identify method
 type Identifier interface {
@@ -19,6 +21,16 @@ func identify(i Identifier) string {
 	i.Identify(h)
 	return hex.EncodeToString(h.Sum(nil))
 }
+
+// Str is an Identifier identified by its string value
+type Str string
+
+// Identify implements the Identifier interface
+func (s Str) Identify(h hash.Hash) {
+	fmt.Fprintf(h, "%q", s)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 // VertexType enumerates the different possible vertex types
 type VertexType string

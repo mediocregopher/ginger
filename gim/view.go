@@ -9,7 +9,7 @@ import (
 type view struct {
 	g       *gg.Graph
 	flowDir geo.XY
-	start   str
+	start   gg.Str
 	center  geo.XY
 }
 

@@ -43,7 +43,7 @@ func boxFromVertex(v *gg.Vertex, flowDir geo.XY) box {
 		numOut:  len(v.Out),
 	}
 	if v.VertexType == gg.Value {
-		b.body = string(v.Value.(str))
+		b.body = string(v.Value.(gg.Str))
 	}
 	return b
 }
