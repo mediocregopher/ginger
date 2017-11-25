@@ -455,6 +455,7 @@ func Equal(g1, g2 *Graph) bool {
 // passed to the callback and used as the starting point of the traversal. If
 // the callback returns false the traversal is stopped.
 func (g *Graph) Walk(startWith *Vertex, callback func(*Vertex) bool) {
+	// TODO figure out how to make Walk deterministic
 	g.makeView()
 	if len(g.view) == 0 {
 		return
