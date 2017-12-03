@@ -18,9 +18,9 @@ import (
 
 // TODO
 // - assign edges to "slots" on boxes
-// - finish initial implementation of constraint, use that to sort boxes by
-//   primary and secondary flowDir based on their edges
+// - edge values
 // - be able to draw circular graphs
+// - audit all steps, make sure everything is deterministic
 
 const (
 	framerate   = 10
@@ -69,10 +69,11 @@ func main() {
 	term.HideCursor()
 
 	v := view{
-		g:       mkGraph(),
-		flowDir: geo.Down,
-		start:   gg.Str("c"),
-		center:  geo.Zero.Midpoint(term.WindowSize(), rounder),
+		g:           mkGraph(),
+		primFlowDir: geo.Right,
+		secFlowDir:  geo.Down,
+		start:       gg.Str("c"),
+		center:      geo.Zero.Midpoint(term.WindowSize(), rounder),
 	}
 
 	for range time.Tick(frameperiod) {

@@ -1,6 +1,8 @@
 // Package geo implements basic geometric concepts used by gim
 package geo
 
+import "math"
+
 // XY describes a 2-dimensional position or vector. The origin of the
 // 2-dimensional space is a 0,0, with the x-axis going to the left and the
 // y-axis going down.
@@ -23,6 +25,34 @@ var Units = []XY{
 	Down,
 	Left,
 	Right,
+}
+
+func (xy XY) toF64() [2]float64 {
+	return [2]float64{
+		float64(xy[0]),
+		float64(xy[1]),
+	}
+}
+
+func abs(i int) int {
+	if i < 0 {
+		return i * -1
+	}
+	return i
+}
+
+// Len returns the length (aka magnitude) of the XY as a vector, using the
+// Rounder to round to an int
+func (xy XY) Len(r Rounder) int {
+	if xy[0] == 0 {
+		return abs(xy[1])
+	} else if xy[1] == 0 {
+		return abs(xy[0])
+	}
+
+	xyf := xy.toF64()
+	lf := math.Sqrt((xyf[0] * xyf[0]) + (xyf[1] * xyf[1]))
+	return r.Round(lf)
 }
 
 // Add returns the result of adding the two XYs' fields individually
@@ -63,13 +93,6 @@ func (xy XY) Inv() XY {
 // xy.Add(xy2.Inv())
 func (xy XY) Sub(xy2 XY) XY {
 	return xy.Add(xy2.Inv())
-}
-
-func (xy XY) toF64() [2]float64 {
-	return [2]float64{
-		float64(xy[0]),
-		float64(xy[1]),
-	}
 }
 
 // Midpoint returns the midpoint between the two XYs. The rounder indicates what

@@ -1,99 +1,169 @@
 package main
 
 import (
+	"sort"
+
 	"github.com/mediocregopher/ginger/gg"
+	"github.com/mediocregopher/ginger/gim/constraint"
 	"github.com/mediocregopher/ginger/gim/geo"
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
-type view struct {
-	g       *gg.Graph
-	flowDir geo.XY
-	start   gg.Str
-	center  geo.XY
+// "Solves" vertex position by detemining relative positions of vertices in
+// primary and secondary directions (independently), with relative positions
+// being described by "levels", where multiple vertices can occupy one level.
+//
+// Primary determines relative position in the primary direction by trying
+// to place vertices before their outs and after their ins.
+//
+// Secondary determines relative position in the secondary direction by
+// trying to place vertices relative to vertices they share an edge with in
+// the order that the edges appear on the shared node.
+func posSolve(g *gg.Graph) [][]*gg.Vertex {
+	primEng := constraint.NewEngine()
+	secEng := constraint.NewEngine()
+
+	strM := g.ByID()
+	for vID, v := range strM {
+		var prevIn *gg.Vertex
+		for _, e := range v.In {
+			primEng.AddConstraint(constraint.Constraint{
+				Elem: e.From.ID,
+				LT:   vID,
+			})
+			if prevIn != nil {
+				secEng.AddConstraint(constraint.Constraint{
+					Elem: prevIn.ID,
+					LT:   e.From.ID,
+				})
+			}
+			prevIn = e.From
+		}
+
+		var prevOut *gg.Vertex
+		for _, e := range v.Out {
+			if prevOut == nil {
+				continue
+			}
+			secEng.AddConstraint(constraint.Constraint{
+				Elem: prevOut.ID,
+				LT:   e.To.ID,
+			})
+			prevOut = e.To
+		}
+	}
+	prim := primEng.Solve()
+	sec := secEng.Solve()
+
+	// determine maximum primary level
+	var maxPrim int
+	for _, lvl := range prim {
+		if lvl > maxPrim {
+			maxPrim = lvl
+		}
+	}
+
+	outStr := make([][]string, maxPrim+1)
+	for v, lvl := range prim {
+		outStr[lvl] = append(outStr[lvl], v)
+	}
+
+	// sort each primary level
+	for _, vv := range outStr {
+		sort.Slice(vv, func(i, j int) bool {
+			return sec[vv[i]] < sec[vv[j]]
+		})
+	}
+
+	// convert to vertices
+	out := make([][]*gg.Vertex, len(outStr))
+	for i, vv := range outStr {
+		out[i] = make([]*gg.Vertex, len(outStr[i]))
+		for j, v := range vv {
+			out[i][j] = strM[v]
+		}
+	}
+	return out
 }
 
-func (v *view) draw(term *terminal.Terminal) {
-	// level 0 is at the bottom of the screen, cause life is easier that way
-	levels := map[*gg.Vertex]int{}
-	getLevel := func(v *gg.Vertex) int {
-		// if any of the tos have a level, this will be greater than the max
-		toMax := -1
-		for _, e := range v.Out {
-			lvl, ok := levels[e.To]
-			if !ok {
-				continue
-			} else if lvl > toMax {
-				toMax = lvl
-			}
-		}
-
-		if toMax >= 0 {
-			return toMax + 1
-		}
-
-		// otherwise level is 0
-		return 0
-	}
-
-	v.g.Walk(v.g.Value(v.start), func(v *gg.Vertex) bool {
-		levels[v] = getLevel(v)
-		return true
-	})
-
-	// consolidate by level
-	byLevel := map[int][]*gg.Vertex{}
-	maxLvl := -1
-	for v, lvl := range levels {
-		byLevel[lvl] = append(byLevel[lvl], v)
-		if lvl > maxLvl {
-			maxLvl = lvl
-		}
-	}
-
-	// create boxes
-	boxes := map[*gg.Vertex]*box{}
-	for lvl := 0; lvl <= maxLvl; lvl++ {
-		vv := byLevel[lvl]
-		for i, v := range vv {
-			b := boxFromVertex(v, geo.Right)
-			bSize := b.rect().Size
-			// TODO make this dependent on flowDir
-			b.topLeft = geo.XY{
-				10*(i-(len(vv)/2)) - (bSize[0] / 2),
-				lvl * -10,
-			}
-			boxes[v] = &b
-		}
-	}
-
-	// create lines
-	var lines []line
-	for v := range levels {
-		b := boxes[v]
-		for _, e := range v.In {
-			bFrom := boxes[e.From]
-			lines = append(lines, line{bFrom, b})
-		}
-	}
-
-	// translate all boxes so the graph is centered around v.center. Since the
-	// lines use pointers to the boxes this will update them as well
+// mutates the boxes to be centered around the given point, keeping their
+// relative position to each other
+func centerBoxes(boxes []*box, around geo.XY) {
 	var graphRect geo.Rect
 	for _, b := range boxes {
 		graphRect = graphRect.Union(b.rect())
 	}
 	graphMid := graphRect.Center(rounder)
-	delta := v.center.Sub(graphMid)
+	delta := around.Sub(graphMid)
 	for _, b := range boxes {
 		b.topLeft = b.topLeft.Add(delta)
 	}
+}
+
+type view struct {
+	g                       *gg.Graph
+	primFlowDir, secFlowDir geo.XY
+	start                   gg.Str
+	center                  geo.XY
+}
+
+func (view *view) draw(term *terminal.Terminal) {
+	relPos := posSolve(view.g)
+
+	// create boxes
+	var boxes []*box
+	boxesM := map[*box]*gg.Vertex{}
+	boxesMr := map[*gg.Vertex]*box{}
+	const (
+		primPadding = 5
+		secPadding  = 3
+	)
+	var primPos int
+	for _, vv := range relPos {
+		var primBoxes []*box // boxes on just this level
+		var maxPrim int
+		var secPos int
+		for _, v := range vv {
+			primVec := view.primFlowDir.Scale(primPos)
+			secVec := view.secFlowDir.Scale(secPos)
+
+			b := boxFromVertex(v, view.primFlowDir)
+			b.topLeft = primVec.Add(secVec)
+			boxes = append(boxes, &b)
+			primBoxes = append(primBoxes, &b)
+			boxesM[&b] = v
+			boxesMr[v] = &b
+
+			bSize := b.rect().Size
+			primBoxLen := bSize.Mul(view.primFlowDir).Len(rounder)
+			secBoxLen := bSize.Mul(view.secFlowDir).Len(rounder)
+			if primBoxLen > maxPrim {
+				maxPrim = primBoxLen
+			}
+			secPos += secBoxLen + secPadding
+		}
+		centerBoxes(primBoxes, view.primFlowDir.Scale(primPos))
+		primPos += maxPrim + primPadding
+	}
+
+	// create lines
+	var lines []line
+	for _, b := range boxes {
+		v := boxesM[b]
+		for _, e := range v.In {
+			bFrom := boxesMr[e.From]
+			lines = append(lines, line{bFrom, b})
+		}
+	}
+
+	// translate all boxes so the graph is centered around v.center
+	centerBoxes(boxes, view.center)
 
 	// actually draw the boxes and lines
-	for _, box := range boxes {
-		box.draw(term)
+	for _, b := range boxes {
+		b.draw(term)
 	}
 	for _, line := range lines {
-		line.draw(term, v.flowDir)
+		line.draw(term, view.primFlowDir)
 	}
 }

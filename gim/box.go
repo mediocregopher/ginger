@@ -86,9 +86,9 @@ func (b box) rect() geo.Rect {
 
 		switch b.flowDir {
 		case geo.Left, geo.Right:
-			edgesRect.Size = geo.XY{neededByEdges, 2}
-		case geo.Up, geo.Down:
 			edgesRect.Size = geo.XY{2, neededByEdges}
+		case geo.Up, geo.Down:
+			edgesRect.Size = geo.XY{neededByEdges, 2}
 		default:
 			panic(fmt.Sprintf("unknown flowDir: %#v", b.flowDir))
 		}
