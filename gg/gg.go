@@ -2,63 +2,62 @@
 package gg
 
 import (
-	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"hash"
+	"strings"
 )
 
-// TODO instead of Identifier being public, make it encoding.TextMarshaler
-
-// Identifier is implemented by any value which can return a unique string for
-// itself via an Identify method
-type Identifier interface {
-	Identify(hash.Hash)
+// Value wraps a go value in a way such that it will be uniquely identified
+// within any Graph and between Graphs. Use NewValue to create a Value instance.
+// You can create an instance manually as long as ID is globally unique.
+type Value struct {
+	ID string
+	V  interface{}
 }
 
-func identify(i Identifier) string {
-	h := md5.New()
-	i.Identify(h)
-	return hex.EncodeToString(h.Sum(nil))
+// NewValue returns a Value instance wrapping any go value. The Value returned
+// will be independent of the passed in go value. So if the same go value is
+// passed in twice then the two returned Value instances will be treated as
+// being different values by Graph.
+func NewValue(V interface{}) Value {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return Value{
+		ID: hex.EncodeToString(b),
+		V:  V,
+	}
 }
-
-// Str is an Identifier identified by its string value
-type Str string
-
-// Identify implements the Identifier interface
-func (s Str) Identify(h hash.Hash) {
-	fmt.Fprintf(h, "%q", s)
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 // VertexType enumerates the different possible vertex types
 type VertexType string
 
 const (
-	// Value is a Vertex which contains exactly one value and has at least one
-	// edge (either input or output)
-	Value VertexType = "value"
+	// ValueVertex is a Vertex which contains exactly one value and has at least
+	// one edge (either input or output)
+	ValueVertex VertexType = "value"
 
-	// Junction is a Vertex which contains two or more in edges and exactly one
-	// out edge
-	Junction VertexType = "junction"
+	// JunctionVertex is a Vertex which contains two or more in edges and
+	// exactly one out edge
+	JunctionVertex VertexType = "junction"
 )
 
 // Edge is a uni-directional connection between two vertices with an attribute
 // value
 type Edge struct {
 	From  *Vertex
-	Value Identifier
+	Value Value
 	To    *Vertex
 }
 
 // Vertex is a vertex in a Graph. No fields should be modified directly, only
 // through method calls
 type Vertex struct {
+	ID string
 	VertexType
-	ID      string     // identifier of the vertex, unique within the graph
-	Value   Identifier // Value is valid if-and-only-if VertexType is Value
+	Value   Value // Value is valid if-and-only-if VertexType is ValueVertex
 	In, Out []Edge
 }
 
@@ -72,14 +71,11 @@ type OpenEdge struct {
 	// already that will need to be taken into account when persisting into the
 	// graph
 	fromV vertex
-	val   Identifier
+	val   Value
 }
 
-// Identify implements the Identifier interface
-func (oe OpenEdge) Identify(h hash.Hash) {
-	fmt.Fprintln(h, "openEdge")
-	oe.fromV.Identify(h)
-	oe.val.Identify(h)
+func (oe OpenEdge) id() string {
+	return fmt.Sprintf("(%s,%s)", oe.fromV.id, oe.val.ID)
 }
 
 // vertex is a representation of a vertex in the graph. Each Graph contains a
@@ -95,26 +91,10 @@ func (oe OpenEdge) Identify(h hash.Hash) {
 // When a view is constructed in makeView these Value instances are deduplicated
 // and the top-level one's in value is used to properly connect it.
 type vertex struct {
+	id string
 	VertexType
-	val Identifier
+	val Value
 	in  []OpenEdge
-}
-
-// A Value vertex is unique by the value it contains
-// A Junction vertex is unique by its input edges
-func (v vertex) Identify(h hash.Hash) {
-	switch v.VertexType {
-	case Value:
-		fmt.Fprintln(h, "value")
-		v.val.Identify(h)
-	case Junction:
-		fmt.Fprintf(h, "junction:%d\n", len(v.in))
-		for _, in := range v.in {
-			in.Identify(h)
-		}
-	default:
-		panic(fmt.Sprintf("invalid VertexType:%#v", v))
-	}
 }
 
 func (v vertex) cp() vertex {
@@ -125,9 +105,9 @@ func (v vertex) cp() vertex {
 }
 
 func (v vertex) hasOpenEdge(oe OpenEdge) bool {
-	oeID := identify(oe)
+	oeID := oe.id()
 	for _, in := range v.in {
-		if identify(in) == oeID {
+		if in.id() == oeID {
 			return true
 		}
 	}
@@ -135,9 +115,9 @@ func (v vertex) hasOpenEdge(oe OpenEdge) bool {
 }
 
 func (v vertex) cpAndDelOpenEdge(oe OpenEdge) (vertex, bool) {
-	oeID := identify(oe)
+	oeID := oe.id()
 	for i, in := range v.in {
-		if identify(in) == oeID {
+		if in.id() == oeID {
 			v = v.cp()
 			v.in = append(v.in[:i], v.in[i+1:]...)
 			return v, true
@@ -168,8 +148,8 @@ func (g *Graph) cp() *Graph {
 	cp := &Graph{
 		vM: make(map[string]vertex, len(g.vM)),
 	}
-	for id, v := range g.vM {
-		cp.vM[id] = v
+	for vID, v := range g.vM {
+		cp.vM[vID] = v
 	}
 	return cp
 }
@@ -178,16 +158,17 @@ func (g *Graph) cp() *Graph {
 // Graph creation
 
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
-// an edge (with edgeVal attached to it) leaving the Value Vertex containing
+// an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
 //
-// When constructing Graphs Value vertices are de-duplicated on their value. So
+// When constructing Graphs, Value vertices are de-duplicated on their Value. So
 // multiple ValueOut OpenEdges constructed with the same val will be leaving the
 // same Vertex instance in the constructed Graph.
-func ValueOut(val, edgeVal Identifier) OpenEdge {
+func ValueOut(val, edgeVal Value) OpenEdge {
 	return OpenEdge{
 		fromV: vertex{
-			VertexType: Value,
+			id:         val.ID,
+			VertexType: ValueVertex,
 			val:        val,
 		},
 		val: edgeVal,
@@ -195,16 +176,21 @@ func ValueOut(val, edgeVal Identifier) OpenEdge {
 }
 
 // JunctionOut creates a OpenEdge which, when used to construct a Graph,
-// represents an edge (with edgeVal attached to it) leaving the Junction Vertex
-// comprised of the given ordered-set of input edges.
+// represents an edge (with edgeVal attached to it) coming from the
+// JunctionVertex comprised of the given ordered-set of input edges.
 //
 // When constructing Graphs Junction vertices are de-duplicated on their input
 // edges. So multiple Junction OpenEdges constructed with the same set of input
 // edges will be leaving the same Junction instance in the constructed Graph.
-func JunctionOut(in []OpenEdge, edgeVal Identifier) OpenEdge {
+func JunctionOut(in []OpenEdge, edgeVal Value) OpenEdge {
+	inIDs := make([]string, len(in))
+	for i := range in {
+		inIDs[i] = in[i].id()
+	}
 	return OpenEdge{
 		fromV: vertex{
-			VertexType: Junction,
+			id:         "[" + strings.Join(inIDs, ",") + "]",
+			VertexType: JunctionVertex,
 			in:         in,
 		},
 		val: edgeVal,
@@ -215,12 +201,13 @@ func JunctionOut(in []OpenEdge, edgeVal Identifier) OpenEdge {
 // val, returning the new Graph which reflects that connection. Any Vertices
 // referenced within toe OpenEdge which do not yet exist in the Graph will also
 // be created in this step.
-func (g *Graph) AddValueIn(oe OpenEdge, val Identifier) *Graph {
+func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
 	to := vertex{
-		VertexType: Value,
+		id:         val.ID,
+		VertexType: ValueVertex,
 		val:        val,
 	}
-	toID := identify(to)
+	toID := to.id
 
 	// if to is already in the graph, pull it out, as it might have existing in
 	// edges we want to keep
@@ -241,8 +228,8 @@ func (g *Graph) AddValueIn(oe OpenEdge, val Identifier) *Graph {
 	// recursively add in any vertices which aren't already there
 	var persist func(vertex)
 	persist = func(v vertex) {
-		vID := identify(v)
-		if v.VertexType == Value {
+		if v.VertexType == ValueVertex {
+			vID := v.id
 			if _, ok := g.vM[vID]; !ok {
 				g.vM[vID] = v
 			}
@@ -266,12 +253,13 @@ func (g *Graph) AddValueIn(oe OpenEdge, val Identifier) *Graph {
 // the Value Vertex doesn't exist within the graph, or it doesn't have the given
 // OpenEdge, no changes are made. Any vertices referenced by toe OpenEdge for
 // which that edge is their only outgoing edge will be removed from the Graph.
-func (g *Graph) DelValueIn(oe OpenEdge, val Identifier) *Graph {
+func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
 	to := vertex{
-		VertexType: Value,
+		id:         val.ID,
+		VertexType: ValueVertex,
 		val:        val,
 	}
-	toID := identify(to)
+	toID := to.id
 
 	// pull to out of the graph. if it's not there then bail
 	var ok bool
@@ -293,9 +281,9 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Identifier) *Graph {
 	var connectedTo func(string, vertex) bool
 	connectedTo = func(vID string, curr vertex) bool {
 		for _, in := range curr.in {
-			if in.fromV.VertexType == Value && identify(in.fromV) == vID {
+			if in.fromV.VertexType == ValueVertex && in.fromV.id == vID {
 				return true
-			} else if in.fromV.VertexType == Junction && connectedTo(vID, in.fromV) {
+			} else if in.fromV.VertexType == JunctionVertex && connectedTo(vID, in.fromV) {
 				return true
 			}
 		}
@@ -305,7 +293,7 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Identifier) *Graph {
 	// isOrphaned returns whether the given vertex has any connections to other
 	// nodes in the graph
 	isOrphaned := func(v vertex) bool {
-		vID := identify(v)
+		vID := v.id
 		if v, ok := g.vM[vID]; ok && len(v.in) > 0 {
 			return false
 		}
@@ -328,11 +316,11 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Identifier) *Graph {
 	// Vertices referenced in it which are now orphaned
 	var rmOrphaned func(OpenEdge)
 	rmOrphaned = func(oe OpenEdge) {
-		if oe.fromV.VertexType == Value && isOrphaned(oe.fromV) {
-			delete(g.vM, identify(oe.fromV))
-		} else if oe.fromV.VertexType == Junction {
-			for _, juncHe := range oe.fromV.in {
-				rmOrphaned(juncHe)
+		if oe.fromV.VertexType == ValueVertex && isOrphaned(oe.fromV) {
+			delete(g.vM, oe.fromV.id)
+		} else if oe.fromV.VertexType == JunctionVertex {
+			for _, juncOe := range oe.fromV.in {
+				rmOrphaned(juncOe)
 			}
 		}
 	}
@@ -377,18 +365,17 @@ func (g *Graph) makeView() {
 
 	var getV func(vertex, bool) *Vertex
 	getV = func(v vertex, top bool) *Vertex {
-		vID := identify(v)
-		V, ok := g.all[vID]
+		V, ok := g.all[v.id]
 		if !ok {
-			V = &Vertex{VertexType: v.VertexType, ID: vID, Value: v.val}
-			g.all[vID] = V
+			V = &Vertex{ID: v.id, VertexType: v.VertexType, Value: v.val}
+			g.all[v.id] = V
 		}
 
 		// we can be sure all Value vertices will be called with top==true at
 		// some point, so we only need to descend into the input edges if:
 		// * top is true
 		// * this is a junction's first time being gotten
-		if !top && (ok || v.VertexType != Junction) {
+		if !top && (ok || v.VertexType != JunctionVertex) {
 			return V
 		}
 
@@ -400,8 +387,8 @@ func (g *Graph) makeView() {
 			V.In = append(V.In, e)
 		}
 
-		if v.VertexType == Value {
-			g.byVal[identify(v.val)] = V
+		if v.VertexType == ValueVertex {
+			g.byVal[v.val.ID] = V
 		}
 
 		return V
@@ -412,15 +399,15 @@ func (g *Graph) makeView() {
 	}
 }
 
-// Value returns the Value Vertex for the given value. If the Graph doesn't
-// contain a vertex for the value then nil is returned
-func (g *Graph) Value(val Identifier) *Vertex {
+// ValueVertex returns the Value Vertex for the given value. If the Graph
+// doesn't contain a vertex for the value then nil is returned
+func (g *Graph) ValueVertex(val Value) *Vertex {
 	g.makeView()
-	return g.byVal[identify(val)]
+	return g.byVal[val.ID]
 }
 
-// Values returns all Value Vertices in the Graph
-func (g *Graph) Values() []*Vertex {
+// ValueVertices returns all Value Vertices in the Graph
+func (g *Graph) ValueVertices() []*Vertex {
 	g.makeView()
 	vv := make([]*Vertex, 0, len(g.byVal))
 	for _, v := range g.byVal {

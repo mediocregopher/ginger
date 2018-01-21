@@ -24,12 +24,12 @@ func posSolve(g *gg.Graph) [][]*gg.Vertex {
 	secEng := constraint.NewEngine()
 
 	strM := g.ByID()
-	for vID, v := range strM {
+	for _, v := range strM {
 		var prevIn *gg.Vertex
 		for _, e := range v.In {
 			primEng.AddConstraint(constraint.Constraint{
 				Elem: e.From.ID,
-				LT:   vID,
+				LT:   v.ID,
 			})
 			if prevIn != nil {
 				secEng.AddConstraint(constraint.Constraint{
@@ -103,7 +103,7 @@ func centerBoxes(boxes []*box, around geo.XY) {
 type view struct {
 	g                       *gg.Graph
 	primFlowDir, secFlowDir geo.XY
-	start                   gg.Str
+	start                   gg.Value
 	center                  geo.XY
 }
 

@@ -35,25 +35,36 @@ func debugf(str string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, str, args...)
 }
 
-func mkGraph() *gg.Graph {
-	aE0 := gg.ValueOut(gg.Str("a"), gg.Str("aE0"))
-	aE1 := gg.ValueOut(gg.Str("a"), gg.Str("aE1"))
-	aE2 := gg.ValueOut(gg.Str("a"), gg.Str("aE2"))
-	aE3 := gg.ValueOut(gg.Str("a"), gg.Str("aE3"))
+func mkGraph() (*gg.Graph, gg.Value) {
+	a := gg.NewValue("a")
+	aE0 := gg.NewValue("aE0")
+	aE1 := gg.NewValue("aE1")
+	aE2 := gg.NewValue("aE2")
+	aE3 := gg.NewValue("aE3")
+	b0 := gg.NewValue("b0")
+	b1 := gg.NewValue("b1")
+	b2 := gg.NewValue("b2")
+	b3 := gg.NewValue("b3")
+	oaE0 := gg.ValueOut(a, aE0)
+	oaE1 := gg.ValueOut(a, aE1)
+	oaE2 := gg.ValueOut(a, aE2)
+	oaE3 := gg.ValueOut(a, aE3)
 	g := gg.Null
-	g = g.AddValueIn(aE0, gg.Str("b0"))
-	g = g.AddValueIn(aE1, gg.Str("b1"))
-	g = g.AddValueIn(aE2, gg.Str("b2"))
-	g = g.AddValueIn(aE3, gg.Str("b3"))
+	g = g.AddValueIn(oaE0, b0)
+	g = g.AddValueIn(oaE1, b1)
+	g = g.AddValueIn(oaE2, b2)
+	g = g.AddValueIn(oaE3, b3)
 
+	c := gg.NewValue("c")
+	empty := gg.NewValue("")
 	jE := gg.JunctionOut([]gg.OpenEdge{
-		gg.ValueOut(gg.Str("b0"), gg.Str("")),
-		gg.ValueOut(gg.Str("b1"), gg.Str("")),
-		gg.ValueOut(gg.Str("b2"), gg.Str("")),
-		gg.ValueOut(gg.Str("b3"), gg.Str("")),
-	}, gg.Str("jE"))
-	g = g.AddValueIn(jE, gg.Str("c"))
-	return g
+		gg.ValueOut(b0, empty),
+		gg.ValueOut(b1, empty),
+		gg.ValueOut(b2, empty),
+		gg.ValueOut(b3, empty),
+	}, gg.NewValue("jE"))
+	g = g.AddValueIn(jE, c)
+	return g, c
 }
 
 //func mkGraph() *gg.Graph {
@@ -68,11 +79,12 @@ func main() {
 	term.Reset()
 	term.HideCursor()
 
+	g, start := mkGraph()
 	v := view{
-		g:           mkGraph(),
+		g:           g,
 		primFlowDir: geo.Right,
 		secFlowDir:  geo.Down,
-		start:       gg.Str("c"),
+		start:       start,
 		center:      geo.Zero.Midpoint(term.WindowSize(), rounder),
 	}
 

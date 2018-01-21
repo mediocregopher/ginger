@@ -17,28 +17,38 @@ type Constraint struct {
 	LT string
 }
 
-const ltEdge = gg.Str("lt")
+var ltEdge = gg.NewValue("lt")
 
 // Engine processes sets of constraints to generate an output
 type Engine struct {
-	g *gg.Graph
+	g    *gg.Graph
+	vals map[string]gg.Value
 }
 
 // NewEngine initializes and returns an empty Engine
 func NewEngine() *Engine {
-	return &Engine{g: gg.Null}
+	return &Engine{g: gg.Null, vals: map[string]gg.Value{}}
+}
+
+func (e *Engine) getVal(elem string) gg.Value {
+	if val, ok := e.vals[elem]; ok {
+		return val
+	}
+	val := gg.NewValue(elem)
+	e.vals[elem] = val
+	return val
 }
 
 // AddConstraint adds the given constraint to the engine's set, returns false if
 // the constraint couldn't be added due to a conflict with a previous constraint
 func (e *Engine) AddConstraint(c Constraint) bool {
-	elem := gg.Str(c.Elem)
-	g := e.g.AddValueIn(gg.ValueOut(elem, ltEdge), gg.Str(c.LT))
+	elem := e.getVal(c.Elem)
+	g := e.g.AddValueIn(gg.ValueOut(elem, ltEdge), e.getVal(c.LT))
 
 	// Check for loops in g starting at c.Elem, bail if there are any
 	{
 		seen := map[*gg.Vertex]bool{}
-		start := g.Value(elem)
+		start := g.ValueVertex(elem)
 		var hasLoop func(v *gg.Vertex) bool
 		hasLoop = func(v *gg.Vertex) bool {
 			if seen[v] {
@@ -66,12 +76,12 @@ func (e *Engine) AddConstraint(c Constraint) bool {
 // engine and whose value is known to be zero.
 func (e *Engine) Solve() map[string]int {
 	m := map[string]int{}
-	if len(e.g.Values()) == 0 {
+	if len(e.g.ValueVertices()) == 0 {
 		return m
 	}
 
 	vElem := func(v *gg.Vertex) string {
-		return string(v.Value.(gg.Str))
+		return v.Value.V.(string)
 	}
 
 	// first the roots are determined to be the elements with no In edges, which

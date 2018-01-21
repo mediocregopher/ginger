@@ -1,44 +1,30 @@
 package gg
 
 import (
-	"fmt"
-	"hash"
 	. "testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-type idAny struct {
-	i interface{}
+func edge(val Value, from *Vertex) Edge {
+	return Edge{Value: val, From: from}
 }
 
-func (i idAny) Identify(h hash.Hash) {
-	fmt.Fprintln(h, i)
-}
-
-func id(i interface{}) Identifier {
-	return idAny{i: i}
-}
-
-func edge(val string, from *Vertex) Edge {
-	return Edge{Value: id(val), From: from}
-}
-
-func value(val string, in ...Edge) *Vertex {
+func value(val Value, in ...Edge) *Vertex {
 	return &Vertex{
-		VertexType: Value,
-		Value:      id(val),
+		VertexType: ValueVertex,
+		Value:      val,
 		In:         in,
 	}
 }
 
-func junction(val string, in ...Edge) Edge {
+func junction(val Value, in ...Edge) Edge {
 	return Edge{
 		From: &Vertex{
-			VertexType: Junction,
+			VertexType: JunctionVertex,
 			In:         in,
 		},
-		Value: id(val),
+		Value: val,
 	}
 }
 
@@ -74,7 +60,7 @@ func assertWalk(t *T, expVals, expJuncs int, g *Graph, msgAndArgs ...interface{}
 	g.Walk(nil, func(v *Vertex) bool {
 		assert.NotContains(t, seen, v, msgAndArgs...)
 		seen[v] = true
-		if v.VertexType == Value {
+		if v.VertexType == ValueVertex {
 			gotVals++
 		} else {
 			gotJuncs++
@@ -102,122 +88,140 @@ func mkTest(name string, out func() *Graph, numVals, numJuncs int, exp ...*Verte
 }
 
 func TestGraph(t *T) {
+	var (
+		v0  = NewValue("v0")
+		v1  = NewValue("v1")
+		v2  = NewValue("v2")
+		v3  = NewValue("v3")
+		e0  = NewValue("e0")
+		e00 = NewValue("e00")
+		e01 = NewValue("e01")
+		e1  = NewValue("e1")
+		e10 = NewValue("e10")
+		e11 = NewValue("e11")
+		e2  = NewValue("e2")
+		e20 = NewValue("e20")
+		e21 = NewValue("e21")
+		ej0 = NewValue("ej0")
+		ej1 = NewValue("ej1")
+		ej2 = NewValue("ej2")
+	)
 	tests := []graphTest{
 		mkTest(
 			"values-basic",
 			func() *Graph {
-				return Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
+				return Null.AddValueIn(ValueOut(v0, e0), v1)
 			},
 			2, 0,
-			value("v0"),
-			value("v1", edge("e0", value("v0"))),
+			value(v0),
+			value(v1, edge(e0, value(v0))),
 		),
 
 		mkTest(
 			"values-2edges",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v2"))
-				return g0.AddValueIn(ValueOut(id("v1"), id("e1")), id("v2"))
+				g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
+				return g0.AddValueIn(ValueOut(v1, e1), v2)
 			},
 			3, 0,
-			value("v0"),
-			value("v1"),
-			value("v2",
-				edge("e0", value("v0")),
-				edge("e1", value("v1")),
+			value(v0),
+			value(v1),
+			value(v2,
+				edge(e0, value(v0)),
+				edge(e1, value(v1)),
 			),
 		),
 
 		mkTest(
 			"values-separate",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-				return g0.AddValueIn(ValueOut(id("v2"), id("e2")), id("v3"))
+				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				return g0.AddValueIn(ValueOut(v2, e2), v3)
 			},
 			4, 0,
-			value("v0"),
-			value("v1", edge("e0", value("v0"))),
-			value("v2"),
-			value("v3", edge("e2", value("v2"))),
+			value(v0),
+			value(v1, edge(e0, value(v0))),
+			value(v2),
+			value(v3, edge(e2, value(v2))),
 		),
 
 		mkTest(
 			"values-circular",
 			func() *Graph {
-				return Null.AddValueIn(ValueOut(id("v0"), id("e")), id("v0"))
+				return Null.AddValueIn(ValueOut(v0, e0), v0)
 			},
 			1, 0,
-			value("v0", edge("e", value("v0"))),
+			value(v0, edge(e0, value(v0))),
 		),
 
 		mkTest(
 			"values-circular2",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-				return g0.AddValueIn(ValueOut(id("v1"), id("e1")), id("v0"))
+				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				return g0.AddValueIn(ValueOut(v1, e1), v0)
 			},
 			2, 0,
-			value("v0", edge("e1", value("v1", edge("e0", value("v0"))))),
-			value("v1", edge("e0", value("v0", edge("e1", value("v1"))))),
+			value(v0, edge(e1, value(v1, edge(e0, value(v0))))),
+			value(v1, edge(e0, value(v0, edge(e1, value(v1))))),
 		),
 
 		mkTest(
 			"values-circular3",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-				g1 := g0.AddValueIn(ValueOut(id("v1"), id("e1")), id("v2"))
-				return g1.AddValueIn(ValueOut(id("v2"), id("e2")), id("v1"))
+				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				g1 := g0.AddValueIn(ValueOut(v1, e1), v2)
+				return g1.AddValueIn(ValueOut(v2, e2), v1)
 			},
 			3, 0,
-			value("v0"),
-			value("v1",
-				edge("e0", value("v0")),
-				edge("e2", value("v2", edge("e1", value("v1")))),
+			value(v0),
+			value(v1,
+				edge(e0, value(v0)),
+				edge(e2, value(v2, edge(e1, value(v1)))),
 			),
-			value("v2", edge("e1", value("v1",
-				edge("e0", value("v0")),
-				edge("e2", value("v2")),
+			value(v2, edge(e1, value(v1,
+				edge(e0, value(v0)),
+				edge(e2, value(v2)),
 			))),
 		),
 
 		mkTest(
 			"junction-basic",
 			func() *Graph {
-				e0 := ValueOut(id("v0"), id("e0"))
-				e1 := ValueOut(id("v1"), id("e1"))
-				ej0 := JunctionOut([]OpenEdge{e0, e1}, id("ej0"))
-				return Null.AddValueIn(ej0, id("v2"))
+				e0 := ValueOut(v0, e0)
+				e1 := ValueOut(v1, e1)
+				ej0 := JunctionOut([]OpenEdge{e0, e1}, ej0)
+				return Null.AddValueIn(ej0, v2)
 			},
 			3, 1,
-			value("v0"), value("v1"),
-			value("v2", junction("ej0",
-				edge("e0", value("v0")),
-				edge("e1", value("v1")),
+			value(v0), value(v1),
+			value(v2, junction(ej0,
+				edge(e0, value(v0)),
+				edge(e1, value(v1)),
 			)),
 		),
 
 		mkTest(
 			"junction-basic2",
 			func() *Graph {
-				e00 := ValueOut(id("v0"), id("e00"))
-				e10 := ValueOut(id("v1"), id("e10"))
-				ej0 := JunctionOut([]OpenEdge{e00, e10}, id("ej0"))
-				e01 := ValueOut(id("v0"), id("e01"))
-				e11 := ValueOut(id("v1"), id("e11"))
-				ej1 := JunctionOut([]OpenEdge{e01, e11}, id("ej1"))
-				ej2 := JunctionOut([]OpenEdge{ej0, ej1}, id("ej2"))
-				return Null.AddValueIn(ej2, id("v2"))
+				e00 := ValueOut(v0, e00)
+				e10 := ValueOut(v1, e10)
+				ej0 := JunctionOut([]OpenEdge{e00, e10}, ej0)
+				e01 := ValueOut(v0, e01)
+				e11 := ValueOut(v1, e11)
+				ej1 := JunctionOut([]OpenEdge{e01, e11}, ej1)
+				ej2 := JunctionOut([]OpenEdge{ej0, ej1}, ej2)
+				return Null.AddValueIn(ej2, v2)
 			},
 			3, 3,
-			value("v0"), value("v1"),
-			value("v2", junction("ej2",
-				junction("ej0",
-					edge("e00", value("v0")),
-					edge("e10", value("v1")),
+			value(v0), value(v1),
+			value(v2, junction(ej2,
+				junction(ej0,
+					edge(e00, value(v0)),
+					edge(e10, value(v1)),
 				),
-				junction("ej1",
-					edge("e01", value("v0")),
-					edge("e11", value("v1")),
+				junction(ej1,
+					edge(e01, value(v0)),
+					edge(e11, value(v1)),
 				),
 			)),
 		),
@@ -225,27 +229,27 @@ func TestGraph(t *T) {
 		mkTest(
 			"junction-circular",
 			func() *Graph {
-				e0 := ValueOut(id("v0"), id("e0"))
-				e1 := ValueOut(id("v1"), id("e1"))
-				ej0 := JunctionOut([]OpenEdge{e0, e1}, id("ej0"))
-				g0 := Null.AddValueIn(ej0, id("v2"))
-				e20 := ValueOut(id("v2"), id("e20"))
-				g1 := g0.AddValueIn(e20, id("v0"))
-				e21 := ValueOut(id("v2"), id("e21"))
-				return g1.AddValueIn(e21, id("v1"))
+				e0 := ValueOut(v0, e0)
+				e1 := ValueOut(v1, e1)
+				ej0 := JunctionOut([]OpenEdge{e0, e1}, ej0)
+				g0 := Null.AddValueIn(ej0, v2)
+				e20 := ValueOut(v2, e20)
+				g1 := g0.AddValueIn(e20, v0)
+				e21 := ValueOut(v2, e21)
+				return g1.AddValueIn(e21, v1)
 			},
 			3, 1,
-			value("v0", edge("e20", value("v2", junction("ej0",
-				edge("e0", value("v0")),
-				edge("e1", value("v1", edge("e21", value("v2")))),
+			value(v0, edge(e20, value(v2, junction(ej0,
+				edge(e0, value(v0)),
+				edge(e1, value(v1, edge(e21, value(v2)))),
 			)))),
-			value("v1", edge("e21", value("v2", junction("ej0",
-				edge("e0", value("v0", edge("e20", value("v2")))),
-				edge("e1", value("v1")),
+			value(v1, edge(e21, value(v2, junction(ej0,
+				edge(e0, value(v0, edge(e20, value(v2)))),
+				edge(e1, value(v1)),
 			)))),
-			value("v2", junction("ej0",
-				edge("e0", value("v0", edge("e20", value("v2")))),
-				edge("e1", value("v1", edge("e21", value("v2")))),
+			value(v2, junction(ej0,
+				edge(e0, value(v0, edge(e20, value(v2)))),
+				edge(e1, value(v1, edge(e21, value(v2)))),
 			)),
 		),
 	}
@@ -256,9 +260,9 @@ func TestGraph(t *T) {
 		for j, exp := range tests[i].exp {
 			msgAndArgs := []interface{}{
 				"tests[%d].name:%q exp[%d].val:%q",
-				i, tests[i].name, j, exp.Value.(idAny).i,
+				i, tests[i].name, j, exp.Value.V.(string),
 			}
-			v := out.Value(exp.Value)
+			v := out.ValueVertex(exp.Value)
 			if !assert.NotNil(t, v, msgAndArgs...) {
 				continue
 			}
@@ -279,109 +283,127 @@ func TestGraph(t *T) {
 }
 
 func TestGraphImmutability(t *T) {
-	e0 := ValueOut(id("v0"), id("e0"))
-	g0 := Null.AddValueIn(e0, id("v1"))
-	assert.Nil(t, Null.Value(id("v0")))
-	assert.Nil(t, Null.Value(id("v1")))
-	assert.NotNil(t, g0.Value(id("v0")))
-	assert.NotNil(t, g0.Value(id("v1")))
+	v0 := NewValue("v0")
+	v1 := NewValue("v1")
+	e0 := NewValue("e0")
+	oe0 := ValueOut(v0, e0)
+	g0 := Null.AddValueIn(oe0, v1)
+	assert.Nil(t, Null.ValueVertex(v0))
+	assert.Nil(t, Null.ValueVertex(v1))
+	assert.NotNil(t, g0.ValueVertex(v0))
+	assert.NotNil(t, g0.ValueVertex(v1))
 
 	// half-edges should be re-usable
-	e1 := ValueOut(id("v2"), id("e1"))
-	g1a := g0.AddValueIn(e1, id("v3a"))
-	g1b := g0.AddValueIn(e1, id("v3b"))
-	assertVertexEqual(t, value("v3a", edge("e1", value("v2"))), g1a.Value(id("v3a")))
-	assert.Nil(t, g1a.Value(id("v3b")))
-	assertVertexEqual(t, value("v3b", edge("e1", value("v2"))), g1b.Value(id("v3b")))
-	assert.Nil(t, g1b.Value(id("v3a")))
+	v2 := NewValue("v2")
+	v3a, v3b := NewValue("v3a"), NewValue("v3b")
+	e1 := NewValue("e1")
+	oe1 := ValueOut(v2, e1)
+	g1a := g0.AddValueIn(oe1, v3a)
+	g1b := g0.AddValueIn(oe1, v3b)
+	assertVertexEqual(t, value(v3a, edge(e1, value(v2))), g1a.ValueVertex(v3a))
+	assert.Nil(t, g1a.ValueVertex(v3b))
+	assertVertexEqual(t, value(v3b, edge(e1, value(v2))), g1b.ValueVertex(v3b))
+	assert.Nil(t, g1b.ValueVertex(v3a))
 
 	// ... even re-usable twice in succession
-	g2 := g0.AddValueIn(e1, id("v3")).AddValueIn(e1, id("v4"))
-	assert.Nil(t, g2.Value(id("v3b")))
-	assert.Nil(t, g2.Value(id("v3a")))
-	assertVertexEqual(t, value("v3", edge("e1", value("v2"))), g2.Value(id("v3")))
-	assertVertexEqual(t, value("v4", edge("e1", value("v2"))), g2.Value(id("v4")))
+	v3 := NewValue("v3")
+	v4 := NewValue("v4")
+	g2 := g0.AddValueIn(oe1, v3).AddValueIn(oe1, v4)
+	assert.Nil(t, g2.ValueVertex(v3b))
+	assert.Nil(t, g2.ValueVertex(v3a))
+	assertVertexEqual(t, value(v3, edge(e1, value(v2))), g2.ValueVertex(v3))
+	assertVertexEqual(t, value(v4, edge(e1, value(v2))), g2.ValueVertex(v4))
 }
 
 func TestGraphDelValueIn(t *T) {
+	v0 := NewValue("v0")
+	v1 := NewValue("v1")
+	e0 := NewValue("e0")
 	{ // removing from null
-		g := Null.DelValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
+		g := Null.DelValueIn(ValueOut(v0, e0), v1)
 		assert.True(t, Equal(Null, g))
 	}
 
+	e1 := NewValue("e1")
 	{ // removing edge from vertex which doesn't have that edge
-		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-		g1 := g0.DelValueIn(ValueOut(id("v0"), id("e1")), id("v1"))
+		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+		g1 := g0.DelValueIn(ValueOut(v0, e1), v1)
 		assert.True(t, Equal(g0, g1))
 	}
 
 	{ // removing only edge
-		oe := ValueOut(id("v0"), id("e0"))
-		g0 := Null.AddValueIn(oe, id("v1"))
-		g1 := g0.DelValueIn(oe, id("v1"))
+		oe := ValueOut(v0, e0)
+		g0 := Null.AddValueIn(oe, v1)
+		g1 := g0.DelValueIn(oe, v1)
 		assert.True(t, Equal(Null, g1))
 	}
 
+	ej0 := NewValue("ej0")
+	v2 := NewValue("v2")
 	{ // removing only edge (junction)
 		oe := JunctionOut([]OpenEdge{
-			ValueOut(id("v0"), id("e0")),
-			ValueOut(id("v1"), id("e1")),
-		}, id("ej0"))
-		g0 := Null.AddValueIn(oe, id("v2"))
-		g1 := g0.DelValueIn(oe, id("v2"))
+			ValueOut(v0, e0),
+			ValueOut(v1, e1),
+		}, ej0)
+		g0 := Null.AddValueIn(oe, v2)
+		g1 := g0.DelValueIn(oe, v2)
 		assert.True(t, Equal(Null, g1))
 	}
 
 	{ // removing one of two edges
-		oe := ValueOut(id("v1"), id("e0"))
-		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v2"))
-		g1 := g0.AddValueIn(oe, id("v2"))
-		g2 := g1.DelValueIn(oe, id("v2"))
+		oe := ValueOut(v1, e0)
+		g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
+		g1 := g0.AddValueIn(oe, v2)
+		g2 := g1.DelValueIn(oe, v2)
 		assert.True(t, Equal(g0, g2))
-		assert.NotNil(t, g2.Value(id("v0")))
-		assert.Nil(t, g2.Value(id("v1")))
-		assert.NotNil(t, g2.Value(id("v2")))
+		assert.NotNil(t, g2.ValueVertex(v0))
+		assert.Nil(t, g2.ValueVertex(v1))
+		assert.NotNil(t, g2.ValueVertex(v2))
 	}
 
+	e2 := NewValue("e2")
+	eja, ejb := NewValue("eja"), NewValue("ejb")
+	v3 := NewValue("v3")
 	{ // removing one of two edges (junction)
-		e0 := ValueOut(id("v0"), id("e0"))
-		e1 := ValueOut(id("v1"), id("e1"))
-		e2 := ValueOut(id("v2"), id("e2"))
-		oeA := JunctionOut([]OpenEdge{e0, e1}, id("oeA"))
-		oeB := JunctionOut([]OpenEdge{e1, e2}, id("oeB"))
-		g0a := Null.AddValueIn(oeA, id("v3"))
-		g0b := Null.AddValueIn(oeB, id("v3"))
-		g1 := g0a.Union(g0b).DelValueIn(oeA, id("v3"))
+		e0 := ValueOut(v0, e0)
+		e1 := ValueOut(v1, e1)
+		e2 := ValueOut(v2, e2)
+		oeA := JunctionOut([]OpenEdge{e0, e1}, eja)
+		oeB := JunctionOut([]OpenEdge{e1, e2}, ejb)
+		g0a := Null.AddValueIn(oeA, v3)
+		g0b := Null.AddValueIn(oeB, v3)
+		g1 := g0a.Union(g0b).DelValueIn(oeA, v3)
 		assert.True(t, Equal(g1, g0b))
-		assert.Nil(t, g1.Value(id("v0")))
-		assert.NotNil(t, g1.Value(id("v1")))
-		assert.NotNil(t, g1.Value(id("v2")))
-		assert.NotNil(t, g1.Value(id("v3")))
+		assert.Nil(t, g1.ValueVertex(v0))
+		assert.NotNil(t, g1.ValueVertex(v1))
+		assert.NotNil(t, g1.ValueVertex(v2))
+		assert.NotNil(t, g1.ValueVertex(v3))
 	}
 
 	{ // removing one of two edges in circular graph
-		e0 := ValueOut(id("v0"), id("e0"))
-		e1 := ValueOut(id("v1"), id("e1"))
-		g0 := Null.AddValueIn(e0, id("v1")).AddValueIn(e1, id("v0"))
-		g1 := g0.DelValueIn(e0, id("v1"))
-		assert.True(t, Equal(Null.AddValueIn(e1, id("v0")), g1))
-		assert.NotNil(t, g1.Value(id("v0")))
-		assert.NotNil(t, g1.Value(id("v1")))
+		e0 := ValueOut(v0, e0)
+		e1 := ValueOut(v1, e1)
+		g0 := Null.AddValueIn(e0, v1).AddValueIn(e1, v0)
+		g1 := g0.DelValueIn(e0, v1)
+		assert.True(t, Equal(Null.AddValueIn(e1, v0), g1))
+		assert.NotNil(t, g1.ValueVertex(v0))
+		assert.NotNil(t, g1.ValueVertex(v1))
 	}
 
+	ej := NewValue("ej")
 	{ // removing to's only edge, sub-nodes have edge to each other
-		ej := JunctionOut([]OpenEdge{
-			ValueOut(id("v0"), id("ej0")),
-			ValueOut(id("v1"), id("ej0")),
-		}, id("ej"))
-		g0 := Null.AddValueIn(ej, id("v2"))
-		e0 := ValueOut(id("v0"), id("e0"))
-		g1 := g0.AddValueIn(e0, id("v1"))
-		g2 := g1.DelValueIn(ej, id("v2"))
-		assert.True(t, Equal(Null.AddValueIn(e0, id("v1")), g2))
-		assert.NotNil(t, g2.Value(id("v0")))
-		assert.NotNil(t, g2.Value(id("v1")))
-		assert.Nil(t, g2.Value(id("v2")))
+		oej := JunctionOut([]OpenEdge{
+			ValueOut(v0, ej0),
+			ValueOut(v1, ej0),
+		}, ej)
+		g0 := Null.AddValueIn(oej, v2)
+		e0 := ValueOut(v0, e0)
+		g1 := g0.AddValueIn(e0, v1)
+		g2 := g1.DelValueIn(oej, v2)
+		assert.True(t, Equal(Null.AddValueIn(e0, v1), g2))
+		assert.NotNil(t, g2.ValueVertex(v0))
+		assert.NotNil(t, g2.ValueVertex(v1))
+		assert.Nil(t, g2.ValueVertex(v2))
 	}
 }
 
@@ -393,110 +415,124 @@ func TestGraphUnion(t *T) {
 		return ga
 	}
 
+	v0 := NewValue("v0")
+	v1 := NewValue("v1")
+	e0 := NewValue("e0")
 	{ // Union with Null
 		assert.True(t, Equal(Null, Null.Union(Null)))
 
-		g := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
+		g := Null.AddValueIn(ValueOut(v0, e0), v1)
 		assert.True(t, Equal(g, assertUnion(g, Null)))
 	}
 
+	v2 := NewValue("v2")
+	v3 := NewValue("v3")
+	e1 := NewValue("e1")
 	{ // Two disparate graphs union'd
-		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-		g1 := Null.AddValueIn(ValueOut(id("v2"), id("e1")), id("v3"))
+		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+		g1 := Null.AddValueIn(ValueOut(v2, e1), v3)
 		g := assertUnion(g0, g1)
-		assertVertexEqual(t, value("v0"), g.Value(id("v0")))
-		assertVertexEqual(t, value("v1", edge("e0", value("v0"))), g.Value(id("v1")))
-		assertVertexEqual(t, value("v2"), g.Value(id("v2")))
-		assertVertexEqual(t, value("v3", edge("e1", value("v2"))), g.Value(id("v3")))
+		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
+		assertVertexEqual(t, value(v1, edge(e0, value(v0))), g.ValueVertex(v1))
+		assertVertexEqual(t, value(v2), g.ValueVertex(v2))
+		assertVertexEqual(t, value(v3, edge(e1, value(v2))), g.ValueVertex(v3))
 	}
 
+	va0, vb0 := NewValue("va0"), NewValue("vb0")
+	va1, vb1 := NewValue("va1"), NewValue("vb1")
+	va2, vb2 := NewValue("va2"), NewValue("vb2")
+	ea0, eb0 := NewValue("ea0"), NewValue("eb0")
+	ea1, eb1 := NewValue("ea1"), NewValue("eb1")
+	eaj, ebj := NewValue("eaj"), NewValue("ebj")
 	{ // Two disparate graphs with junctions
 		ga := Null.AddValueIn(JunctionOut([]OpenEdge{
-			ValueOut(id("va0"), id("ea0")),
-			ValueOut(id("va1"), id("ea1")),
-		}, id("eaj")), id("va2"))
+			ValueOut(va0, ea0),
+			ValueOut(va1, ea1),
+		}, eaj), va2)
 		gb := Null.AddValueIn(JunctionOut([]OpenEdge{
-			ValueOut(id("vb0"), id("eb0")),
-			ValueOut(id("vb1"), id("eb1")),
-		}, id("ebj")), id("vb2"))
+			ValueOut(vb0, eb0),
+			ValueOut(vb1, eb1),
+		}, ebj), vb2)
 		g := assertUnion(ga, gb)
-		assertVertexEqual(t, value("va0"), g.Value(id("va0")))
-		assertVertexEqual(t, value("va1"), g.Value(id("va1")))
+		assertVertexEqual(t, value(va0), g.ValueVertex(va0))
+		assertVertexEqual(t, value(va1), g.ValueVertex(va1))
 		assertVertexEqual(t,
-			value("va2", junction("eaj",
-				edge("ea0", value("va0")),
-				edge("ea1", value("va1")))),
-			g.Value(id("va2")),
+			value(va2, junction(eaj,
+				edge(ea0, value(va0)),
+				edge(ea1, value(va1)))),
+			g.ValueVertex(va2),
 		)
-		assertVertexEqual(t, value("vb0"), g.Value(id("vb0")))
-		assertVertexEqual(t, value("vb1"), g.Value(id("vb1")))
+		assertVertexEqual(t, value(vb0), g.ValueVertex(vb0))
+		assertVertexEqual(t, value(vb1), g.ValueVertex(vb1))
 		assertVertexEqual(t,
-			value("vb2", junction("ebj",
-				edge("eb0", value("vb0")),
-				edge("eb1", value("vb1")))),
-			g.Value(id("vb2")),
+			value(vb2, junction(ebj,
+				edge(eb0, value(vb0)),
+				edge(eb1, value(vb1)))),
+			g.ValueVertex(vb2),
 		)
 	}
 
 	{ // Two partially overlapping graphs
-		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v2"))
-		g1 := Null.AddValueIn(ValueOut(id("v1"), id("e1")), id("v2"))
+		g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
+		g1 := Null.AddValueIn(ValueOut(v1, e1), v2)
 		g := assertUnion(g0, g1)
-		assertVertexEqual(t, value("v0"), g.Value(id("v0")))
-		assertVertexEqual(t, value("v1"), g.Value(id("v1")))
+		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
+		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
 		assertVertexEqual(t,
-			value("v2",
-				edge("e0", value("v0")),
-				edge("e1", value("v1")),
+			value(v2,
+				edge(e0, value(v0)),
+				edge(e1, value(v1)),
 			),
-			g.Value(id("v2")),
+			g.ValueVertex(v2),
 		)
 	}
 
+	ej0 := NewValue("ej0")
+	ej1 := NewValue("ej1")
 	{ // two partially overlapping graphs with junctions
 		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
-			ValueOut(id("v0"), id("e0")),
-			ValueOut(id("v1"), id("e1")),
-		}, id("ej0")), id("v2"))
+			ValueOut(v0, e0),
+			ValueOut(v1, e1),
+		}, ej0), v2)
 		g1 := Null.AddValueIn(JunctionOut([]OpenEdge{
-			ValueOut(id("v0"), id("e0")),
-			ValueOut(id("v1"), id("e1")),
-		}, id("ej1")), id("v2"))
+			ValueOut(v0, e0),
+			ValueOut(v1, e1),
+		}, ej1), v2)
 		g := assertUnion(g0, g1)
-		assertVertexEqual(t, value("v0"), g.Value(id("v0")))
-		assertVertexEqual(t, value("v1"), g.Value(id("v1")))
+		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
+		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
 		assertVertexEqual(t,
-			value("v2",
-				junction("ej0", edge("e0", value("v0")), edge("e1", value("v1"))),
-				junction("ej1", edge("e0", value("v0")), edge("e1", value("v1"))),
+			value(v2,
+				junction(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
+				junction(ej1, edge(e0, value(v0)), edge(e1, value(v1))),
 			),
-			g.Value(id("v2")),
+			g.ValueVertex(v2),
 		)
 	}
 
 	{ // Two equal graphs
-		g0 := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
+		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
 		g := assertUnion(g0, g0)
-		assertVertexEqual(t, value("v0"), g.Value(id("v0")))
+		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
 		assertVertexEqual(t,
-			value("v1", edge("e0", value("v0"))),
-			g.Value(id("v1")),
+			value(v1, edge(e0, value(v0))),
+			g.ValueVertex(v1),
 		)
 	}
 
 	{ // Two equal graphs with junctions
 		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
-			ValueOut(id("v0"), id("e0")),
-			ValueOut(id("v1"), id("e1")),
-		}, id("ej0")), id("v2"))
+			ValueOut(v0, e0),
+			ValueOut(v1, e1),
+		}, ej0), v2)
 		g := assertUnion(g0, g0)
-		assertVertexEqual(t, value("v0"), g.Value(id("v0")))
-		assertVertexEqual(t, value("v1"), g.Value(id("v1")))
+		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
+		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
 		assertVertexEqual(t,
-			value("v2",
-				junction("ej0", edge("e0", value("v0")), edge("e1", value("v1"))),
+			value(v2,
+				junction(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
 			),
-			g.Value(id("v2")),
+			g.ValueVertex(v2),
 		)
 	}
 }
@@ -514,35 +550,42 @@ func TestGraphEqual(t *T) {
 
 	assertEqual(Null, Null) // duh
 
+	v0 := NewValue("v0")
+	v1 := NewValue("v1")
+	v2 := NewValue("v2")
+	e0 := NewValue("e0")
+	e1 := NewValue("e1")
+	e1a, e1b := NewValue("e1a"), NewValue("e1b")
 	{
 		// graph is equal to itself, not to null
-		e0 := ValueOut(id("v0"), id("e0"))
-		g0 := Null.AddValueIn(e0, id("v1"))
+		e0 := ValueOut(v0, e0)
+		g0 := Null.AddValueIn(e0, v1)
 		assertNotEqual(g0, Null)
 		assertEqual(g0, g0)
 
 		// adding the an existing edge again shouldn't do anything
-		assertEqual(g0, g0.AddValueIn(e0, id("v1")))
+		assertEqual(g0, g0.AddValueIn(e0, v1))
 
 		// g1a and g1b have the same vertices, but the edges are different
-		g1a := g0.AddValueIn(ValueOut(id("v0"), id("e1a")), id("v2"))
-		g1b := g0.AddValueIn(ValueOut(id("v0"), id("e1b")), id("v2"))
+		g1a := g0.AddValueIn(ValueOut(v0, e1a), v2)
+		g1b := g0.AddValueIn(ValueOut(v0, e1b), v2)
 		assertNotEqual(g1a, g1b)
 	}
 
 	{ // equal construction should yield equality, even if out of order
-		ga := Null.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
-		ga = ga.AddValueIn(ValueOut(id("v1"), id("e1")), id("v2"))
-		gb := Null.AddValueIn(ValueOut(id("v1"), id("e1")), id("v2"))
-		gb = gb.AddValueIn(ValueOut(id("v0"), id("e0")), id("v1"))
+		ga := Null.AddValueIn(ValueOut(v0, e0), v1)
+		ga = ga.AddValueIn(ValueOut(v1, e1), v2)
+		gb := Null.AddValueIn(ValueOut(v1, e1), v2)
+		gb = gb.AddValueIn(ValueOut(v0, e0), v1)
 		assertEqual(ga, gb)
 	}
 
+	ej := NewValue("ej")
 	{ // junction basic test
-		e0 := ValueOut(id("v0"), id("e0"))
-		e1 := ValueOut(id("v1"), id("e1"))
-		ga := Null.AddValueIn(JunctionOut([]OpenEdge{e0, e1}, id("ej")), id("v2"))
-		gb := Null.AddValueIn(JunctionOut([]OpenEdge{e1, e0}, id("ej")), id("v2"))
+		e0 := ValueOut(v0, e0)
+		e1 := ValueOut(v1, e1)
+		ga := Null.AddValueIn(JunctionOut([]OpenEdge{e0, e1}, ej), v2)
+		gb := Null.AddValueIn(JunctionOut([]OpenEdge{e1, e0}, ej), v2)
 		assertEqual(ga, ga)
 		assertNotEqual(ga, gb)
 	}
