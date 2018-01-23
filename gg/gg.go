@@ -157,6 +157,24 @@ func (g *Graph) cp() *Graph {
 ////////////////////////////////////////////////////////////////////////////////
 // Graph creation
 
+func mkVertex(typ VertexType, val Value, ins []OpenEdge) vertex {
+	v := vertex{VertexType: typ, in: ins}
+	switch typ {
+	case ValueVertex:
+		v.id = val.ID
+		v.val = val
+	case JunctionVertex:
+		inIDs := make([]string, len(ins))
+		for i := range ins {
+			inIDs[i] = ins[i].id()
+		}
+		v.id = "[" + strings.Join(inIDs, ",") + "]"
+	default:
+		panic(fmt.Sprintf("unknown vertex type %q", typ))
+	}
+	return v
+}
+
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
@@ -165,14 +183,7 @@ func (g *Graph) cp() *Graph {
 // multiple ValueOut OpenEdges constructed with the same val will be leaving the
 // same Vertex instance in the constructed Graph.
 func ValueOut(val, edgeVal Value) OpenEdge {
-	return OpenEdge{
-		fromV: vertex{
-			id:         val.ID,
-			VertexType: ValueVertex,
-			val:        val,
-		},
-		val: edgeVal,
-	}
+	return OpenEdge{fromV: mkVertex(ValueVertex, val, nil), val: edgeVal}
 }
 
 // JunctionOut creates a OpenEdge which, when used to construct a Graph,
@@ -183,17 +194,9 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 // edges. So multiple Junction OpenEdges constructed with the same set of input
 // edges will be leaving the same Junction instance in the constructed Graph.
 func JunctionOut(in []OpenEdge, edgeVal Value) OpenEdge {
-	inIDs := make([]string, len(in))
-	for i := range in {
-		inIDs[i] = in[i].id()
-	}
 	return OpenEdge{
-		fromV: vertex{
-			id:         "[" + strings.Join(inIDs, ",") + "]",
-			VertexType: JunctionVertex,
-			in:         in,
-		},
-		val: edgeVal,
+		fromV: mkVertex(JunctionVertex, Value{}, in),
+		val:   edgeVal,
 	}
 }
 
@@ -202,11 +205,7 @@ func JunctionOut(in []OpenEdge, edgeVal Value) OpenEdge {
 // referenced within toe OpenEdge which do not yet exist in the Graph will also
 // be created in this step.
 func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
-	to := vertex{
-		id:         val.ID,
-		VertexType: ValueVertex,
-		val:        val,
-	}
+	to := mkVertex(ValueVertex, val, nil)
 	toID := to.id
 
 	// if to is already in the graph, pull it out, as it might have existing in
@@ -254,11 +253,7 @@ func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
 // OpenEdge, no changes are made. Any vertices referenced by toe OpenEdge for
 // which that edge is their only outgoing edge will be removed from the Graph.
 func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
-	to := vertex{
-		id:         val.ID,
-		VertexType: ValueVertex,
-		val:        val,
-	}
+	to := mkVertex(ValueVertex, val, nil)
 	toID := to.id
 
 	// pull to out of the graph. if it's not there then bail
