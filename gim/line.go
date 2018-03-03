@@ -39,16 +39,19 @@ var arrows = map[geo.XY]string{
 	geo.Right: ">",
 }
 
-type line [2]*box
+type line struct {
+	from, to *box
+	toI      int
+}
 
 // given the "primary" direction the line should be headed, picks a possible
 // secondary one which may be used to detour along the path in order to reach
 // the destination (in the case that the two boxes are diagonal from each other)
 func (l line) secondaryDir(primary geo.XY) geo.XY {
-	fromRect, toRect := l[0].rect(), l[1].rect()
+	fromRect, toRect := l.from.rect(), l.to.rect()
 	rels := make([]int, len(geo.Units))
 	for i, dir := range geo.Units {
-		rels[i] = toRect.Edge(dir.Inv()) - fromRect.Edge(dir)
+		rels[i] = toRect.EdgeCoord(dir.Inv()) - fromRect.EdgeCoord(dir)
 		if dir == geo.Up || dir == geo.Left {
 			rels[i] *= -1
 		}
@@ -74,13 +77,22 @@ func (l line) secondaryDir(primary geo.XY) geo.XY {
 	return secondary
 }
 
-func (l line) draw(term *terminal.Terminal, dir geo.XY) {
-	from, to := *l[0], *l[1]
-	dirSec := l.secondaryDir(dir)
+//func (l line) startEnd(flowDir, secFlowDir geo.XY) (geo.XY, geo.XY) {
+//	from, to := *(l.from), *(l.to)
+//	start := from.rect().EdgeMidpoint(flowDir, rounder) // ezpz
+//}
 
-	dirInv := dir.Inv()
-	start := from.rect().EdgeMidpoint(dir, rounder)
-	end := to.rect().EdgeMidpoint(dirInv, rounder)
+func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
+	from, to := *(l.from), *(l.to)
+	dirSec := l.secondaryDir(flowDir)
+
+	flowDirInv := flowDir.Inv()
+	start := from.rect().Edge(flowDir, secFlowDir).Midpoint(rounder)
+
+	endSlot := l.toI*2 + 1
+	endSlotXY := geo.XY{endSlot, endSlot}
+	end := to.rect().Edge(flowDirInv, secFlowDir)[0].Add(secFlowDir.Mul(endSlotXY))
+
 	mid := start.Midpoint(end, rounder)
 
 	along := func(xy, dir geo.XY) int {
@@ -91,26 +103,26 @@ func (l line) draw(term *terminal.Terminal, dir geo.XY) {
 	}
 
 	var pts []geo.XY
-	midPrim := along(mid, dir)
+	midPrim := along(mid, flowDir)
 	endSec := along(end, dirSec)
 	for curr := start; curr != end; {
 		pts = append(pts, curr)
-		if prim := along(curr, dir); prim == midPrim {
+		if prim := along(curr, flowDir); prim == midPrim {
 			if sec := along(curr, dirSec); sec != endSec {
 				curr = curr.Add(dirSec)
 				continue
 			}
 		}
-		curr = curr.Add(dir)
+		curr = curr.Add(flowDir)
 	}
 
 	for i, pt := range pts {
 		var str string
 		switch {
 		case i == 0:
-			str = edgeSegments[dir]
+			str = edgeSegments[flowDir]
 		case i == len(pts)-1:
-			str = arrows[dir]
+			str = arrows[flowDir]
 		default:
 			prev, next := pts[i-1], pts[i+1]
 			seg := [2]geo.XY{

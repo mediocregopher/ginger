@@ -437,6 +437,9 @@ func Equal(g1, g2 *Graph) bool {
 	return true
 }
 
+// TODO Walk, but by edge
+// TODO Walk, but without end. AKA FSM
+
 // Walk will traverse the Graph, calling the callback on every Vertex in the
 // Graph once. If startWith is non-nil then that Vertex will be the first one
 // passed to the callback and used as the starting point of the traversal. If

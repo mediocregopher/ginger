@@ -11,11 +11,15 @@ type Rect struct {
 	Size    XY
 }
 
-// Edge returns the coordinate of the edge indicated by the given direction (Up,
-// Down, Left, or Right). The coordinate will be for the axis applicable to the
-// direction, so for Left/Right it will be the x coordinate and for Up/Down the
-// y.
-func (r Rect) Edge(dir XY) int {
+// Edge describes a straight edge starting at its first XY and ending at its
+// second
+type Edge [2]XY
+
+// EdgeCoord returns the coordinate of the edge indicated by the given direction
+// (Up, Down, Left, or Right). The coordinate will be for the axis applicable to
+// the direction, so for Left/Right it will be the x coordinate and for Up/Down
+// the y.
+func (r Rect) EdgeCoord(dir XY) int {
 	switch dir {
 	case Up:
 		return r.TopLeft[1]
@@ -49,25 +53,37 @@ func (r Rect) Corner(xDir, yDir XY) XY {
 	}
 }
 
-// EdgeMidpoint returns the point which is the midpoint of the edge dientified by the
-// direction (Up/Down/Left/Right)
-func (r Rect) EdgeMidpoint(dir XY, rounder Rounder) XY {
-	var a, b XY
+// Edge returns an Edge instance for the edge of the Rect indicated by the given
+// direction (Up, Down, Left, or Right). secDir indicates the direction the
+// returned Edge should be pointing (i.e. the order of its XY's) and must be
+// perpendicular to dir
+func (r Rect) Edge(dir, secDir XY) Edge {
+	var e Edge
 	switch dir {
 	case Up:
-		a, b = r.Corner(Left, Up), r.Corner(Right, Up)
+		e[0], e[1] = r.Corner(Left, Up), r.Corner(Right, Up)
 	case Down:
-		a, b = r.Corner(Left, Down), r.Corner(Right, Down)
+		e[0], e[1] = r.Corner(Left, Down), r.Corner(Right, Down)
 	case Left:
-		a, b = r.Corner(Left, Up), r.Corner(Left, Down)
+		e[0], e[1] = r.Corner(Left, Up), r.Corner(Left, Down)
 	case Right:
-		a, b = r.Corner(Right, Up), r.Corner(Right, Down)
+		e[0], e[1] = r.Corner(Right, Up), r.Corner(Right, Down)
 	default:
 		panic(fmt.Sprintf("unsupported direction: %#v", dir))
 	}
 
-	mid := a.Midpoint(b, rounder)
-	return mid
+	switch secDir {
+	case Left, Up:
+		e[0], e[1] = e[1], e[0]
+	default:
+		// do nothing
+	}
+	return e
+}
+
+// Midpoint returns the point which is the midpoint of the Edge
+func (e Edge) Midpoint(rounder Rounder) XY {
+	return e[0].Midpoint(e[1], rounder)
 }
 
 func (r Rect) halfSize(rounder Rounder) XY {

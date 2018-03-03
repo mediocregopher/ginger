@@ -12,15 +12,29 @@ func TestRect(t *T) {
 		Size:    XY{2, 2},
 	}
 
-	assert.Equal(t, 2, r.Edge(Up))
-	assert.Equal(t, 3, r.Edge(Down))
-	assert.Equal(t, 1, r.Edge(Left))
-	assert.Equal(t, 2, r.Edge(Right))
+	assert.Equal(t, 2, r.EdgeCoord(Up))
+	assert.Equal(t, 3, r.EdgeCoord(Down))
+	assert.Equal(t, 1, r.EdgeCoord(Left))
+	assert.Equal(t, 2, r.EdgeCoord(Right))
 
-	assert.Equal(t, XY{1, 2}, r.Corner(Left, Up))
-	assert.Equal(t, XY{1, 3}, r.Corner(Left, Down))
-	assert.Equal(t, XY{2, 2}, r.Corner(Right, Up))
-	assert.Equal(t, XY{2, 3}, r.Corner(Right, Down))
+	lu := XY{1, 2}
+	ld := XY{1, 3}
+	ru := XY{2, 2}
+	rd := XY{2, 3}
+
+	assert.Equal(t, lu, r.Corner(Left, Up))
+	assert.Equal(t, ld, r.Corner(Left, Down))
+	assert.Equal(t, ru, r.Corner(Right, Up))
+	assert.Equal(t, rd, r.Corner(Right, Down))
+
+	assert.Equal(t, Edge{lu, ld}, r.Edge(Left, Down))
+	assert.Equal(t, Edge{ru, rd}, r.Edge(Right, Down))
+	assert.Equal(t, Edge{lu, ru}, r.Edge(Up, Right))
+	assert.Equal(t, Edge{ld, rd}, r.Edge(Down, Right))
+	assert.Equal(t, Edge{ld, lu}, r.Edge(Left, Up))
+	assert.Equal(t, Edge{rd, ru}, r.Edge(Right, Up))
+	assert.Equal(t, Edge{ru, lu}, r.Edge(Up, Left))
+	assert.Equal(t, Edge{rd, ld}, r.Edge(Down, Left))
 }
 
 func TestRectCenter(t *T) {

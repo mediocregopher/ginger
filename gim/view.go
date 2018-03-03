@@ -150,9 +150,9 @@ func (view *view) draw(term *terminal.Terminal) {
 	var lines []line
 	for _, b := range boxes {
 		v := boxesM[b]
-		for _, e := range v.In {
+		for i, e := range v.In {
 			bFrom := boxesMr[e.From]
-			lines = append(lines, line{bFrom, b})
+			lines = append(lines, line{from: bFrom, to: b, toI: i})
 		}
 	}
 
@@ -164,6 +164,6 @@ func (view *view) draw(term *terminal.Terminal) {
 		b.draw(term)
 	}
 	for _, line := range lines {
-		line.draw(term, view.primFlowDir)
+		line.draw(term, view.primFlowDir, view.secFlowDir)
 	}
 }
