@@ -258,3 +258,34 @@ void _start() {
 
   - The subsequent `mov    %rax,-0x8(%rsp)` is moving the pointer (stored in
     `%rax`) and putting it onto the stack.
+
+## VLA
+
+With the following file:
+
+```c
+// main.c
+void do_the_thing(int n) {
+    int arr[n];
+    for (int i=0; i<n; i++) {
+        arr[i] = i;
+    }
+    asm("nop; nop; nop;");
+}
+
+
+void _start() {
+    do_the_thing(10);
+    asm("movl $1, %eax;"
+        "movl $0, %ebx;"
+        "int $0x80;");
+}
+```
+
+And compiled into LLVM IR with the following:
+
+```
+clang -nostdlib -fno-stack-protector -fomit-frame-pointer -S -emit-llvm main.c
+```
+
+We can see how llvm handles VLA. It ain't pretty, that's for sure.

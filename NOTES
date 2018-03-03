@@ -1,3 +1,11 @@
+Been thinking about the stack and heap a lot. It would be possible, though
+possibly painful, to enforce a language with no global heap. The question really
+is: what are the principles which give reason to do so? What are the principles
+of this language, period? The principles are different than the use-cases. They
+don't need to be logically rigorous (at first anyway).
+
+##########
+
 I need to prioritize the future of this project a bit more. I've been thinking
 I'm going to figure this thing out at this level, but I shouldn't even be
 working here without a higher level view.
