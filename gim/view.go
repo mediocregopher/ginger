@@ -146,13 +146,29 @@ func (view *view) draw(term *terminal.Terminal) {
 		primPos += maxPrim + primPadding
 	}
 
+	// returns the index of this edge in from's Out
+	// TODO this might not be deterministic? Out is never ordered technically
+	findFromI := func(from *gg.Vertex, e gg.Edge) int {
+		for i, fe := range from.Out {
+			if fe == e {
+				return i
+			}
+		}
+		panic("edge not found in from.Out")
+	}
+
 	// create lines
 	var lines []line
 	for _, b := range boxes {
 		v := boxesM[b]
 		for i, e := range v.In {
 			bFrom := boxesMr[e.From]
-			lines = append(lines, line{from: bFrom, to: b, toI: i})
+			lines = append(lines, line{
+				from:  bFrom,
+				fromI: findFromI(e.From, e),
+				to:    b,
+				toI:   i,
+			})
 		}
 	}
 

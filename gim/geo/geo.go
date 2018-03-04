@@ -41,6 +41,24 @@ func abs(i int) int {
 	return i
 }
 
+// Abs returns the XY with all fields made positive, if they weren't already
+func (xy XY) Abs() XY {
+	return XY{abs(xy[0]), abs(xy[1])}
+}
+
+// Unit returns the XY with each field divided by its absolute value (i.e.
+// scaled down to 1 or -1). Fields which are 0 are left alone
+func (xy XY) Unit() XY {
+	for i := range xy {
+		if xy[i] > 0 {
+			xy[i] = 1
+		} else if xy[i] < 0 {
+			xy[i] = -1
+		}
+	}
+	return xy
+}
+
 // Len returns the length (aka magnitude) of the XY as a vector, using the
 // Rounder to round to an int
 func (xy XY) Len(r Rounder) int {

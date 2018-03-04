@@ -17,7 +17,7 @@ import (
 // - Absolute positioning of some/all vertices
 
 // TODO
-// - assign edges to "slots" on boxes
+// - in current example, order of edges leaving "a" is fucked
 // - edge values
 // - be able to draw circular graphs
 // - audit all steps, make sure everything is deterministic
@@ -76,8 +76,8 @@ func mkGraph() (*gg.Graph, gg.Value) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
-	term.Reset()
-	term.HideCursor()
+	//term.Reset()
+	//term.HideCursor()
 
 	g, start := mkGraph()
 	v := view{
@@ -88,9 +88,10 @@ func main() {
 		center:      geo.Zero.Midpoint(term.WindowSize(), rounder),
 	}
 
-	for range time.Tick(frameperiod) {
-		term.Reset()
-		v.draw(term)
-		term.Flush()
-	}
+	//for range time.Tick(frameperiod) {
+	term.Reset()
+	v.draw(term)
+	term.Flush()
+	//}
+	time.Sleep(1 * time.Hour)
 }
