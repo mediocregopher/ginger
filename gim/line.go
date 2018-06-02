@@ -42,6 +42,7 @@ var arrows = map[geo.XY]string{
 type line struct {
 	from, to   *box
 	fromI, toI int
+	body       string
 }
 
 // given the "primary" direction the line should be headed, picks a possible
@@ -68,6 +69,7 @@ func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
 		return xy[1]
 	}
 
+	// collect the points along the line into an array
 	var pts []geo.XY
 	midPrim := along(mid, flowDir)
 	endSec := along(end, dirSec)
@@ -82,6 +84,7 @@ func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
 		curr = curr.Add(flowDir)
 	}
 
+	// draw each point
 	for i, pt := range pts {
 		var str string
 		switch {
@@ -99,5 +102,12 @@ func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
 		}
 		term.MoveCursorTo(pt)
 		term.Printf(str)
+	}
+
+	// draw the body
+	if l.body != "" {
+		bodyPos := mid.Add(geo.Left.Scale(len(l.body) / 2))
+		term.MoveCursorTo(bodyPos)
+		term.Printf(l.body)
 	}
 }

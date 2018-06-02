@@ -181,6 +181,7 @@ func (view *view) draw(term *terminal.Terminal) {
 				fromI: fromI,
 				to:    b,
 				toI:   i,
+				body:  e.Value.V.(string),
 			})
 		}
 	}

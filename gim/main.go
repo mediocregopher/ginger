@@ -63,6 +63,12 @@ func mkGraph() (*gg.Graph, gg.Value) {
 		gg.ValueOut(b3, empty),
 	}, gg.NewValue("jE"))
 	g = g.AddValueIn(jE, c)
+
+	// TODO this really fucks it up
+	//d := gg.NewValue("d")
+	//deE := gg.ValueOut(d, gg.NewValue("deE"))
+	//g = g.AddValueIn(deE, gg.NewValue("e"))
+
 	return g, c
 }
 
