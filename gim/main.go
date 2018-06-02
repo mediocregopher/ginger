@@ -16,10 +16,8 @@ import (
 // - Changing the "flow" direction
 // - Absolute positioning of some/all vertices
 
-// TODO
-// - edge values
-// - be able to draw circular graphs
-// - audit all steps, make sure everything is deterministic
+// TODO be able to draw circular graphs
+// TODO audit all steps, make sure everything is deterministic
 
 const (
 	framerate   = 10

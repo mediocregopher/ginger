@@ -8,6 +8,22 @@ import (
 	"strings"
 )
 
+// TODO it's a bit unfortunate that it's possible to create disjointed graphs
+// within the same graph instance. That's not really something that would be
+// possible with any other type of datastructure. I think all that would be
+// needed to get rid of this is to remove the Null instance and instead do a
+// New(value) function. This would allow a graph to be just a single value with
+// no edges, but I _think_ that's fine?
+//
+// Actually, that's kinda bogus, it really messes with how I conceptualized
+// ginger being used. Which is maybe fine. I should do some research on the
+// typical way that graphs and other structures are defined.
+//
+// It seems that disjoint unions, as they're called, are an accepted thing... if
+// I need it for gim a Disjoin method might be the best bet, which would walk
+// through the Graph and compute each disjointed Graph and return them
+// individually.
+
 // Value wraps a go value in a way such that it will be uniquely identified
 // within any Graph and between Graphs. Use NewValue to create a Value instance.
 // You can create an instance manually as long as ID is globally unique.
