@@ -17,7 +17,6 @@ import (
 // - Absolute positioning of some/all vertices
 
 // TODO
-// - in current example, order of edges leaving "a" is fucked
 // - edge values
 // - be able to draw circular graphs
 // - audit all steps, make sure everything is deterministic

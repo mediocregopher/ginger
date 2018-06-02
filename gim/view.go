@@ -19,7 +19,7 @@ import (
 // Secondary determines relative position in the secondary direction by
 // trying to place vertices relative to vertices they share an edge with in
 // the order that the edges appear on the shared node.
-func posSolve(g *gg.Graph) [][]*gg.Vertex {
+func posSolve(g *gg.Graph) ([][]*gg.Vertex, map[string]int, map[string]int) {
 	primEng := constraint.NewEngine()
 	secEng := constraint.NewEngine()
 
@@ -83,7 +83,7 @@ func posSolve(g *gg.Graph) [][]*gg.Vertex {
 			out[i][j] = strM[v]
 		}
 	}
-	return out
+	return out, prim, sec
 }
 
 // mutates the boxes to be centered around the given point, keeping their
@@ -108,7 +108,7 @@ type view struct {
 }
 
 func (view *view) draw(term *terminal.Terminal) {
-	relPos := posSolve(view.g)
+	relPos, _, secSol := posSolve(view.g)
 
 	// create boxes
 	var boxes []*box
@@ -116,7 +116,7 @@ func (view *view) draw(term *terminal.Terminal) {
 	boxesMr := map[*gg.Vertex]*box{}
 	const (
 		primPadding = 5
-		secPadding  = 3
+		secPadding  = 1
 	)
 	var primPos int
 	for _, vv := range relPos {
@@ -146,10 +146,22 @@ func (view *view) draw(term *terminal.Terminal) {
 		primPos += maxPrim + primPadding
 	}
 
+	// maps a vertex to all of its to edges, sorted by secSol
+	findFromIM := map[*gg.Vertex][]gg.Edge{}
 	// returns the index of this edge in from's Out
-	// TODO this might not be deterministic? Out is never ordered technically
 	findFromI := func(from *gg.Vertex, e gg.Edge) int {
-		for i, fe := range from.Out {
+		edges, ok := findFromIM[from]
+		if !ok {
+			edges = make([]gg.Edge, len(from.Out))
+			copy(edges, from.Out)
+			sort.Slice(edges, func(i, j int) bool {
+				// TODO if two edges go to the same vertex, how are they sorted?
+				return secSol[edges[i].To.ID] < secSol[edges[j].To.ID]
+			})
+			findFromIM[from] = edges
+		}
+
+		for i, fe := range edges {
 			if fe == e {
 				return i
 			}
@@ -163,9 +175,10 @@ func (view *view) draw(term *terminal.Terminal) {
 		v := boxesM[b]
 		for i, e := range v.In {
 			bFrom := boxesMr[e.From]
+			fromI := findFromI(e.From, e)
 			lines = append(lines, line{
 				from:  bFrom,
-				fromI: findFromI(e.From, e),
+				fromI: fromI,
 				to:    b,
 				toI:   i,
 			})

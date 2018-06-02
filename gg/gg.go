@@ -353,8 +353,6 @@ func (g *Graph) makeView() {
 		return
 	}
 
-	// view only contains value vertices, but we need to keep track of all
-	// vertices while constructing the view
 	g.byVal = make(map[string]*Vertex, len(g.vM))
 	g.all = map[string]*Vertex{}
 
@@ -445,7 +443,7 @@ func Equal(g1, g2 *Graph) bool {
 // passed to the callback and used as the starting point of the traversal. If
 // the callback returns false the traversal is stopped.
 func (g *Graph) Walk(startWith *Vertex, callback func(*Vertex) bool) {
-	// TODO figure out how to make Walk deterministic
+	// TODO figure out how to make Walk deterministic?
 	g.makeView()
 	if len(g.byVal) == 0 {
 		return
