@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"syscall"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/mediocregopher/ginger/gim/geo"
@@ -34,7 +33,6 @@ import (
 //
 type Terminal struct {
 	buf *bytes.Buffer
-	pos geo.XY
 
 	// When initialized this will be set to os.Stdout, but can be set to
 	// anything
@@ -70,17 +68,10 @@ func (t *Terminal) WindowSize() geo.XY {
 	return geo.XY{int(sz.cols), int(sz.rows)}
 }
 
-// MoveCursorTo moves the cursor to the given position
-func (t *Terminal) MoveCursorTo(to geo.XY) {
+// SetPos sets the terminal's actual cursor position to the given coordinates.
+func (t *Terminal) SetPos(to geo.XY) {
 	// actual terminal uses 1,1 as top-left, because 1-indexing is a great idea
 	fmt.Fprintf(t.buf, "\033[%d;%dH", to[1]+1, to[0]+1)
-	t.pos = to
-}
-
-// MoveCursor moves the cursor relative to its current position by the given
-// vector
-func (t *Terminal) MoveCursor(by geo.XY) {
-	t.MoveCursorTo(t.pos.Add(by))
 }
 
 // HideCursor causes the cursor to not actually be shown
@@ -93,64 +84,25 @@ func (t *Terminal) ShowCursor() {
 	fmt.Fprintf(t.buf, "\033[?25h")
 }
 
-// Reset completely clears all drawn characters on the screen and returns the
-// cursor to the origin
-func (t *Terminal) Reset() {
+// Clear completely clears all drawn characters on the screen and returns the
+// cursor to the origin. This implicitly calls Draw.
+func (t *Terminal) Clear() {
+	t.buf.Reset()
 	fmt.Fprintf(t.buf, "\033[2J")
+	t.Draw()
 }
 
-// Printf prints the given formatted string to the terminal, updating the
-// internal cursor position accordingly
-func (t *Terminal) Printf(format string, args ...interface{}) {
-	str := fmt.Sprintf(format, args...)
-	t.buf.WriteString(str)
-	t.pos[0] += utf8.RuneCountInString(str)
+// WriteBuffer writes the contents to the Buffer to the Terminal's buffer,
+// starting at the given coordinate.
+func (t *Terminal) WriteBuffer(at geo.XY, b *Buffer) {
+	t.SetPos(at)
+	t.buf.WriteString(b.String())
 }
 
-// Flush writes all buffered changes to the screen
-func (t *Terminal) Flush() {
+// Draw writes all buffered changes to the screen
+func (t *Terminal) Draw() {
 	if _, err := io.Copy(t.Out, t.buf); err != nil {
 		panic(err)
 	}
-}
-
-// TODO deal with these
-
-const (
-	// Reset all custom styles
-	ansiReset = "\033[0m"
-
-	// Reset to default color
-	ansiResetColor = "\033[32m"
-
-	// Return curor to start of line and clean it
-	ansiResetLine = "\r\033[K"
-)
-
-// List of possible colors
-const (
-	black = iota
-	red
-	green
-	yellow
-	blue
-	magenta
-	cyan
-	white
-)
-
-func getFgColor(code int) string {
-	return fmt.Sprintf("\033[3%dm", code)
-}
-
-func getBgColor(code int) string {
-	return fmt.Sprintf("\033[4%dm", code)
-}
-
-func fgColor(str string, color int) string {
-	return fmt.Sprintf("%s%s%s", getFgColor(color), str, ansiReset)
-}
-
-func bgColor(str string, color int) string {
-	return fmt.Sprintf("%s%s%s", getBgColor(color), str, ansiReset)
+	t.buf.Reset()
 }

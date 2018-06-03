@@ -80,8 +80,7 @@ func mkGraph() (*gg.Graph, gg.Value) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
-	//term.Reset()
-	//term.HideCursor()
+	wSize := term.WindowSize()
 
 	g, start := mkGraph()
 	v := view{
@@ -89,13 +88,11 @@ func main() {
 		primFlowDir: geo.Right,
 		secFlowDir:  geo.Down,
 		start:       start,
-		center:      geo.Zero.Midpoint(term.WindowSize(), rounder),
+		center:      geo.Zero.Midpoint(wSize, rounder),
 	}
 
-	//for range time.Tick(frameperiod) {
-	term.Reset()
+	term.Clear()
 	v.draw(term)
-	term.Flush()
-	//}
-	time.Sleep(1 * time.Hour)
+	term.SetPos(wSize.Add(geo.XY{0, -1}))
+	term.Draw()
 }

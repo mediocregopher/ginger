@@ -9,24 +9,6 @@ import (
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
-const (
-	boxBorderHoriz = iota
-	boxBorderVert
-	boxBorderTL
-	boxBorderTR
-	boxBorderBL
-	boxBorderBR
-)
-
-var boxDefault = []string{
-	"─",
-	"│",
-	"┌",
-	"┐",
-	"└",
-	"┘",
-}
-
 type box struct {
 	topLeft       geo.XY
 	flowDir       geo.XY
@@ -58,6 +40,7 @@ func (b box) bodyLines() []string {
 	return lines
 }
 
+// TODO this is utterly broken, the terminal.Buffer should be used for this
 func (b box) bodySize() geo.XY {
 	var size geo.XY
 	for _, line := range b.bodyLines() {
@@ -102,47 +85,14 @@ func (b box) bodyRect() geo.Rect {
 	return geo.Rect{Size: b.bodySize()}.Centered(center, rounder)
 }
 
-func (b box) draw(term *terminal.Terminal) {
-	chars := boxDefault
+func (b box) draw(buf *terminal.Buffer) {
+	bodyBuf := terminal.NewBuffer()
+	bodyBuf.WriteString(b.body)
+	bodyBufRect := geo.Rect{Size: bodyBuf.Size()}
+
 	rect := b.rect()
-	pos := rect.TopLeft
-	w, h := rect.Size[0], rect.Size[1]
+	buf.DrawRect(rect, terminal.SingleLine)
 
-	// draw top line
-	term.MoveCursorTo(pos)
-	term.Printf(chars[boxBorderTL])
-	for i := 0; i < w-2; i++ {
-		term.Printf(chars[boxBorderHoriz])
-	}
-	term.Printf(chars[boxBorderTR])
-	pos[1]++
-
-	// draw vertical lines
-	for i := 0; i < h-2; i++ {
-		term.MoveCursorTo(pos)
-		term.Printf(chars[boxBorderVert])
-		if b.transparent {
-			term.MoveCursorTo(pos.Add(geo.XY{w, 0}))
-		} else {
-			term.Printf(strings.Repeat(" ", w-2))
-		}
-		term.Printf(chars[boxBorderVert])
-		pos[1]++
-	}
-
-	// draw bottom line
-	term.MoveCursorTo(pos)
-	term.Printf(chars[boxBorderBL])
-	for i := 0; i < w-2; i++ {
-		term.Printf(chars[boxBorderHoriz])
-	}
-	term.Printf(chars[boxBorderBR])
-
-	// write out inner lines
-	pos = b.bodyRect().TopLeft
-	for _, line := range b.bodyLines() {
-		term.MoveCursorTo(pos)
-		term.Printf(line)
-		pos[1]++
-	}
+	center := rect.Center(rounder)
+	buf.DrawBuffer(bodyBufRect.Centered(center, rounder).TopLeft, bodyBuf)
 }

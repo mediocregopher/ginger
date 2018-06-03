@@ -5,38 +5,20 @@ import (
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
-var lineSegments = func() map[[2]geo.XY]string {
-	m := map[[2]geo.XY]string{
-		{geo.Left, geo.Right}: "─",
-		{geo.Down, geo.Up}:    "│",
-		{geo.Right, geo.Down}: "┌",
-		{geo.Left, geo.Down}:  "┐",
-		{geo.Right, geo.Up}:   "└",
-		{geo.Left, geo.Up}:    "┘",
-	}
-
-	// the inverse segments use the same characters
-	for seg, str := range m {
-		seg[0], seg[1] = seg[1], seg[0]
-		m[seg] = str
-	}
-	return m
-}()
-
-var edgeSegments = map[geo.XY]string{
-	geo.Up:    "┴",
-	geo.Down:  "┬",
-	geo.Left:  "┤",
-	geo.Right: "├",
+var edgeSegments = map[geo.XY]rune{
+	geo.Up:    '┴',
+	geo.Down:  '┬',
+	geo.Left:  '┤',
+	geo.Right: '├',
 }
 
 // actual unicode arrows were fucking up my terminal, and they didn't even
 // connect properly with the line segments anyway
-var arrows = map[geo.XY]string{
-	geo.Up:    "^",
-	geo.Down:  "v",
-	geo.Left:  "<",
-	geo.Right: ">",
+var arrows = map[geo.XY]rune{
+	geo.Up:    '^',
+	geo.Down:  'v',
+	geo.Left:  '<',
+	geo.Right: '>',
 }
 
 type line struct {
@@ -54,7 +36,7 @@ func secondaryDir(flowDir, start, end geo.XY) geo.XY {
 	return end.Sub(start).Mul(perpDir.Abs()).Unit()
 }
 
-func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
+func (l line) draw(buf *terminal.Buffer, flowDir, secFlowDir geo.XY) {
 	from, to := *(l.from), *(l.to)
 
 	start := from.rect().Edge(flowDir, secFlowDir)[0].Add(secFlowDir.Scale(l.fromI*2 + 1))
@@ -86,28 +68,24 @@ func (l line) draw(term *terminal.Terminal, flowDir, secFlowDir geo.XY) {
 
 	// draw each point
 	for i, pt := range pts {
-		var str string
+		var r rune
 		switch {
 		case i == 0:
-			str = edgeSegments[flowDir]
+			r = edgeSegments[flowDir]
 		case i == len(pts)-1:
-			str = arrows[flowDir]
+			r = arrows[flowDir]
 		default:
 			prev, next := pts[i-1], pts[i+1]
-			seg := [2]geo.XY{
-				prev.Sub(pt),
-				next.Sub(pt),
-			}
-			str = lineSegments[seg]
+			r = terminal.SingleLine.Segment(prev.Sub(pt), next.Sub(pt))
 		}
-		term.MoveCursorTo(pt)
-		term.Printf(str)
+		buf.SetPos(pt)
+		buf.WriteRune(r)
 	}
 
 	// draw the body
 	if l.body != "" {
 		bodyPos := mid.Add(geo.Left.Scale(len(l.body) / 2))
-		term.MoveCursorTo(bodyPos)
-		term.Printf(l.body)
+		buf.SetPos(bodyPos)
+		buf.WriteString(l.body)
 	}
 }

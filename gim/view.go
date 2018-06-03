@@ -104,7 +104,7 @@ type view struct {
 	g                       *gg.Graph
 	primFlowDir, secFlowDir geo.XY
 	start                   gg.Value
-	center                  geo.XY
+	center                  geo.XY // TODO this shouldnt be needed
 }
 
 func (view *view) draw(term *terminal.Terminal) {
@@ -190,10 +190,12 @@ func (view *view) draw(term *terminal.Terminal) {
 	centerBoxes(boxes, view.center)
 
 	// actually draw the boxes and lines
+	buf := terminal.NewBuffer()
 	for _, b := range boxes {
-		b.draw(term)
+		b.draw(buf)
 	}
 	for _, line := range lines {
-		line.draw(term, view.primFlowDir, view.secFlowDir)
+		line.draw(buf, view.primFlowDir, view.secFlowDir)
 	}
+	term.WriteBuffer(geo.Zero, buf)
 }
