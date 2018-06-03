@@ -18,6 +18,7 @@ import (
 
 // TODO be able to draw circular graphs
 // TODO audit all steps, make sure everything is deterministic
+// TODO self-edges
 
 const (
 	framerate   = 10

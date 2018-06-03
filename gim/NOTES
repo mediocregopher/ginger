@@ -67,5 +67,45 @@ Drawing the graph is a four step process:
       nodes.
 
 2) Order nodes in the X axis to reduce edge crossings
+    - Add ephemeral vertices along edges with lengths greater than 1, so all
+      "spaces" are filled.
+    - If any vertices have edges to vertices on their same rank, those are
+      ordered so that all these "flag edges" are pointed in the same direction
+      across that rank, and the ordering of those particular vertices is always
+      kept.
+    - Iterate over the graph some fixed number of times (the paper recommends
+      24)
+        - possibly with some heuristic which looks at percentage improvement
+          each time to determine if it's worth the effort.
+        - on one iteration move "down" the graph, on the next move "up", etc...
+          shaker style
+        - On each iteration:
+            - For each vertex look at the median position of all of the vertices
+              it has edges to in the previous rank
+            - If the number of previous vertices is even do this complicated
+              thing (P is the set of positions previous):
+              ```
+              if |P| = 2 then
+                return (P[0] + P[1])/2;
+              else
+                left = P[m-1] - P[0];
+                right = P[|P| -1] - P[m];
+                return (P[m-1]*right + P[m]*left)/(left+right);
+              endif
+              ```
+            - Sort the vertices by their median position
+                - vertices with no previous vertices remain fixed
+            - Then, for each vertex in the rank attempt to transpose it with its
+              neighbor and see if that reduces the number of edge crossings
+              between the rank and its previous.
+            - If equality is found during these two steps (same median, or same
+              number of crossings) the vertices in question should be flipped.
+
 3) Compute node coordinates
+    - Determining the Y coordinates is considered trivial: find the maxHeight of
+      each rank, and ensure they are separated by that much plus whatever the
+      separation value is.
+    - For the X coordinates: do some insane shit involving the network simplex
+      again.
+
 4) Determine edge splines
