@@ -15,14 +15,29 @@ var SingleLine = LineStyle{
 	TopRight:    '┐',
 	BottomLeft:  '└',
 	BottomRight: '┘',
+	PerpUp:      '┴',
+	PerpDown:    '┬',
+	PerpLeft:    '┤',
+	PerpRight:   '├',
+	ArrowUp:     '^',
+	ArrowDown:   'v',
+	ArrowLeft:   '<',
+	ArrowRight:  '>',
 }
 
 // LineStyle defines a set of characters to use together when drawing lines and
 // corners.
 type LineStyle struct {
 	Horiz, Vert rune
+
 	// Corner characters, identified as corners of a rectangle
 	TopLeft, TopRight, BottomLeft, BottomRight rune
+
+	// Characters for a straight segment a perpendicular attached
+	PerpUp, PerpDown, PerpLeft, PerpRight rune
+
+	// Characters for pointing arrows
+	ArrowUp, ArrowDown, ArrowLeft, ArrowRight rune
 }
 
 // Segment takes two different directions (i.e. geo.Up/Down/Left/Right) and
@@ -55,6 +70,40 @@ func (ls LineStyle) Segment(a, b geo.XY) rune {
 		return r
 	}
 	panic(fmt.Sprintf("invalid LineStyle.Segment directions: %v, %v", a, b))
+}
+
+// Perpendicular returns the line character for a perpendicular segment
+// traveling in the given direction.
+func (ls LineStyle) Perpendicular(dir geo.XY) rune {
+	switch dir {
+	case geo.Up:
+		return ls.PerpUp
+	case geo.Down:
+		return ls.PerpDown
+	case geo.Left:
+		return ls.PerpLeft
+	case geo.Right:
+		return ls.PerpRight
+	default:
+		panic(fmt.Sprintf("invalid LineStyle.Perpendicular direction: %v", dir))
+	}
+}
+
+// Arrow returns the arrow character for an arrow pointing in the given
+// direction.
+func (ls LineStyle) Arrow(dir geo.XY) rune {
+	switch dir {
+	case geo.Up:
+		return ls.ArrowUp
+	case geo.Down:
+		return ls.ArrowDown
+	case geo.Left:
+		return ls.ArrowLeft
+	case geo.Right:
+		return ls.ArrowRight
+	default:
+		panic(fmt.Sprintf("invalid LineStyle.Arrow direction: %v", dir))
+	}
 }
 
 // DrawRect draws the given Rect to the Buffer with the given LineStyle. The

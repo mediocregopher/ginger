@@ -5,22 +5,6 @@ import (
 	"github.com/mediocregopher/ginger/gim/terminal"
 )
 
-var edgeSegments = map[geo.XY]rune{
-	geo.Up:    '┴',
-	geo.Down:  '┬',
-	geo.Left:  '┤',
-	geo.Right: '├',
-}
-
-// actual unicode arrows were fucking up my terminal, and they didn't even
-// connect properly with the line segments anyway
-var arrows = map[geo.XY]rune{
-	geo.Up:    '^',
-	geo.Down:  'v',
-	geo.Left:  '<',
-	geo.Right: '>',
-}
-
 type line struct {
 	from, to   *box
 	fromI, toI int
@@ -71,9 +55,9 @@ func (l line) draw(buf *terminal.Buffer, flowDir, secFlowDir geo.XY) {
 		var r rune
 		switch {
 		case i == 0:
-			r = edgeSegments[flowDir]
+			r = terminal.SingleLine.Perpendicular(flowDir)
 		case i == len(pts)-1:
-			r = arrows[flowDir]
+			r = terminal.SingleLine.Arrow(flowDir)
 		default:
 			prev, next := pts[i-1], pts[i+1]
 			r = terminal.SingleLine.Segment(prev.Sub(pt), next.Sub(pt))
