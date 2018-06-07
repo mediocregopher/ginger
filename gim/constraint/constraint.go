@@ -87,7 +87,7 @@ func (e *Engine) Solve() map[string]int {
 	// first the roots are determined to be the elements with no In edges, which
 	// _must_ exist since the graph presumably has no loops
 	var roots []*gg.Vertex
-	e.g.Walk(nil, func(v *gg.Vertex) bool {
+	e.g.Iter(func(v *gg.Vertex) bool {
 		if len(v.In) == 0 {
 			roots = append(roots, v)
 			m[vElem(v)] = 0

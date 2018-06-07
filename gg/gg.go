@@ -8,22 +8,6 @@ import (
 	"strings"
 )
 
-// TODO it's a bit unfortunate that it's possible to create disjointed graphs
-// within the same graph instance. That's not really something that would be
-// possible with any other type of datastructure. I think all that would be
-// needed to get rid of this is to remove the Null instance and instead do a
-// New(value) function. This would allow a graph to be just a single value with
-// no edges, but I _think_ that's fine?
-//
-// Actually, that's kinda bogus, it really messes with how I conceptualized
-// ginger being used. Which is maybe fine. I should do some research on the
-// typical way that graphs and other structures are defined.
-//
-// It seems that disjoint unions, as they're called, are an accepted thing... if
-// I need it for gim a Disjoin method might be the best bet, which would walk
-// through the Graph and compute each disjointed Graph and return them
-// individually.
-
 // Value wraps a go value in a way such that it will be uniquely identified
 // within any Graph and between Graphs. Use NewValue to create a Value instance.
 // You can create an instance manually as long as ID is globally unique.
@@ -173,7 +157,7 @@ func (g *Graph) cp() *Graph {
 ////////////////////////////////////////////////////////////////////////////////
 // Graph creation
 
-func mkVertex(typ VertexType, val Value, ins []OpenEdge) vertex {
+func mkVertex(typ VertexType, val Value, ins ...OpenEdge) vertex {
 	v := vertex{VertexType: typ, in: ins}
 	switch typ {
 	case ValueVertex:
@@ -199,7 +183,7 @@ func mkVertex(typ VertexType, val Value, ins []OpenEdge) vertex {
 // multiple ValueOut OpenEdges constructed with the same val will be leaving the
 // same Vertex instance in the constructed Graph.
 func ValueOut(val, edgeVal Value) OpenEdge {
-	return OpenEdge{fromV: mkVertex(ValueVertex, val, nil), val: edgeVal}
+	return OpenEdge{fromV: mkVertex(ValueVertex, val), val: edgeVal}
 }
 
 // JunctionOut creates a OpenEdge which, when used to construct a Graph,
@@ -209,9 +193,9 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 // When constructing Graphs Junction vertices are de-duplicated on their input
 // edges. So multiple Junction OpenEdges constructed with the same set of input
 // edges will be leaving the same Junction instance in the constructed Graph.
-func JunctionOut(in []OpenEdge, edgeVal Value) OpenEdge {
+func JunctionOut(ins []OpenEdge, edgeVal Value) OpenEdge {
 	return OpenEdge{
-		fromV: mkVertex(JunctionVertex, Value{}, in),
+		fromV: mkVertex(JunctionVertex, Value{}, ins...),
 		val:   edgeVal,
 	}
 }
@@ -221,7 +205,7 @@ func JunctionOut(in []OpenEdge, edgeVal Value) OpenEdge {
 // referenced within toe OpenEdge which do not yet exist in the Graph will also
 // be created in this step.
 func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
-	to := mkVertex(ValueVertex, val, nil)
+	to := mkVertex(ValueVertex, val)
 	toID := to.id
 
 	// if to is already in the graph, pull it out, as it might have existing in
@@ -269,7 +253,7 @@ func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
 // OpenEdge, no changes are made. Any vertices referenced by toe OpenEdge for
 // which that edge is their only outgoing edge will be removed from the Graph.
 func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
-	to := mkVertex(ValueVertex, val, nil)
+	to := mkVertex(ValueVertex, val)
 	toID := to.id
 
 	// pull to out of the graph. if it's not there then bail
@@ -343,6 +327,8 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
 // Union takes in another Graph and returns a new one which is the union of the
 // two. Value vertices which are shared between the two will be merged so that
 // the new vertex has the input edges of both.
+//
+// TODO it bothers me that the opposite of Disjoin is Union and not "Join"
 func (g *Graph) Union(g2 *Graph) *Graph {
 	g = g.cp()
 	for vID, v2 := range g2.vM {
@@ -359,6 +345,80 @@ func (g *Graph) Union(g2 *Graph) *Graph {
 		g.vM[vID] = v
 	}
 	return g
+}
+
+// Disjoin splits the Graph into as many independently connected Graphs as it
+// contains. Each Graph returned will have vertices connected only within itself
+// and not across to the other Graphs, and the Union of all returned Graphs will
+// be the original again.
+//
+// The order of the Graphs returned is not deterministic.
+//
+// Null.Disjoin() returns empty slice.
+func (g *Graph) Disjoin() []*Graph {
+	m := map[string]*Graph{}    // maps each id to the Graph it belongs to
+	mG := map[*Graph]struct{}{} // tracks unique Graphs created
+
+	var connectedTo func(vertex) *Graph
+	connectedTo = func(v vertex) *Graph {
+		if v.VertexType == ValueVertex {
+			if g := m[v.id]; g != nil {
+				return g
+			}
+		}
+		for _, oe := range v.in {
+			if g := connectedTo(oe.fromV); g != nil {
+				return g
+			}
+		}
+		return nil
+	}
+
+	// used upon finding out that previously-thought-to-be disconnected vertices
+	// aren't. Merges the two graphs they're connected into together into one
+	// and updates all state internal to this function accordingly.
+	rejoin := func(gDst, gSrc *Graph) {
+		for id, v := range gSrc.vM {
+			gDst.vM[id] = v
+			m[id] = gDst
+		}
+		delete(mG, gSrc)
+	}
+
+	var connectTo func(vertex, *Graph)
+	connectTo = func(v vertex, g *Graph) {
+		if v.VertexType == ValueVertex {
+			if g2, ok := m[v.id]; ok && g != g2 {
+				rejoin(g, g2)
+			}
+			m[v.id] = g
+		}
+		for _, oe := range v.in {
+			connectTo(oe.fromV, g)
+		}
+	}
+
+	for id, v := range g.vM {
+		gV := connectedTo(v)
+
+		// if gV is nil it means this vertex is part of a new Graph which
+		// nothing else has been connected to yet.
+		if gV == nil {
+			gV = Null.cp()
+			mG[gV] = struct{}{}
+		}
+		gV.vM[id] = v
+
+		// do this no matter what, because we want to descend in to the in edges
+		// and mark all of those as being part of this graph too
+		connectTo(v, gV)
+	}
+
+	gg := make([]*Graph, 0, len(mG))
+	for g := range mG {
+		gg = append(gg, g)
+	}
+	return gg
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -454,12 +514,10 @@ func Equal(g1, g2 *Graph) bool {
 // TODO Walk, but by edge
 // TODO Walk, but without end. AKA FSM
 
-// Walk will traverse the Graph, calling the callback on every Vertex in the
-// Graph once. If startWith is non-nil then that Vertex will be the first one
-// passed to the callback and used as the starting point of the traversal. If
-// the callback returns false the traversal is stopped.
-func (g *Graph) Walk(startWith *Vertex, callback func(*Vertex) bool) {
-	// TODO figure out how to make Walk deterministic?
+// Iter will iterate through the Graph's vertices, calling the callback on every
+// Vertex in the Graph once. The vertex order used is non-deterministic.  If the
+// callback returns false the iteration is stopped.
+func (g *Graph) Iter(callback func(*Vertex) bool) {
 	g.makeView()
 	if len(g.byVal) == 0 {
 		return
@@ -480,12 +538,6 @@ func (g *Graph) Walk(startWith *Vertex, callback func(*Vertex) bool) {
 			}
 		}
 		return true
-	}
-
-	if startWith != nil {
-		if !innerWalk(startWith) {
-			return
-		}
 	}
 
 	for _, v := range g.byVal {

@@ -1,6 +1,9 @@
 package gg
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	. "testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,10 +57,10 @@ func assertVertexEqual(t *T, exp, got *Vertex, msgAndArgs ...interface{}) bool {
 	return assertInner(exp, got, map[*Vertex]bool{})
 }
 
-func assertWalk(t *T, expVals, expJuncs int, g *Graph, msgAndArgs ...interface{}) {
+func assertIter(t *T, expVals, expJuncs int, g *Graph, msgAndArgs ...interface{}) {
 	seen := map[*Vertex]bool{}
 	var gotVals, gotJuncs int
-	g.Walk(nil, func(v *Vertex) bool {
+	g.Iter(func(v *Vertex) bool {
 		assert.NotContains(t, seen, v, msgAndArgs...)
 		seen[v] = true
 		if v.VertexType == ValueVertex {
@@ -277,8 +280,8 @@ func TestGraph(t *T) {
 		// sanity check that graphs are equal to themselves
 		assert.True(t, Equal(out, out), msgAndArgs...)
 
-		// test the Walk method in here too
-		assertWalk(t, tests[i].numVals, tests[i].numJuncs, out, msgAndArgs...)
+		// test the Iter method in here too
+		assertIter(t, tests[i].numVals, tests[i].numJuncs, out, msgAndArgs...)
 	}
 }
 
@@ -407,12 +410,72 @@ func TestGraphDelValueIn(t *T) {
 	}
 }
 
+// deterministically hashes a Graph
+func graphStr(g *Graph) string {
+	var vStr func(vertex) string
+	var oeStr func(OpenEdge) string
+	vStr = func(v vertex) string {
+		if v.VertexType == ValueVertex {
+			return fmt.Sprintf("v:%q\n", v.val.V.(string))
+		}
+		s := fmt.Sprintf("j:%d\n", len(v.in))
+		ssOE := make([]string, len(v.in))
+		for i := range v.in {
+			ssOE[i] = oeStr(v.in[i])
+		}
+		sort.Strings(ssOE)
+		return s + strings.Join(ssOE, "")
+	}
+	oeStr = func(oe OpenEdge) string {
+		s := fmt.Sprintf("oe:%q\n", oe.val.V.(string))
+		return s + vStr(oe.fromV)
+	}
+	sVV := make([]string, 0, len(g.vM))
+	for _, v := range g.vM {
+		sVV = append(sVV, vStr(v))
+	}
+	sort.Strings(sVV)
+	return strings.Join(sVV, "")
+}
+
+func assertEqualSets(t *T, exp, got []*Graph) bool {
+	if !assert.Equal(t, len(exp), len(got)) {
+		return false
+	}
+
+	m := map[*Graph]string{}
+	for _, g := range exp {
+		m[g] = graphStr(g)
+	}
+	for _, g := range got {
+		m[g] = graphStr(g)
+	}
+
+	sort.Slice(exp, func(i, j int) bool {
+		return m[exp[i]] < m[exp[j]]
+	})
+	sort.Slice(got, func(i, j int) bool {
+		return m[got[i]] < m[got[j]]
+	})
+
+	b := true
+	for i := range exp {
+		b = b || assert.True(t, Equal(exp[i], got[i]), "i:%d exp:%q got:%q", i, m[exp[i]], m[got[i]])
+	}
+	return b
+}
+
 func TestGraphUnion(t *T) {
 	assertUnion := func(g1, g2 *Graph) *Graph {
 		ga := g1.Union(g2)
 		gb := g2.Union(g1)
 		assert.True(t, Equal(ga, gb))
 		return ga
+	}
+
+	assertDisjoin := func(g *Graph, exp ...*Graph) {
+		ggDisj := g.Disjoin()
+		assertEqualSets(t, exp, ggDisj)
 	}
 
 	v0 := NewValue("v0")
@@ -423,6 +486,8 @@ func TestGraphUnion(t *T) {
 
 		g := Null.AddValueIn(ValueOut(v0, e0), v1)
 		assert.True(t, Equal(g, assertUnion(g, Null)))
+
+		assertDisjoin(g, g)
 	}
 
 	v2 := NewValue("v2")
@@ -436,6 +501,8 @@ func TestGraphUnion(t *T) {
 		assertVertexEqual(t, value(v1, edge(e0, value(v0))), g.ValueVertex(v1))
 		assertVertexEqual(t, value(v2), g.ValueVertex(v2))
 		assertVertexEqual(t, value(v3, edge(e1, value(v2))), g.ValueVertex(v3))
+
+		assertDisjoin(g, g0, g1)
 	}
 
 	va0, vb0 := NewValue("va0"), NewValue("vb0")
@@ -470,6 +537,8 @@ func TestGraphUnion(t *T) {
 				edge(eb1, value(vb1)))),
 			g.ValueVertex(vb2),
 		)
+
+		assertDisjoin(g, ga, gb)
 	}
 
 	{ // Two partially overlapping graphs
@@ -485,6 +554,8 @@ func TestGraphUnion(t *T) {
 			),
 			g.ValueVertex(v2),
 		)
+
+		assertDisjoin(g, g)
 	}
 
 	ej0 := NewValue("ej0")
@@ -508,6 +579,8 @@ func TestGraphUnion(t *T) {
 			),
 			g.ValueVertex(v2),
 		)
+
+		assertDisjoin(g, g)
 	}
 
 	{ // Two equal graphs

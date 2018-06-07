@@ -172,7 +172,7 @@ func (jm jsonUnmarshaler) UnmarshalJSON(b []byte) error {
 				return vertex{}, err
 			}
 		}
-		return mkVertex(vJ.Type, val, ins), nil
+		return mkVertex(vJ.Type, val, ins...), nil
 	}
 
 	for _, v := range gJ.ValueVertices {
