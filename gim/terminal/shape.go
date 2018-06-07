@@ -133,3 +133,60 @@ func (b *Buffer) DrawRect(r geo.Rect, ls LineStyle) {
 	b.WriteString(horiz)
 	b.WriteRune(ls.BottomRight)
 }
+
+// DrawLine draws a line from the start point to the ending one, primarily
+// moving in the given direction, using the given LineStyle to do so.
+func (b *Buffer) DrawLine(start, end, dir geo.XY, ls LineStyle) {
+	// given the "primary" direction the line should be headed, pick a possible
+	// secondary one which may be used to detour along the path in order to
+	// reach the destination (in the case that the two boxes are diagonal from
+	// each other)
+	var perpDir geo.XY
+	perpDir[0], perpDir[1] = dir[1], dir[0]
+	dirSec := end.Sub(start).Mul(perpDir.Abs()).Unit()
+
+	// TODO gross that this doesn't have some way of discovering the rounder.
+	// Maybe rounder should just be a global? ugh...
+	mid := start.Midpoint(end, geo.Round)
+
+	along := func(xy, dir geo.XY) int {
+		if dir[0] != 0 {
+			return xy[0]
+		}
+		return xy[1]
+	}
+
+	// collect the points along the line into an array
+	var pts []geo.XY
+	var curr geo.XY
+	midPrim := along(mid, dir)
+	endSec := along(end, dirSec)
+	for curr = start; curr != end; {
+		pts = append(pts, curr)
+		if prim := along(curr, dir); prim == midPrim {
+			if sec := along(curr, dirSec); sec != endSec {
+				curr = curr.Add(dirSec)
+				continue
+			}
+		}
+		curr = curr.Add(dir)
+	}
+	pts = append(pts, curr) // appending end
+
+	// draw each point
+	for i, pt := range pts {
+		var prev, next geo.XY
+		switch {
+		case i == 0:
+			prev = pt.Add(dir.Inv())
+			next = pts[i+1]
+		case i == len(pts)-1:
+			prev = pts[i-1]
+			next = pt.Add(dir)
+		default:
+			prev, next = pts[i-1], pts[i+1]
+		}
+		b.SetPos(pt)
+		b.WriteRune(ls.Segment(prev.Sub(pt), next.Sub(pt)))
+	}
+}

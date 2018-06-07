@@ -163,12 +163,14 @@ func (view *view) draw(buf *terminal.Buffer) {
 		for i, e := range v.In {
 			bFrom := boxesMr[e.From]
 			fromI := findFromI(e.From, e)
+			buf := terminal.NewBuffer()
+			buf.WriteString(e.Value.V.(string))
 			lines = append(lines, line{
-				from:  bFrom,
-				fromI: fromI,
-				to:    b,
-				toI:   i,
-				body:  e.Value.V.(string),
+				from:    bFrom,
+				fromI:   fromI,
+				to:      b,
+				toI:     i,
+				bodyBuf: buf,
 			})
 		}
 	}
