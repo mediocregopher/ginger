@@ -86,28 +86,13 @@ func posSolve(g *gg.Graph) ([][]*gg.Vertex, map[string]int, map[string]int) {
 	return out, prim, sec
 }
 
-// mutates the boxes to be centered around the given point, keeping their
-// relative position to each other
-func centerBoxes(boxes []*box, around geo.XY) {
-	var graphRect geo.Rect
-	for _, b := range boxes {
-		graphRect = graphRect.Union(b.rect())
-	}
-	graphMid := graphRect.Center(rounder)
-	delta := around.Sub(graphMid)
-	for _, b := range boxes {
-		b.topLeft = b.topLeft.Add(delta)
-	}
-}
-
 type view struct {
 	g                       *gg.Graph
 	primFlowDir, secFlowDir geo.XY
 	start                   gg.Value
-	center                  geo.XY // TODO this shouldnt be needed
 }
 
-func (view *view) draw(term *terminal.Terminal) {
+func (view *view) draw(buf *terminal.Buffer) {
 	relPos, _, secSol := posSolve(view.g)
 
 	// create boxes
@@ -142,7 +127,9 @@ func (view *view) draw(term *terminal.Terminal) {
 			}
 			secPos += secBoxLen + secPadding
 		}
-		centerBoxes(primBoxes, view.primFlowDir.Scale(primPos))
+		for _, b := range primBoxes {
+			b.topLeft = b.topLeft.Add(view.primFlowDir.Scale(primPos))
+		}
 		primPos += maxPrim + primPadding
 	}
 
@@ -186,16 +173,11 @@ func (view *view) draw(term *terminal.Terminal) {
 		}
 	}
 
-	// translate all boxes so the graph is centered around v.center
-	centerBoxes(boxes, view.center)
-
 	// actually draw the boxes and lines
-	buf := terminal.NewBuffer()
 	for _, b := range boxes {
 		b.draw(buf)
 	}
 	for _, line := range lines {
 		line.draw(buf, view.primFlowDir, view.secFlowDir)
 	}
-	term.WriteBuffer(geo.Zero, buf)
 }

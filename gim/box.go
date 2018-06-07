@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/mediocregopher/ginger/gg"
 	"github.com/mediocregopher/ginger/gim/geo"
@@ -13,7 +12,7 @@ type box struct {
 	topLeft       geo.XY
 	flowDir       geo.XY
 	numIn, numOut int
-	body          string
+	bodyBuf       *terminal.Buffer
 
 	transparent bool
 }
@@ -25,37 +24,16 @@ func boxFromVertex(v *gg.Vertex, flowDir geo.XY) box {
 		numOut:  len(v.Out),
 	}
 	if v.VertexType == gg.ValueVertex {
-		b.body = v.Value.V.(string)
+		b.bodyBuf = terminal.NewBuffer()
+		b.bodyBuf.WriteString(v.Value.V.(string))
 	}
 	return b
 }
 
-func (b box) bodyLines() []string {
-	lines := strings.Split(b.body, "\n")
-	// if the last line is empty don't include it, it means there was a trailing
-	// newline (or the whole string is empty)
-	if lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return lines
-}
-
-// TODO this is utterly broken, the terminal.Buffer should be used for this
-func (b box) bodySize() geo.XY {
-	var size geo.XY
-	for _, line := range b.bodyLines() {
-		size[1]++
-		if l := len(line); l > size[0] {
-			size[0] = l
-		}
-	}
-
-	return size
-}
-
 func (b box) rect() geo.Rect {
-	bodyRect := geo.Rect{
-		Size: b.bodySize().Add(geo.XY{2, 2}),
+	var bodyRect geo.Rect
+	if b.bodyBuf != nil {
+		bodyRect.Size = b.bodyBuf.Size().Add(geo.XY{2, 2})
 	}
 
 	var edgesRect geo.Rect
@@ -80,19 +58,13 @@ func (b box) rect() geo.Rect {
 	return bodyRect.Union(edgesRect).Translate(b.topLeft)
 }
 
-func (b box) bodyRect() geo.Rect {
-	center := b.rect().Center(rounder)
-	return geo.Rect{Size: b.bodySize()}.Centered(center, rounder)
-}
-
 func (b box) draw(buf *terminal.Buffer) {
-	bodyBuf := terminal.NewBuffer()
-	bodyBuf.WriteString(b.body)
-	bodyBufRect := geo.Rect{Size: bodyBuf.Size()}
-
 	rect := b.rect()
 	buf.DrawRect(rect, terminal.SingleLine)
 
-	center := rect.Center(rounder)
-	buf.DrawBuffer(bodyBufRect.Centered(center, rounder).TopLeft, bodyBuf)
+	if b.bodyBuf != nil {
+		center := rect.Center(rounder)
+		bodyBufRect := geo.Rect{Size: b.bodyBuf.Size()}
+		buf.DrawBuffer(bodyBufRect.Centered(center, rounder).TopLeft, b.bodyBuf)
+	}
 }

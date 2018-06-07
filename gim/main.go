@@ -81,6 +81,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
 	wSize := term.WindowSize()
+	center := geo.Zero.Midpoint(wSize, rounder)
 
 	g, start := mkGraph()
 	v := view{
@@ -88,11 +89,14 @@ func main() {
 		primFlowDir: geo.Right,
 		secFlowDir:  geo.Down,
 		start:       start,
-		center:      geo.Zero.Midpoint(wSize, rounder),
 	}
 
+	buf := terminal.NewBuffer()
+	v.draw(buf)
+	bufRect := geo.Rect{Size: buf.Size()}.Centered(center, rounder)
+
 	term.Clear()
-	v.draw(term)
+	term.WriteBuffer(bufRect.TopLeft, buf)
 	term.SetPos(wSize.Add(geo.XY{0, -1}))
 	term.Draw()
 }
