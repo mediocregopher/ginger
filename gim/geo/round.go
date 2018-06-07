@@ -1,44 +1,33 @@
 package geo
 
 import (
-	"fmt"
 	"math"
 )
 
-// Rounder describes how a floating point number should be converted to an int
-type Rounder int
+// RounderFunc is a function which converts a floating point number into an
+// integer.
+type RounderFunc func(float64) int64
 
-const (
-	// Round will round up or down depending on the number itself
-	Round Rounder = iota
+// Round is helper for calling the RounderFunc and converting the result to an
+// int.
+func (rf RounderFunc) Round(f float64) int {
+	return int(rf(f))
+}
 
-	// Floor will use the math.Floor function
-	Floor
-
-	// Ceil will use the math.Ceil function
-	Ceil
-)
-
-// Round64 converts a float to an in64 based on the rounding function indicated
-// by the Rounder's value
-func (r Rounder) Round64(f float64) int64 {
-	switch r {
-	case Round:
+// A few RounderFuncs which can be used. Set the Rounder global variable to pick
+// one.
+var (
+	Floor RounderFunc = func(f float64) int64 { return int64(math.Floor(f)) }
+	Ceil  RounderFunc = func(f float64) int64 { return int64(math.Ceil(f)) }
+	Round RounderFunc = func(f float64) int64 {
 		if f < 0 {
 			f = math.Ceil(f - 0.5)
 		}
 		f = math.Floor(f + 0.5)
-	case Floor:
-		f = math.Floor(f)
-	case Ceil:
-		f = math.Ceil(f)
-	default:
-		panic(fmt.Sprintf("invalid Rounder: %#v", r))
+		return int64(f)
 	}
-	return int64(f)
-}
+)
 
-// Round is like Round64 but convers the int64 to an int
-func (r Rounder) Round(f float64) int {
-	return int(r.Round64(f))
-}
+// Rounder is the RounderFunc which will be used by all functions and methods in
+// this package when needed.
+var Rounder = Ceil

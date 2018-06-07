@@ -23,7 +23,6 @@ import (
 const (
 	framerate   = 10
 	frameperiod = time.Second / time.Duration(framerate)
-	rounder     = geo.Ceil
 )
 
 func debugf(str string, args ...interface{}) {
@@ -81,7 +80,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	term := terminal.New()
 	wSize := term.WindowSize()
-	center := geo.Zero.Midpoint(wSize, rounder)
+	center := geo.Zero.Midpoint(wSize)
 
 	g, start := mkGraph()
 	v := view{
@@ -93,7 +92,7 @@ func main() {
 
 	buf := terminal.NewBuffer()
 	v.draw(buf)
-	bufRect := geo.Rect{Size: buf.Size()}.Centered(center, rounder)
+	bufRect := geo.Rect{Size: buf.Size()}.Centered(center)
 
 	term.Clear()
 	term.WriteBuffer(bufRect.TopLeft, buf)

@@ -26,8 +26,8 @@ func (l line) draw(buf *terminal.Buffer, flowDir, secFlowDir geo.XY) {
 
 	// draw the body
 	if l.bodyBuf != nil {
-		mid := start.Midpoint(end, rounder)
+		mid := start.Midpoint(end)
 		bodyBufRect := geo.Rect{Size: l.bodyBuf.Size()}
-		buf.DrawBuffer(bodyBufRect.Centered(mid, rounder).TopLeft, l.bodyBuf)
+		buf.DrawBuffer(bodyBufRect.Centered(mid).TopLeft, l.bodyBuf)
 	}
 }

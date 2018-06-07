@@ -120,8 +120,8 @@ func (view *view) draw(buf *terminal.Buffer) {
 			boxesMr[v] = &b
 
 			bSize := b.rect().Size
-			primBoxLen := bSize.Mul(view.primFlowDir).Len(rounder)
-			secBoxLen := bSize.Mul(view.secFlowDir).Len(rounder)
+			primBoxLen := bSize.Mul(view.primFlowDir).Len()
+			secBoxLen := bSize.Mul(view.secFlowDir).Len()
 			if primBoxLen > maxPrim {
 				maxPrim = primBoxLen
 			}

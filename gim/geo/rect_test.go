@@ -38,30 +38,20 @@ func TestRect(t *T) {
 }
 
 func TestRectCenter(t *T) {
-	assertCentered := func(exp, given Rect, center XY, rounder Rounder) {
-		got := given.Centered(center, rounder)
+	assertCentered := func(exp, given Rect, center XY) {
+		got := given.Centered(center)
 		assert.Equal(t, exp, got)
-		assert.Equal(t, center, got.Center(rounder))
+		assert.Equal(t, center, got.Center())
 	}
 
 	{
 		r := Rect{
 			Size: XY{4, 4},
 		}
-		assert.Equal(t, XY{2, 2}, r.Center(Round))
-		assert.Equal(t, XY{2, 2}, r.Center(Floor))
-		assert.Equal(t, XY{2, 2}, r.Center(Ceil))
+		assert.Equal(t, XY{2, 2}, r.Center())
 		assertCentered(
 			Rect{TopLeft: XY{1, 1}, Size: XY{4, 4}},
-			r, XY{3, 3}, Round,
-		)
-		assertCentered(
-			Rect{TopLeft: XY{1, 1}, Size: XY{4, 4}},
-			r, XY{3, 3}, Floor,
-		)
-		assertCentered(
-			Rect{TopLeft: XY{1, 1}, Size: XY{4, 4}},
-			r, XY{3, 3}, Ceil,
+			r, XY{3, 3},
 		)
 	}
 
@@ -69,20 +59,10 @@ func TestRectCenter(t *T) {
 		r := Rect{
 			Size: XY{5, 5},
 		}
-		assert.Equal(t, XY{3, 3}, r.Center(Round))
-		assert.Equal(t, XY{2, 2}, r.Center(Floor))
-		assert.Equal(t, XY{3, 3}, r.Center(Ceil))
+		assert.Equal(t, XY{3, 3}, r.Center())
 		assertCentered(
 			Rect{TopLeft: XY{0, 0}, Size: XY{5, 5}},
-			r, XY{3, 3}, Round,
-		)
-		assertCentered(
-			Rect{TopLeft: XY{1, 1}, Size: XY{5, 5}},
-			r, XY{3, 3}, Floor,
-		)
-		assertCentered(
-			Rect{TopLeft: XY{0, 0}, Size: XY{5, 5}},
-			r, XY{3, 3}, Ceil,
+			r, XY{3, 3},
 		)
 	}
 }

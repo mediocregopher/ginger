@@ -63,8 +63,8 @@ func (b box) draw(buf *terminal.Buffer) {
 	buf.DrawRect(rect, terminal.SingleLine)
 
 	if b.bodyBuf != nil {
-		center := rect.Center(rounder)
+		center := rect.Center()
 		bodyBufRect := geo.Rect{Size: b.bodyBuf.Size()}
-		buf.DrawBuffer(bodyBufRect.Centered(center, rounder).TopLeft, b.bodyBuf)
+		buf.DrawBuffer(bodyBufRect.Centered(center).TopLeft, b.bodyBuf)
 	}
 }

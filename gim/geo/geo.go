@@ -59,9 +59,8 @@ func (xy XY) Unit() XY {
 	return xy
 }
 
-// Len returns the length (aka magnitude) of the XY as a vector, using the
-// Rounder to round to an int
-func (xy XY) Len(r Rounder) int {
+// Len returns the length (aka magnitude) of the XY as a vector.
+func (xy XY) Len() int {
 	if xy[0] == 0 {
 		return abs(xy[1])
 	} else if xy[1] == 0 {
@@ -70,7 +69,7 @@ func (xy XY) Len(r Rounder) int {
 
 	xyf := xy.toF64()
 	lf := math.Sqrt((xyf[0] * xyf[0]) + (xyf[1] * xyf[1]))
-	return r.Round(lf)
+	return Rounder.Round(lf)
 }
 
 // Add returns the result of adding the two XYs' fields individually
@@ -87,13 +86,12 @@ func (xy XY) Mul(xy2 XY) XY {
 	return xy
 }
 
-// Div returns the results of dividing the two XYs' field individually, using
-// the Rounder to resolve floating results
-func (xy XY) Div(xy2 XY, r Rounder) XY {
+// Div returns the results of dividing the two XYs' field individually.
+func (xy XY) Div(xy2 XY) XY {
 	xyf, xy2f := xy.toF64(), xy2.toF64()
 	return XY{
-		r.Round(xyf[0] / xy2f[0]),
-		r.Round(xyf[1] / xy2f[1]),
+		Rounder.Round(xyf[0] / xy2f[0]),
+		Rounder.Round(xyf[1] / xy2f[1]),
 	}
 }
 
@@ -113,10 +111,9 @@ func (xy XY) Sub(xy2 XY) XY {
 	return xy.Add(xy2.Inv())
 }
 
-// Midpoint returns the midpoint between the two XYs. The rounder indicates what
-// to do about non-whole values when they're come across
-func (xy XY) Midpoint(xy2 XY, r Rounder) XY {
-	return xy.Add(xy2.Sub(xy).Div(XY{2, 2}, r))
+// Midpoint returns the midpoint between the two XYs.
+func (xy XY) Midpoint(xy2 XY) XY {
+	return xy.Add(xy2.Sub(xy).Div(XY{2, 2}))
 }
 
 // Min returns an XY whose fields are the minimum values of the two XYs'

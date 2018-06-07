@@ -144,10 +144,7 @@ func (b *Buffer) DrawLine(start, end, dir geo.XY, ls LineStyle) {
 	var perpDir geo.XY
 	perpDir[0], perpDir[1] = dir[1], dir[0]
 	dirSec := end.Sub(start).Mul(perpDir.Abs()).Unit()
-
-	// TODO gross that this doesn't have some way of discovering the rounder.
-	// Maybe rounder should just be a global? ugh...
-	mid := start.Midpoint(end, geo.Round)
+	mid := start.Midpoint(end)
 
 	along := func(xy, dir geo.XY) int {
 		if dir[0] != 0 {

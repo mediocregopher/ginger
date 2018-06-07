@@ -82,32 +82,30 @@ func (r Rect) Edge(dir, secDir XY) Edge {
 }
 
 // Midpoint returns the point which is the midpoint of the Edge
-func (e Edge) Midpoint(rounder Rounder) XY {
-	return e[0].Midpoint(e[1], rounder)
+func (e Edge) Midpoint() XY {
+	return e[0].Midpoint(e[1])
 }
 
-func (r Rect) halfSize(rounder Rounder) XY {
-	return r.Size.Div(XY{2, 2}, rounder)
+func (r Rect) halfSize() XY {
+	return r.Size.Div(XY{2, 2})
 }
 
-// Center returns the centerpoint of the rectangle, using the given Rounder to
-// resolve non-integers
-func (r Rect) Center(rounder Rounder) XY {
-	return r.TopLeft.Add(r.halfSize(rounder))
+// Center returns the centerpoint of the rectangle.
+func (r Rect) Center() XY {
+	return r.TopLeft.Add(r.halfSize())
 }
 
 // Translate returns an instance of Rect which is the same as this one but
-// translated by the given amount
+// translated by the given amount.
 func (r Rect) Translate(by XY) Rect {
 	r.TopLeft = r.TopLeft.Add(by)
 	return r
 }
 
 // Centered returns an instance of Rect which is this one but translated to be
-// centered on the given point. It will use the given Rounder to resolve
-// non-integers
-func (r Rect) Centered(on XY, rounder Rounder) Rect {
-	r.TopLeft = on.Sub(r.halfSize(rounder))
+// centered on the given point.
+func (r Rect) Centered(on XY) Rect {
+	r.TopLeft = on.Sub(r.halfSize())
 	return r
 }
 
