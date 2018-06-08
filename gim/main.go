@@ -90,12 +90,14 @@ func main() {
 		start:       start,
 	}
 
+	viewBuf := terminal.NewBuffer()
+	v.draw(viewBuf)
+
 	buf := terminal.NewBuffer()
-	v.draw(buf)
-	bufRect := geo.Rect{Size: buf.Size()}.Centered(center)
+	buf.DrawBufferCentered(center, viewBuf)
 
 	term.Clear()
-	term.WriteBuffer(bufRect.TopLeft, buf)
+	term.WriteBuffer(geo.Zero, buf)
 	term.SetPos(wSize.Add(geo.XY{0, -1}))
 	term.Draw()
 }

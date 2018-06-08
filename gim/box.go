@@ -61,10 +61,7 @@ func (b box) rect() geo.Rect {
 func (b box) draw(buf *terminal.Buffer) {
 	rect := b.rect()
 	buf.DrawRect(rect, terminal.SingleLine)
-
 	if b.bodyBuf != nil {
-		center := rect.Center()
-		bodyBufRect := geo.Rect{Size: b.bodyBuf.Size()}
-		buf.DrawBuffer(bodyBufRect.Centered(center).TopLeft, b.bodyBuf)
+		buf.DrawBufferCentered(rect.Center(), b.bodyBuf)
 	}
 }

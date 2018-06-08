@@ -203,6 +203,13 @@ func (b *Buffer) DrawBuffer(at geo.XY, b2 *Buffer) {
 	})
 }
 
+// DrawBufferCentered is like DrawBuffer, but centered around the given point
+// instead of translated by it.
+func (b *Buffer) DrawBufferCentered(around geo.XY, b2 *Buffer) {
+	b2rect := geo.Rect{Size: b2.Size()}
+	b.DrawBuffer(b2rect.Centered(around).TopLeft, b2)
+}
+
 // Size returns the dimensions of the Buffer's current area which has been
 // written to.
 func (b *Buffer) Size() geo.XY {
