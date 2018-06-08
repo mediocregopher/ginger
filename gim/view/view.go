@@ -1,4 +1,65 @@
 // Package view implements rendering a graph to a terminal.
+//
+// Steps for rendering
+//
+//	- Preprocessing: Disjoin Graph into multiple Graphs, and decide how to
+//	  arrange them (maybe sort by number of vertices or number of edges (or the
+//	  sum of both) or something).
+//
+//	- Convert Graph into internal representation.
+//		- Still uses gg.Graph, but vertices and edge values are wrapped in types
+//		  internal to this package, and on which further mapping will be done.
+//		- Positions unknown at this point.
+//		- Junctions are converted to value vertices with set edge order.
+//		- Edges contain both their body and their tail/head rune.
+//
+//	- Find eligible "root" vertex, probably by one which has the fewest input
+//	  edges.
+//
+//	- Find cycles and reverse edges as needed.
+//		- The to/from vertices are reversed, as are the head/tail runes, so the
+//		  direction will appear consistent with the original graph
+//		- TODO this might not be necessary? Or at least may need to be modified.
+//		  In the paper this is done, but that algorithm allows for edges upward
+//		  from their tail, whereas this one doesn't. It might only be necessary
+//		  for the MST stuff, in which case this might only need to take place
+//		  within Positioning-Part1.
+//
+//	- Replace edge bodies with a vertex with a single input/output edge.
+//
+//	- Position all vertices
+//		- `coord` field on vertices used as row/column coordinates.
+//		- Positioning will be done with down being the primary direction and
+//		  right being the secondary direction.
+//		- Part 1) find vertical positions for all vertices (aka assign rows)
+//			- This step uses some fancy MST stuff as outlined by (TODO refer to
+//			  paper here).
+//		- Part 2) find horizontal positions within rows (aka assign columns)
+//			- Part of this will include creating ephemeral vertices where an
+//			  edge spans a row without having a vertex on it. These will be
+//			  removed as the final part of this step.
+//			- The jist of this step is to find vertex ordering which reduces
+//			  number of edge crossings between adjacent rows.
+//			- Some extra care is taken for cases where an edge's from vertex is
+//			  not a lower row than its to vertex.
+//				- This is an unavoidable case, as at the least a vertex may
+//				  connect to itself.
+//				- These edges will have their `switchback` field set to true.
+//				- For the purposes of calculating edge crossings these edges
+//				  should be ignored. During the absolute positioning and drawing
+//				  steps they will be accounted for and dealt with.
+//		- Part 3) row/column positions into terminal positions, which are
+//		  stored on the vertices in the `pos` field. Primary/secondary
+//		  direction are taken into account here.
+//
+//	- Post-processing: any additional absolute positioning and other formatting
+//	  given by the user for the Graph should be done here
+//
+//	- Draw vertices and their edges to buffer
+//		- At this point drawing vertices is easy. Edges is more complicated but
+//		  the start/end positions of each edge should already be known, so while
+//		  drawing may be complex it's not difficult.
+//
 package view
 
 import (
@@ -14,7 +75,7 @@ import (
 // generates renderable terminal output for it.
 type View struct {
 	g     *gg.Graph
-	start gg.Value
+	start gg.Value // TODO shouldn't need this
 
 	primFlowDir, secFlowDir geo.XY
 }

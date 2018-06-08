@@ -12,9 +12,8 @@ type box struct {
 	topLeft       geo.XY
 	flowDir       geo.XY
 	numIn, numOut int
+	buf           *terminal.Buffer
 	bodyBuf       *terminal.Buffer
-
-	transparent bool
 }
 
 func boxFromVertex(v *gg.Vertex, flowDir geo.XY) box {
