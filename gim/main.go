@@ -1,36 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/mediocregopher/ginger/gg"
 	"github.com/mediocregopher/ginger/gim/geo"
 	"github.com/mediocregopher/ginger/gim/terminal"
+	"github.com/mediocregopher/ginger/gim/view"
 )
-
-// Leave room for:
-// - Changing the "flow" direction
-// - Absolute positioning of some/all vertices
 
 // TODO be able to draw circular graphs
 // TODO audit all steps, make sure everything is deterministic
 // TODO self-edges
 
-const (
-	framerate   = 10
-	frameperiod = time.Second / time.Duration(framerate)
-)
+//const (
+//	framerate   = 10
+//	frameperiod = time.Second / time.Duration(framerate)
+//)
 
-func debugf(str string, args ...interface{}) {
-	if !strings.HasSuffix(str, "\n") {
-		str += "\n"
-	}
-	fmt.Fprintf(os.Stderr, str, args...)
-}
+//func debugf(str string, args ...interface{}) {
+//	if !strings.HasSuffix(str, "\n") {
+//		str += "\n"
+//	}
+//	fmt.Fprintf(os.Stderr, str, args...)
+//}
 
 func mkGraph() (*gg.Graph, gg.Value) {
 	a := gg.NewValue("a")
@@ -83,15 +77,9 @@ func main() {
 	center := geo.Zero.Midpoint(wSize)
 
 	g, start := mkGraph()
-	v := view{
-		g:           g,
-		primFlowDir: geo.Right,
-		secFlowDir:  geo.Down,
-		start:       start,
-	}
-
+	view := view.New(g, start, geo.Right, geo.Down)
 	viewBuf := terminal.NewBuffer()
-	v.draw(viewBuf)
+	view.Draw(viewBuf)
 
 	buf := terminal.NewBuffer()
 	buf.DrawBufferCentered(center, viewBuf)
