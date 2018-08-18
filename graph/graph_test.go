@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	. "testing"
 	"time"
 
@@ -9,7 +10,12 @@ import (
 	"github.com/mediocregopher/mediocre-go-lib/mtest/mchk"
 )
 
+func strV(s string) Value {
+	return Value{ID: s, V: s}
+}
+
 func TestGraph(t *T) {
+	t.Parallel()
 	type state struct {
 		Graph
 
@@ -19,10 +25,6 @@ func TestGraph(t *T) {
 	type params struct {
 		add Edge
 		del Edge
-	}
-
-	strV := func(s string) Value {
-		return Value{ID: s, V: s}
 	}
 
 	chk := mchk.Checker{
@@ -118,15 +120,64 @@ func TestGraph(t *T) {
 
 			return s, nil
 		},
-		MaxLength: 10,
 	}
 
-	err := chk.RunCase(
-		params{add: Edge{Tail: strV("4"), Val: strV("d"), Head: strV("4")}},
-		params{del: Edge{Tail: strV("4"), Val: strV("d"), Head: strV("4")}},
-	)
-	if err != nil {
+	if err := chk.RunFor(5 * time.Second); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSubGraphAndEqual(t *T) {
+	t.Parallel()
+	type state struct {
+		g1, g2                Graph
+		expEqual, expSubGraph bool
+	}
+
+	type params struct {
+		e          Edge
+		add1, add2 bool
+	}
+
+	chk := mchk.Checker{
+		Init: func() mchk.State {
+			return state{expEqual: true, expSubGraph: true}
+		},
+		Next: func(ss mchk.State) mchk.Action {
+			i := mrand.Intn(10)
+			p := params{
+				e: Edge{
+					Tail: strV(mrand.Hex(1)),
+					Val:  strV(mrand.Hex(8)),
+					Head: strV(mrand.Hex(1)),
+				},
+				add1: i != 0,
+				add2: i != 1,
+			}
+			return mchk.Action{Params: p}
+		},
+		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
+			s, p := ss.(state), a.Params.(params)
+			if p.add1 {
+				s.g1 = s.g1.AddEdge(p.e)
+			}
+			if p.add2 {
+				s.g2 = s.g2.AddEdge(p.e)
+			}
+			s.expSubGraph = s.expSubGraph && p.add1
+			s.expEqual = s.expEqual && p.add1 && p.add2
+
+			if s.g1.SubGraph(s.g2) != s.expSubGraph {
+				return nil, fmt.Errorf("SubGraph expected to return %v", s.expSubGraph)
+			}
+
+			if s.g1.Equal(s.g2) != s.expEqual {
+				return nil, fmt.Errorf("Equal expected to return %v", s.expEqual)
+			}
+
+			return s, nil
+		},
+		MaxLength: 100,
 	}
 
 	if err := chk.RunFor(5 * time.Second); err != nil {

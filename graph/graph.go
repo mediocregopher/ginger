@@ -204,3 +204,32 @@ func (g Graph) Traverse(start Value, next func(v Value, in, out []Edge) (Value, 
 		}
 	}
 }
+
+func (g Graph) edgesShared(g2 Graph) bool {
+	for id := range g2.m {
+		if _, ok := g.m[id]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// SubGraph returns true if the given Graph shares all of its Edges with this
+// Graph.
+func (g Graph) SubGraph(g2 Graph) bool {
+	// as a quick check before iterating through the edges, if g has fewer edges
+	// than g2 then g2 can't possibly be a sub-graph of it
+	if len(g.m) < len(g2.m) {
+		return false
+	}
+	return g.edgesShared(g2)
+}
+
+// Equal returns true if the given Graph and this Graph have exactly the same
+// Edges.
+func (g Graph) Equal(g2 Graph) bool {
+	if len(g.m) != len(g2.m) {
+		return false
+	}
+	return g.edgesShared(g2)
+}
