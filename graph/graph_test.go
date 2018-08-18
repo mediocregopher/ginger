@@ -44,21 +44,13 @@ func TestGraph(t *T) {
 				}
 			} else if i == 1 {
 				// delete edge which isn't there
-				p.del = Edge{Tail: strV("z"), Val: strV("z"), Head: strV("z")}
+				p.del = Edge{Tail: strV("z"), Head: strV("z")}
 			} else if i <= 5 {
 				// add probably new edge
-				p.add = Edge{
-					Tail: strV(mrand.Hex(1)),
-					Val:  strV(mrand.Hex(1)),
-					Head: strV(mrand.Hex(1)),
-				}
+				p.add = Edge{Tail: strV(mrand.Hex(1)), Head: strV(mrand.Hex(1))}
 			} else {
 				// probably del edge
-				p.del = Edge{
-					Tail: strV(mrand.Hex(1)),
-					Val:  strV(mrand.Hex(1)),
-					Head: strV(mrand.Hex(1)),
-				}
+				p.del = Edge{Tail: strV(mrand.Hex(1)), Head: strV(mrand.Hex(1))}
 			}
 			return mchk.Action{Params: p}
 		},
@@ -146,11 +138,7 @@ func TestSubGraphAndEqual(t *T) {
 		Next: func(ss mchk.State) mchk.Action {
 			i := mrand.Intn(10)
 			p := params{
-				e: Edge{
-					Tail: strV(mrand.Hex(1)),
-					Val:  strV(mrand.Hex(8)),
-					Head: strV(mrand.Hex(1)),
-				},
+				e:    Edge{Tail: strV(mrand.Hex(4)), Head: strV(mrand.Hex(4))},
 				add1: i != 0,
 				add2: i != 1,
 			}

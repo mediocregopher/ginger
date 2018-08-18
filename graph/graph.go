@@ -34,13 +34,13 @@ func NewValue(V interface{}) Value {
 }
 
 // Edge is a directional edge connecting two values in a Graph, the Tail and the
-// Head. An Edge may also contain a value of its own.
+// Head.
 type Edge struct {
-	Tail, Val, Head Value
+	Tail, Head Value
 }
 
 func (e Edge) id() string {
-	return fmt.Sprintf("%q-%q->%q", e.Tail, e.Val, e.Head)
+	return fmt.Sprintf("%q->%q", e.Tail, e.Head)
 }
 
 // an edgeIndex maps valueIDs to a set of edgeIDs. Graph keeps two edgeIndex's,
