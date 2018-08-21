@@ -179,3 +179,82 @@ func TestSubGraphAndEqual(t *T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDisjoinUnion(t *T) {
+	t.Parallel()
+	type state struct {
+		g Graph
+		// prefix -> Values with that prefix. contains dupes
+		valM  map[string][]Value
+		disjM map[string]Graph
+	}
+
+	type params struct {
+		prefix string
+		e      Edge
+	}
+
+	chk := mchk.Checker{
+		Init: func() mchk.State {
+			return state{
+				valM:  map[string][]Value{},
+				disjM: map[string]Graph{},
+			}
+		},
+		Next: func(ss mchk.State) mchk.Action {
+			s := ss.(state)
+			prefix := mrand.Hex(1)
+			var edge Edge
+			if vals := s.valM[prefix]; len(vals) == 0 {
+				edge = Edge{
+					Tail: strV(prefix + mrand.Hex(1)),
+					Head: strV(prefix + mrand.Hex(1)),
+				}
+			} else if mrand.Intn(2) == 0 {
+				edge = Edge{
+					Tail: mrand.Element(vals, nil).(Value),
+					Head: strV(prefix + mrand.Hex(1)),
+				}
+			} else {
+				edge = Edge{
+					Tail: strV(prefix + mrand.Hex(1)),
+					Head: mrand.Element(vals, nil).(Value),
+				}
+			}
+
+			return mchk.Action{Params: params{prefix: prefix, e: edge}}
+		},
+		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
+			s, p := ss.(state), a.Params.(params)
+			s.g = s.g.Add(p.e)
+			s.valM[p.prefix] = append(s.valM[p.prefix], p.e.Head, p.e.Tail)
+			s.disjM[p.prefix] = s.disjM[p.prefix].Add(p.e)
+
+			var aa []massert.Assertion
+
+			// test Disjoin
+			disj := s.g.Disjoin()
+			for prefix, graph := range s.disjM {
+				aa = append(aa, massert.Comment(
+					massert.Equal(true, graph.Equal(s.disjM[prefix])),
+					"prefix:%q", prefix,
+				))
+			}
+			aa = append(aa, massert.Len(disj, len(s.disjM)))
+
+			// now test Join
+			join := (Graph{}).Join(disj...)
+			aa = append(aa, massert.Equal(true, s.g.Equal(join)))
+
+			return s, massert.All(aa...).Assert()
+		},
+		MaxLength: 100,
+		// Each action is required for subsequent ones to make sense, so
+		// minimizing won't work
+		DontMinimize: true,
+	}
+
+	if err := chk.RunFor(5 * time.Second); err != nil {
+		t.Fatal(err)
+	}
+}

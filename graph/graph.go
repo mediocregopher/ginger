@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"sort"
+	"strings"
 )
 
 // Value wraps a go value in a way such that it will be uniquely identified
@@ -111,6 +113,15 @@ func (g Graph) cp() Graph {
 	return g2
 }
 
+func (g Graph) String() string {
+	edgeIDs := make([]string, 0, len(g.m))
+	for edgeID := range g.m {
+		edgeIDs = append(edgeIDs, edgeID)
+	}
+	sort.Strings(edgeIDs)
+	return "Graph{" + strings.Join(edgeIDs, ",") + "}"
+}
+
 // Add returns a new Graph instance with the given Edge added to it. If the
 // original Graph already had that Edge this returns the original Graph.
 func (g Graph) Add(e Edge) Graph {
@@ -120,10 +131,14 @@ func (g Graph) Add(e Edge) Graph {
 	}
 
 	g2 := g.cp()
-	g2.m[id] = e
-	g2.vIns.add(e.Head.ID, id)
-	g2.vOuts.add(e.Tail.ID, id)
+	g2.addDirty(id, e)
 	return g2
+}
+
+func (g Graph) addDirty(edgeID string, e Edge) {
+	g.m[edgeID] = e
+	g.vIns.add(e.Head.ID, edgeID)
+	g.vOuts.add(e.Tail.ID, edgeID)
 }
 
 // Del returns a new Graph instance without the given Edge in it. If the
@@ -138,6 +153,72 @@ func (g Graph) Del(e Edge) Graph {
 	delete(g2.m, id)
 	g2.vIns.del(e.Head.ID, id)
 	g2.vOuts.del(e.Tail.ID, id)
+	return g2
+}
+
+// Disjoin looks at the whole Graph and returns all sub-graphs of it which don't
+// share any Edges between each other.
+func (g Graph) Disjoin() []Graph {
+	valM := make(map[string]*Graph, len(g.vOuts))
+	graphForEdge := func(edge Edge) *Graph {
+		headGraph := valM[edge.Head.ID]
+		tailGraph := valM[edge.Tail.ID]
+		if headGraph == nil && tailGraph == nil {
+			newGraph := Graph{}.cp() // cp also initializes
+			return &newGraph
+		} else if headGraph == nil && tailGraph != nil {
+			return tailGraph
+		} else if headGraph != nil && tailGraph == nil {
+			return headGraph
+		} else if headGraph == tailGraph {
+			return headGraph // doesn't matter which is returned
+		}
+
+		// the two values are part of different graphs, join the smaller into
+		// the larger and change all values which were pointing to it to point
+		// into the larger (which will then be the join of them)
+		if len(tailGraph.m) > len(headGraph.m) {
+			tailGraph, headGraph = headGraph, tailGraph
+		}
+		for edgeID, edge := range tailGraph.m {
+			(*headGraph).addDirty(edgeID, edge)
+		}
+		for valID, valGraph := range valM {
+			if valGraph == tailGraph {
+				valM[valID] = headGraph
+			}
+		}
+		return headGraph
+	}
+
+	for edgeID, edge := range g.m {
+		graph := graphForEdge(edge)
+		(*graph).addDirty(edgeID, edge)
+		valM[edge.Head.ID] = graph
+		valM[edge.Tail.ID] = graph
+	}
+
+	found := map[*Graph]bool{}
+	graphs := make([]Graph, 0, len(valM))
+	for _, graph := range valM {
+		if found[graph] {
+			continue
+		}
+		found[graph] = true
+		graphs = append(graphs, *graph)
+	}
+	return graphs
+}
+
+// Join returns a new Graph which shares all Edges of this Graph and all given
+// Graphs.
+func (g Graph) Join(graphs ...Graph) Graph {
+	g2 := g.cp()
+	for _, graph := range graphs {
+		for edgeID, edge := range graph.m {
+			g2.addDirty(edgeID, edge)
+		}
+	}
 	return g2
 }
 
@@ -236,6 +317,8 @@ func (g Graph) Traverse(start Value, next func(n Node) (Value, bool)) {
 		}
 	}
 }
+
+// TODO VisitBreadth/VisitDepth
 
 func (g Graph) edgesShared(g2 Graph) bool {
 	for id := range g2.m {
