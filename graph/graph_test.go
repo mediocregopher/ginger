@@ -57,56 +57,63 @@ func TestGraph(t *T) {
 		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
 			s, p := ss.(state), a.Params.(params)
 			if p.add != (Edge{}) {
-				s.Graph = s.Graph.AddEdge(p.add)
+				s.Graph = s.Graph.Add(p.add)
 				s.m[p.add.id()] = p.add
 			} else {
-				s.Graph = s.Graph.DelEdge(p.del)
+				s.Graph = s.Graph.Del(p.del)
 				delete(s.m, p.del.id())
 			}
 
-			{ // test Values and Edges methods
-				vals := s.Graph.Values()
+			{ // test Nodes and Edges methods
+				nodes := s.Graph.Nodes()
 				edges := s.Graph.Edges()
 				var aa []massert.Assertion
-				found := map[string]bool{}
-				tryAssert := func(v Value) {
-					if ok := found[v.ID]; !ok {
-						found[v.ID] = true
-						aa = append(aa, massert.Has(vals, v))
-					}
-				}
+				vals := map[string]bool{}
+				ins, outs := map[string]int{}, map[string]int{}
 				for _, e := range s.m {
 					aa = append(aa, massert.Has(edges, e))
-					tryAssert(e.Head)
-					tryAssert(e.Tail)
+					aa = append(aa, massert.HasKey(nodes, e.Head.ID))
+					aa = append(aa, massert.Has(nodes[e.Head.ID].Ins, e))
+					aa = append(aa, massert.HasKey(nodes, e.Tail.ID))
+					aa = append(aa, massert.Has(nodes[e.Tail.ID].Outs, e))
+					vals[e.Head.ID] = true
+					vals[e.Tail.ID] = true
+					ins[e.Head.ID]++
+					outs[e.Tail.ID]++
 				}
-				aa = append(aa, massert.Len(vals, len(found)))
 				aa = append(aa, massert.Len(edges, len(s.m)))
+				aa = append(aa, massert.Len(nodes, len(vals)))
+				for id, node := range nodes {
+					aa = append(aa, massert.Len(node.Ins, ins[id]))
+					aa = append(aa, massert.Len(node.Outs, outs[id]))
+				}
+
 				if err := massert.All(aa...).Assert(); err != nil {
 					return nil, err
 				}
 			}
 
-			{ // test ValueEdges
-				for _, val := range s.Graph.Values() {
-					in, out := s.Graph.ValueEdges(val)
-					var expIn, expOut []Edge
-					for _, e := range s.m {
-						if e.Tail.ID == val.ID {
-							expOut = append(expOut, e)
-						}
-						if e.Head.ID == val.ID {
-							expIn = append(expIn, e)
-						}
-					}
-					if err := massert.Comment(massert.All(
-						massert.Subset(expIn, in),
-						massert.Len(in, len(expIn)),
-						massert.Subset(expOut, out),
-						massert.Len(out, len(expOut)),
-					), "val:%q", val.V).Assert(); err != nil {
-						return nil, err
-					}
+			{ // test Node and Has. Nodes has already been tested so we can use
+				// its returned Nodes as the expected ones
+				var aa []massert.Assertion
+				for _, expNode := range s.Graph.Nodes() {
+					var naa []massert.Assertion
+					node, ok := s.Graph.Node(expNode.Value)
+					naa = append(naa, massert.Equal(true, ok))
+					naa = append(naa, massert.Equal(true, s.Graph.Has(expNode.Value)))
+					naa = append(naa, massert.Subset(expNode.Ins, node.Ins))
+					naa = append(naa, massert.Len(node.Ins, len(expNode.Ins)))
+					naa = append(naa, massert.Subset(expNode.Outs, node.Outs))
+					naa = append(naa, massert.Len(node.Outs, len(expNode.Outs)))
+
+					aa = append(aa, massert.Comment(massert.All(naa...), "v:%q", expNode.ID))
+				}
+				_, ok := s.Graph.Node(strV("zz"))
+				aa = append(aa, massert.Equal(false, ok))
+				aa = append(aa, massert.Equal(false, s.Graph.Has(strV("zz"))))
+
+				if err := massert.All(aa...).Assert(); err != nil {
+					return nil, err
 				}
 			}
 
@@ -147,10 +154,10 @@ func TestSubGraphAndEqual(t *T) {
 		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
 			s, p := ss.(state), a.Params.(params)
 			if p.add1 {
-				s.g1 = s.g1.AddEdge(p.e)
+				s.g1 = s.g1.Add(p.e)
 			}
 			if p.add2 {
-				s.g2 = s.g2.AddEdge(p.e)
+				s.g2 = s.g2.Add(p.e)
 			}
 			s.expSubGraph = s.expSubGraph && p.add1
 			s.expEqual = s.expEqual && p.add1 && p.add2

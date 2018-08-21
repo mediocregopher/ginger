@@ -111,9 +111,9 @@ func (g Graph) cp() Graph {
 	return g2
 }
 
-// AddEdge returns a new Graph instance with the given Edge added to it. If the
+// Add returns a new Graph instance with the given Edge added to it. If the
 // original Graph already had that Edge this returns the original Graph.
-func (g Graph) AddEdge(e Edge) Graph {
+func (g Graph) Add(e Edge) Graph {
 	id := e.id()
 	if _, ok := g.m[id]; ok {
 		return g
@@ -126,9 +126,9 @@ func (g Graph) AddEdge(e Edge) Graph {
 	return g2
 }
 
-// DelEdge returns a new Graph instance without the given Edge in it. If the
-// original Graph didn't have that Edge  this returns the original Graph.
-func (g Graph) DelEdge(e Edge) Graph {
+// Del returns a new Graph instance without the given Edge in it. If the
+// original Graph didn't have that Edge this returns the original Graph.
+func (g Graph) Del(e Edge) Graph {
 	id := e.id()
 	if _, ok := g.m[id]; !ok {
 		return g
@@ -141,24 +141,6 @@ func (g Graph) DelEdge(e Edge) Graph {
 	return g2
 }
 
-// Values returns all Values which have incoming or outgoing Edges in the Graph.
-func (g Graph) Values() []Value {
-	values := make([]Value, 0, len(g.m))
-	found := map[string]bool{}
-	tryAdd := func(v Value) {
-		if ok := found[v.ID]; !ok {
-			values = append(values, v)
-			found[v.ID] = true
-		}
-	}
-
-	for _, e := range g.m {
-		tryAdd(e.Head)
-		tryAdd(e.Tail)
-	}
-	return values
-}
-
 // Edges returns all Edges which are part of the Graph
 func (g Graph) Edges() []Edge {
 	edges := make([]Edge, 0, len(g.m))
@@ -168,38 +150,88 @@ func (g Graph) Edges() []Edge {
 	return edges
 }
 
-// ValueEdges returns all input (e.Head==v) and output (e.Tail==v) Edges
-// for the given Value in the Graph.
-func (g Graph) ValueEdges(v Value) ([]Edge, []Edge) {
-	in := make([]Edge, 0, len(g.vIns[v.ID]))
-	for edgeID := range g.vIns[v.ID] {
-		in = append(in, g.m[edgeID])
-	}
+// NOTE the Node type exists primarily for convenience. As far as Graph's
+// internals are concerned it doesn't _really_ exist, and no Graph method should
+// ever take Node as a parameter (except the callback functions like in
+// Traverse, where it's not really being taken in).
 
-	out := make([]Edge, 0, len(g.vOuts[v.ID]))
-	for edgeID := range g.vOuts[v.ID] {
-		out = append(out, g.m[edgeID])
+// Node wraps a Value in a Graph to include that Node's input and output Edges
+// in that Graph.
+type Node struct {
+	Value
+
+	// All Edges in the Graph with this Node's Value as their Head and Tail,
+	// respectively.
+	Ins, Outs []Edge
+}
+
+// Node returns the Node for the given Value, or false if the Graph doesn't
+// contain the Value.
+func (g Graph) Node(v Value) (Node, bool) {
+	n := Node{Value: v}
+	for edgeID := range g.vIns[v.ID] {
+		n.Ins = append(n.Ins, g.m[edgeID])
 	}
-	return in, out
+	for edgeID := range g.vOuts[v.ID] {
+		n.Outs = append(n.Outs, g.m[edgeID])
+	}
+	return n, len(n.Ins) > 0 || len(n.Outs) > 0
+}
+
+// Nodes returns a Node for each Value which has at least one Edge in the Graph,
+// with the Nodes mapped by their Value's ID.
+func (g Graph) Nodes() map[string]Node {
+	nodesM := make(map[string]Node, len(g.m)*2)
+	for _, edge := range g.m {
+		// if head and tail are modified at the same time it messes up the case
+		// where they are the same node
+		{
+			head := nodesM[edge.Head.ID]
+			head.Value = edge.Head
+			head.Ins = append(head.Ins, edge)
+			nodesM[head.ID] = head
+		}
+		{
+			tail := nodesM[edge.Tail.ID]
+			tail.Value = edge.Tail
+			tail.Outs = append(tail.Outs, edge)
+			nodesM[tail.ID] = tail
+		}
+	}
+	return nodesM
+}
+
+// Has returns true if the Graph contains at least one Edge with a Head or Tail
+// of Value.
+func (g Graph) Has(v Value) bool {
+	if _, ok := g.vIns[v.ID]; ok {
+		return true
+	} else if _, ok := g.vOuts[v.ID]; ok {
+		return true
+	}
+	return false
 }
 
 // Traverse is used to traverse the Graph until a stopping point is reached.
-// Traversal starts with the cursor at the given start value. Each hop is
-// performed by passing the cursor value along with its input and output Edges
-// into the next function. The cursor moves to the returned Value and next is
-// called again, and so on.
+// Traversal starts with the cursor at the given start Value. Each hop is
+// performed by passing the cursor Value's Node into the next function. The
+// cursor moves to the returned Value and next is called again, and so on.
 //
 // If the boolean returned from the next function is false traversal stops and
 // this method returns.
 //
 // If start has no Edges in the Graph, or a Value returned from next doesn't,
-// this will still call next, but the in/out params will both be empty.
-func (g Graph) Traverse(start Value, next func(v Value, in, out []Edge) (Value, bool)) {
+// this will still call next, but the Node will be the zero value.
+func (g Graph) Traverse(start Value, next func(n Node) (Value, bool)) {
 	curr := start
-	var ok bool
 	for {
-		in, out := g.ValueEdges(curr)
-		if curr, ok = next(curr, in, out); !ok {
+		currNode, ok := g.Node(curr)
+		if ok {
+			curr, ok = next(currNode)
+		} else {
+			curr, ok = next(Node{})
+		}
+		if !ok {
 			return
 		}
 	}
