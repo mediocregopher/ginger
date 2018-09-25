@@ -258,3 +258,105 @@ func TestDisjoinUnion(t *T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVisitBreadth(t *T) {
+	t.Parallel()
+	type state struct {
+		g Graph
+		// each rank describes the set of values (by ID) which should be
+		// visited in that rank. Within a rank the values will be visited in any
+		// order
+		ranks []map[string]bool
+	}
+
+	thisRank := func(s state) map[string]bool {
+		return s.ranks[len(s.ranks)-1]
+	}
+
+	prevRank := func(s state) map[string]bool {
+		return s.ranks[len(s.ranks)-2]
+	}
+
+	randFromRank := func(s state, rankPickFn func(state) map[string]bool) Value {
+		rank := rankPickFn(s)
+		rankL := make([]string, 0, len(rank))
+		for id := range rank {
+			rankL = append(rankL, id)
+		}
+		return strV(mrand.Element(rankL, nil).(string))
+	}
+
+	type params struct {
+		newRank bool
+		e       Edge
+	}
+
+	chk := mchk.Checker{
+		Init: func() mchk.State {
+			return state{
+				ranks: []map[string]bool{
+					map[string]bool{"start": true},
+					map[string]bool{},
+				},
+			}
+		},
+		Next: func(ss mchk.State) mchk.Action {
+			s := ss.(state)
+			var p params
+			p.newRank = len(thisRank(s)) > 0 && mrand.Intn(10) == 0
+			if p.newRank {
+				p.e.Head = strV(mrand.Hex(3))
+				p.e.Tail = randFromRank(s, thisRank)
+			} else {
+				p.e.Head = strV(mrand.Hex(2))
+				p.e.Tail = randFromRank(s, prevRank)
+			}
+			return mchk.Action{Params: p}
+		},
+		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
+			s, p := ss.(state), a.Params.(params)
+			if p.newRank {
+				s.ranks = append(s.ranks, map[string]bool{})
+			}
+			if !s.g.Has(p.e.Head) {
+				thisRank(s)[p.e.Head.ID] = true
+			}
+			s.g = s.g.Add(p.e)
+
+			// check the visit
+			var err error
+			expRanks := s.ranks
+			currRank := map[string]bool{}
+			s.g.VisitBreadth(strV("start"), func(n Node) bool {
+				currRank[n.Value.ID] = true
+				if len(currRank) != len(expRanks[0]) {
+					return true
+				}
+				if err = massert.Equal(expRanks[0], currRank).Assert(); err != nil {
+					return false
+				}
+				expRanks = expRanks[1:]
+				currRank = map[string]bool{}
+				return true
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			err = massert.All(
+				massert.Len(expRanks, 0),
+				massert.Len(currRank, 0),
+			).Assert()
+			return s, err
+		},
+		DontMinimize: true,
+	}
+
+	if err := chk.RunCase(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := chk.RunFor(5 * time.Second); err != nil {
+		t.Fatal(err)
+	}
+}

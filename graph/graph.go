@@ -141,6 +141,15 @@ func (g Graph) addDirty(edgeID string, e Edge) {
 	g.vOuts.add(e.Tail.ID, edgeID)
 }
 
+func (g Graph) estSize() int {
+	lvIns := len(g.vIns)
+	lvOuts := len(g.vOuts)
+	if lvIns > lvOuts {
+		return lvIns
+	}
+	return lvOuts
+}
+
 // Del returns a new Graph instance without the given Edge in it. If the
 // original Graph didn't have that Edge this returns the original Graph.
 func (g Graph) Del(e Edge) Graph {
@@ -242,7 +251,7 @@ type Node struct {
 	Value
 
 	// All Edges in the Graph with this Node's Value as their Head and Tail,
-	// respectively.
+	// respectively. These should not be expected to be deterministic.
 	Ins, Outs []Edge
 }
 
@@ -318,7 +327,86 @@ func (g Graph) Traverse(start Value, next func(n Node) (Value, bool)) {
 	}
 }
 
-// TODO VisitBreadth/VisitDepth
+// VisitBreadth is like Traverse, except that each Node is only visited once,
+// and the order of visited Nodes is determined by traversing each Node's output
+// Edges breadth-wise.
+//
+// If the boolean returned from the callback function is false, or the start
+// Value has no edges in the Graph, traversal stops and this method returns.
+//
+// The exact order of Nodes visited is _not_ deterministic.
+func (g Graph) VisitBreadth(start Value, callback func(n Node) bool) {
+	visited := map[string]bool{}
+	toVisit := make([]Value, 0, g.estSize())
+	toVisit = append(toVisit, start)
+
+	for {
+		if len(toVisit) == 0 {
+			return
+		}
+
+		// shift val off front
+		val := toVisit[0]
+		toVisit = toVisit[1:]
+		if visited[val.ID] {
+			continue
+		}
+		node, ok := g.Node(val)
+		if !ok {
+			continue
+		} else if !callback(node) {
+			return
+		}
+		visited[val.ID] = true
+		for _, edge := range node.Outs {
+			if visited[edge.Head.ID] {
+				continue
+			}
+			toVisit = append(toVisit, edge.Head)
+		}
+	}
+}
+
+// VisitDepth is like Traverse, except that each Node is only visited once,
+// and the order of visited Nodes is determined by traversing each Node's output
+// Edges depth-wise.
+//
+// If the boolean returned from the callback function is false, or the start
+// Value has no edges in the Graph, traversal stops and this method returns.
+//
+// The exact order of Nodes visited is _not_ deterministic.
+func (g Graph) VisitDepth(start Value, callback func(n Node) bool) {
+	// VisitDepth is actually the same as VisitBreadth, only you read off the
+	// toVisit list from back-to-front
+	visited := map[string]bool{}
+	toVisit := make([]Value, 0, g.estSize())
+	toVisit = append(toVisit, start)
+
+	for {
+		if len(toVisit) == 0 {
+			return
+		}
+
+		val := toVisit[0]
+		toVisit = toVisit[:len(toVisit)-1] // pop val off back
+		if visited[val.ID] {
+			continue
+		}
+		node, ok := g.Node(val)
+		if !ok {
+			continue
+		} else if !callback(node) {
+			return
+		}
+		visited[val.ID] = true
+		for _, edge := range node.Outs {
+			if visited[edge.Head.ID] {
+				continue
+			}
+			toVisit = append(toVisit, edge.Head)
+		}
+	}
+}
 
 func (g Graph) edgesShared(g2 Graph) bool {
 	for id := range g2.m {
