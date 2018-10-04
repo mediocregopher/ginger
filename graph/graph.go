@@ -63,6 +63,25 @@ func (e edge) Head() Value {
 	return e.head
 }
 
+func (e edge) String() string {
+	return edgeID(e)
+}
+
+// NOTE the Node type exists primarily for convenience. As far as Graph's
+// internals are concerned it doesn't _really_ exist, and no Graph method should
+// ever take Node as a parameter (except the callback functions like in
+// Traverse, where it's not really being taken in).
+
+// Node wraps a Value in a Graph to include that Node's input and output Edges
+// in that Graph.
+type Node struct {
+	Value
+
+	// All Edges in the Graph with this Node's Value as their Head and Tail,
+	// respectively. These should not be expected to be deterministic.
+	Ins, Outs []Edge
+}
+
 // an edgeIndex maps valueIDs to a set of edgeIDs. Graph keeps two edgeIndex's,
 // one for input edges and one for output edges.
 type edgeIndex map[string]map[string]struct{}
@@ -111,7 +130,36 @@ func (ei edgeIndex) del(valID, edgeID string) {
 //
 // The Graph does not keep track of Edge ordering. Assume that all slices of
 // Edges are in random order.
-type Graph struct {
+type Graph interface {
+	// Empty returns a graph with no edges which is of the same underlying type
+	// as this one.
+	Empty() Graph
+
+	// Add returns a new Graph instance with the given Edge added to it. If the
+	// original Graph already had that Edge this returns the original Graph.
+	Add(Edge) Graph
+
+	// Del returns a new Graph instance without the given Edge in it. If the
+	// original Graph didn't have that Edge this returns the original Graph.
+	Del(Edge) Graph
+
+	// Edges returns all Edges which are part of the Graph, mapped using a
+	// string ID which is unique within the Graph and between Graphs of the same
+	// underlying type.
+	Edges() map[string]Edge
+
+	// EdgesTo returns all Edges whose Head is the given Value.
+	EdgesTo(v Value) []Edge
+
+	// EdgesFrom returns all Edges whose Tail is the given Value.
+	EdgesFrom(v Value) []Edge
+
+	// Has returns true if the Graph contains at least one Edge with a Head or
+	// Tail of Value.
+	Has(v Value) bool
+}
+
+type graph struct {
 	m map[string]Edge
 
 	// these are indices mapping Value IDs to all the in/out edges for that
@@ -119,8 +167,15 @@ type Graph struct {
 	vIns, vOuts edgeIndex
 }
 
-func (g Graph) cp() Graph {
-	g2 := Graph{
+// Null is the empty graph from which all other Graphs are built.
+var Null = (graph{}).Empty()
+
+func (g graph) Empty() Graph {
+	return (graph{}).cp() // cp also initializes
+}
+
+func (g graph) cp() graph {
+	g2 := graph{
 		m:     make(map[string]Edge, len(g.m)),
 		vIns:  g.vIns.cp(),
 		vOuts: g.vOuts.cp(),
@@ -131,18 +186,16 @@ func (g Graph) cp() Graph {
 	return g2
 }
 
-func (g Graph) String() string {
-	edgeIDs := make([]string, 0, len(g.m))
-	for edgeID := range g.m {
-		edgeIDs = append(edgeIDs, edgeID)
+func (g graph) String() string {
+	edgeStrs := make([]string, 0, len(g.m))
+	for _, edge := range g.m {
+		edgeStrs = append(edgeStrs, fmt.Sprint(edge))
 	}
-	sort.Strings(edgeIDs)
-	return "Graph{" + strings.Join(edgeIDs, ",") + "}"
+	sort.Strings(edgeStrs)
+	return "Graph{" + strings.Join(edgeStrs, ",") + "}"
 }
 
-// Add returns a new Graph instance with the given Edge added to it. If the
-// original Graph already had that Edge this returns the original Graph.
-func (g Graph) Add(e Edge) Graph {
+func (g graph) Add(e Edge) Graph {
 	id := edgeID(e)
 	if _, ok := g.m[id]; ok {
 		return g
@@ -153,24 +206,26 @@ func (g Graph) Add(e Edge) Graph {
 	return g2
 }
 
-func (g Graph) addDirty(edgeID string, e Edge) {
+func (g graph) addDirty(edgeID string, e Edge) {
 	g.m[edgeID] = e
 	g.vIns.add(e.Head().ID, edgeID)
 	g.vOuts.add(e.Tail().ID, edgeID)
 }
 
-func (g Graph) estSize() int {
-	lvIns := len(g.vIns)
-	lvOuts := len(g.vOuts)
-	if lvIns > lvOuts {
-		return lvIns
+// addDirty attempts to add the Edge to Graph using an addDirty method,
+// otherwise it just uses Add like normal
+func addDirty(g Graph, edgeID string, e Edge) Graph {
+	gd, ok := g.(interface {
+		addDirty(string, Edge)
+	})
+	if !ok {
+		return g.Add(e)
 	}
-	return lvOuts
+	gd.addDirty(edgeID, e)
+	return g
 }
 
-// Del returns a new Graph instance without the given Edge in it. If the
-// original Graph didn't have that Edge this returns the original Graph.
-func (g Graph) Del(e Edge) Graph {
+func (g graph) Del(e Edge) Graph {
 	id := edgeID(e)
 	if _, ok := g.m[id]; !ok {
 		return g
@@ -183,15 +238,50 @@ func (g Graph) Del(e Edge) Graph {
 	return g2
 }
 
+func (g graph) Edges() map[string]Edge {
+	return g.m
+}
+
+func (g graph) EdgesTo(v Value) []Edge {
+	vIns := g.vIns[v.ID]
+	ins := make([]Edge, 0, len(vIns))
+	for edgeID := range vIns {
+		ins = append(ins, g.m[edgeID])
+	}
+	return ins
+}
+
+func (g graph) EdgesFrom(v Value) []Edge {
+	vOuts := g.vOuts[v.ID]
+	outs := make([]Edge, 0, len(vOuts))
+	for edgeID := range vOuts {
+		outs = append(outs, g.m[edgeID])
+	}
+	return outs
+}
+
+func (g graph) Has(v Value) bool {
+	if _, ok := g.vIns[v.ID]; ok {
+		return true
+	} else if _, ok := g.vOuts[v.ID]; ok {
+		return true
+	}
+	return false
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Disjoin looks at the whole Graph and returns all sub-graphs of it which don't
 // share any Edges between each other.
-func (g Graph) Disjoin() []Graph {
-	valM := make(map[string]*Graph, len(g.vOuts))
+func Disjoin(g Graph) []Graph {
+	empty := g.Empty()
+	edges := g.Edges()
+	valM := make(map[string]*Graph, len(edges))
 	graphForEdge := func(edge Edge) *Graph {
 		headGraph := valM[edge.Head().ID]
 		tailGraph := valM[edge.Tail().ID]
 		if headGraph == nil && tailGraph == nil {
-			newGraph := Graph{}.cp() // cp also initializes
+			newGraph := empty.Empty()
 			return &newGraph
 		} else if headGraph == nil && tailGraph != nil {
 			return tailGraph
@@ -204,11 +294,13 @@ func (g Graph) Disjoin() []Graph {
 		// the two values are part of different graphs, join the smaller into
 		// the larger and change all values which were pointing to it to point
 		// into the larger (which will then be the join of them)
-		if len(tailGraph.m) > len(headGraph.m) {
-			tailGraph, headGraph = headGraph, tailGraph
+		tailEdges := (*tailGraph).Edges()
+		if headEdges := (*headGraph).Edges(); len(headEdges) > len(tailEdges) {
+			headGraph, tailGraph = tailGraph, headGraph
+			tailEdges = headEdges
 		}
-		for edgeID, edge := range tailGraph.m {
-			(*headGraph).addDirty(edgeID, edge)
+		for edgeID, edge := range tailEdges {
+			*headGraph = addDirty(*headGraph, edgeID, edge)
 		}
 		for valID, valGraph := range valM {
 			if valGraph == tailGraph {
@@ -218,9 +310,9 @@ func (g Graph) Disjoin() []Graph {
 		return headGraph
 	}
 
-	for edgeID, edge := range g.m {
+	for edgeID, edge := range edges {
 		graph := graphForEdge(edge)
-		(*graph).addDirty(edgeID, edge)
+		*graph = addDirty(*graph, edgeID, edge)
 		valM[edge.Head().ID] = graph
 		valM[edge.Tail().ID] = graph
 	}
@@ -237,60 +329,35 @@ func (g Graph) Disjoin() []Graph {
 	return graphs
 }
 
-// Join returns a new Graph which shares all Edges of this Graph and all given
-// Graphs.
-func (g Graph) Join(graphs ...Graph) Graph {
-	g2 := g.cp()
+// Join returns a new Graph which shares all Edges of all given Graphs. All
+// given Graphs must be of the same underlying type.
+func Join(graphs ...Graph) Graph {
+	g2 := graphs[0].Empty()
 	for _, graph := range graphs {
-		for edgeID, edge := range graph.m {
-			g2.addDirty(edgeID, edge)
+		for edgeID, edge := range graph.Edges() {
+			g2 = addDirty(g2, edgeID, edge)
 		}
 	}
 	return g2
 }
 
-// Edges returns all Edges which are part of the Graph
-func (g Graph) Edges() []Edge {
-	edges := make([]Edge, 0, len(g.m))
-	for _, e := range g.m {
-		edges = append(edges, e)
-	}
-	return edges
-}
-
-// NOTE the Node type exists primarily for convenience. As far as Graph's
-// internals are concerned it doesn't _really_ exist, and no Graph method should
-// ever take Node as a parameter (except the callback functions like in
-// Traverse, where it's not really being taken in).
-
-// Node wraps a Value in a Graph to include that Node's input and output Edges
-// in that Graph.
-type Node struct {
-	Value
-
-	// All Edges in the Graph with this Node's Value as their Head and Tail,
-	// respectively. These should not be expected to be deterministic.
-	Ins, Outs []Edge
-}
-
-// Node returns the Node for the given Value, or false if the Graph doesn't
+// GetNode returns the Node for the given Value, or false if the Graph doesn't
 // contain the Value.
-func (g Graph) Node(v Value) (Node, bool) {
-	n := Node{Value: v}
-	for edgeID := range g.vIns[v.ID] {
-		n.Ins = append(n.Ins, g.m[edgeID])
-	}
-	for edgeID := range g.vOuts[v.ID] {
-		n.Outs = append(n.Outs, g.m[edgeID])
+func GetNode(g Graph, v Value) (Node, bool) {
+	n := Node{
+		Value: v,
+		Ins:   g.EdgesTo(v),
+		Outs:  g.EdgesFrom(v),
 	}
 	return n, len(n.Ins) > 0 || len(n.Outs) > 0
 }
 
-// Nodes returns a Node for each Value which has at least one Edge in the Graph,
-// with the Nodes mapped by their Value's ID.
-func (g Graph) Nodes() map[string]Node {
-	nodesM := make(map[string]Node, len(g.m)*2)
-	for _, edge := range g.m {
+// GetNodes returns a Node for each Value which has at least one Edge in the
+// Graph, with the Nodes mapped by their Value's ID.
+func GetNodes(g Graph) map[string]Node {
+	edges := g.Edges()
+	nodesM := make(map[string]Node, len(edges)*2)
+	for _, edge := range edges {
 		// if head and tail are modified at the same time it messes up the case
 		// where they are the same node
 		{
@@ -311,17 +378,6 @@ func (g Graph) Nodes() map[string]Node {
 	return nodesM
 }
 
-// Has returns true if the Graph contains at least one Edge with a Head or Tail
-// of Value.
-func (g Graph) Has(v Value) bool {
-	if _, ok := g.vIns[v.ID]; ok {
-		return true
-	} else if _, ok := g.vOuts[v.ID]; ok {
-		return true
-	}
-	return false
-}
-
 // Traverse is used to traverse the Graph until a stopping point is reached.
 // Traversal starts with the cursor at the given start Value. Each hop is
 // performed by passing the cursor Value's Node into the next function. The
@@ -332,10 +388,10 @@ func (g Graph) Has(v Value) bool {
 //
 // If start has no Edges in the Graph, or a Value returned from next doesn't,
 // this will still call next, but the Node will be the zero value.
-func (g Graph) Traverse(start Value, next func(n Node) (Value, bool)) {
+func Traverse(g Graph, start Value, next func(n Node) (Value, bool)) {
 	curr := start
 	for {
-		currNode, ok := g.Node(curr)
+		currNode, ok := GetNode(g, curr)
 		if ok {
 			curr, ok = next(currNode)
 		} else {
@@ -355,9 +411,9 @@ func (g Graph) Traverse(start Value, next func(n Node) (Value, bool)) {
 // Value has no edges in the Graph, traversal stops and this method returns.
 //
 // The exact order of Nodes visited is _not_ deterministic.
-func (g Graph) VisitBreadth(start Value, callback func(n Node) bool) {
+func VisitBreadth(g Graph, start Value, callback func(n Node) bool) {
 	visited := map[string]bool{}
-	toVisit := make([]Value, 0, g.estSize())
+	toVisit := make([]Value, 0, 16)
 	toVisit = append(toVisit, start)
 
 	for {
@@ -371,7 +427,7 @@ func (g Graph) VisitBreadth(start Value, callback func(n Node) bool) {
 		if visited[val.ID] {
 			continue
 		}
-		node, ok := g.Node(val)
+		node, ok := GetNode(g, val)
 		if !ok {
 			continue
 		} else if !callback(node) {
@@ -396,11 +452,11 @@ func (g Graph) VisitBreadth(start Value, callback func(n Node) bool) {
 // Value has no edges in the Graph, traversal stops and this method returns.
 //
 // The exact order of Nodes visited is _not_ deterministic.
-func (g Graph) VisitDepth(start Value, callback func(n Node) bool) {
+func VisitDepth(g Graph, start Value, callback func(n Node) bool) {
 	// VisitDepth is actually the same as VisitBreadth, only you read off the
 	// toVisit list from back-to-front
 	visited := map[string]bool{}
-	toVisit := make([]Value, 0, g.estSize())
+	toVisit := make([]Value, 0, 16)
 	toVisit = append(toVisit, start)
 
 	for {
@@ -413,7 +469,7 @@ func (g Graph) VisitDepth(start Value, callback func(n Node) bool) {
 		if visited[val.ID] {
 			continue
 		}
-		node, ok := g.Node(val)
+		node, ok := GetNode(g, val)
 		if !ok {
 			continue
 		} else if !callback(node) {
@@ -429,31 +485,38 @@ func (g Graph) VisitDepth(start Value, callback func(n Node) bool) {
 	}
 }
 
-func (g Graph) edgesShared(g2 Graph) bool {
-	for id := range g2.m {
-		if _, ok := g.m[id]; !ok {
+func edgesShared(g, g2 Graph) bool {
+	gEdges := g.Edges()
+	for id := range g2.Edges() {
+		if _, ok := gEdges[id]; !ok {
 			return false
 		}
 	}
 	return true
 }
 
-// SubGraph returns true if the given Graph shares all of its Edges with this
-// Graph.
-func (g Graph) SubGraph(g2 Graph) bool {
+// SubGraph returns true if g2 is a sub-graph of g; i.e., all edges in g2 are
+// also in g. Both Graphs should be of the same underlying type.
+func SubGraph(g, g2 Graph) bool {
+	gEdges, g2Edges := g.Edges(), g2.Edges()
 	// as a quick check before iterating through the edges, if g has fewer edges
 	// than g2 then g2 can't possibly be a sub-graph of it
-	if len(g.m) < len(g2.m) {
+	if len(gEdges) < len(g2Edges) {
 		return false
 	}
-	return g.edgesShared(g2)
+	for id := range g2Edges {
+		if _, ok := gEdges[id]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
-// Equal returns true if the given Graph and this Graph have exactly the same
-// Edges.
-func (g Graph) Equal(g2 Graph) bool {
-	if len(g.m) != len(g2.m) {
+// Equal returns true if g and g2 have exactly the same Edges. Both Graphs
+// should be of the same underlying type.
+func Equal(g, g2 Graph) bool {
+	if len(g.Edges()) != len(g2.Edges()) {
 		return false
 	}
-	return g.edgesShared(g2)
+	return SubGraph(g, g2)
 }

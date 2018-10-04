@@ -30,7 +30,8 @@ func TestGraph(t *T) {
 	chk := mchk.Checker{
 		Init: func() mchk.State {
 			return state{
-				m: map[string]Edge{},
+				Graph: Null,
+				m:     map[string]Edge{},
 			}
 		},
 		Next: func(ss mchk.State) mchk.Action {
@@ -64,8 +65,8 @@ func TestGraph(t *T) {
 				delete(s.m, edgeID(p.del))
 			}
 
-			{ // test Nodes and Edges methods
-				nodes := s.Graph.Nodes()
+			{ // test GetNodes and Edges methods
+				nodes := GetNodes(s.Graph)
 				edges := s.Graph.Edges()
 				var aa []massert.Assertion
 				vals := map[string]bool{}
@@ -93,12 +94,12 @@ func TestGraph(t *T) {
 				}
 			}
 
-			{ // test Node and Has. Nodes has already been tested so we can use
-				// its returned Nodes as the expected ones
+			{ // test GetNode and Has. GetNodes has already been tested so we
+				// can use its returned Nodes as the expected ones
 				var aa []massert.Assertion
-				for _, expNode := range s.Graph.Nodes() {
+				for _, expNode := range GetNodes(s.Graph) {
 					var naa []massert.Assertion
-					node, ok := s.Graph.Node(expNode.Value)
+					node, ok := GetNode(s.Graph, expNode.Value)
 					naa = append(naa, massert.Equal(true, ok))
 					naa = append(naa, massert.Equal(true, s.Graph.Has(expNode.Value)))
 					naa = append(naa, massert.Subset(expNode.Ins, node.Ins))
@@ -108,7 +109,7 @@ func TestGraph(t *T) {
 
 					aa = append(aa, massert.Comment(massert.All(naa...), "v:%q", expNode.ID))
 				}
-				_, ok := s.Graph.Node(strV("zz"))
+				_, ok := GetNode(s.Graph, strV("zz"))
 				aa = append(aa, massert.Equal(false, ok))
 				aa = append(aa, massert.Equal(false, s.Graph.Has(strV("zz"))))
 
@@ -140,7 +141,12 @@ func TestSubGraphAndEqual(t *T) {
 
 	chk := mchk.Checker{
 		Init: func() mchk.State {
-			return state{expEqual: true, expSubGraph: true}
+			return state{
+				g1:          Null,
+				g2:          Null,
+				expEqual:    true,
+				expSubGraph: true,
+			}
 		},
 		Next: func(ss mchk.State) mchk.Action {
 			i := mrand.Intn(10)
@@ -162,11 +168,11 @@ func TestSubGraphAndEqual(t *T) {
 			s.expSubGraph = s.expSubGraph && p.add1
 			s.expEqual = s.expEqual && p.add1 && p.add2
 
-			if s.g1.SubGraph(s.g2) != s.expSubGraph {
+			if SubGraph(s.g1, s.g2) != s.expSubGraph {
 				return nil, fmt.Errorf("SubGraph expected to return %v", s.expSubGraph)
 			}
 
-			if s.g1.Equal(s.g2) != s.expEqual {
+			if Equal(s.g1, s.g2) != s.expEqual {
 				return nil, fmt.Errorf("Equal expected to return %v", s.expEqual)
 			}
 
@@ -197,6 +203,7 @@ func TestDisjoinUnion(t *T) {
 	chk := mchk.Checker{
 		Init: func() mchk.State {
 			return state{
+				g:     Null,
 				valM:  map[string][]Value{},
 				disjM: map[string]Graph{},
 			}
@@ -228,23 +235,26 @@ func TestDisjoinUnion(t *T) {
 			s, p := ss.(state), a.Params.(params)
 			s.g = s.g.Add(p.e)
 			s.valM[p.prefix] = append(s.valM[p.prefix], p.e.Head(), p.e.Tail())
+			if s.disjM[p.prefix] == nil {
+				s.disjM[p.prefix] = Null
+			}
 			s.disjM[p.prefix] = s.disjM[p.prefix].Add(p.e)
 
 			var aa []massert.Assertion
 
 			// test Disjoin
-			disj := s.g.Disjoin()
+			disj := Disjoin(s.g)
 			for prefix, graph := range s.disjM {
 				aa = append(aa, massert.Comment(
-					massert.Equal(true, graph.Equal(s.disjM[prefix])),
+					massert.Equal(true, Equal(graph, s.disjM[prefix])),
 					"prefix:%q", prefix,
 				))
 			}
 			aa = append(aa, massert.Len(disj, len(s.disjM)))
 
 			// now test Join
-			join := (Graph{}).Join(disj...)
-			aa = append(aa, massert.Equal(true, s.g.Equal(join)))
+			join := Join(disj...)
+			aa = append(aa, massert.Equal(true, Equal(s.g, join)))
 
 			return s, massert.All(aa...).Assert()
 		},
@@ -303,9 +313,10 @@ func TestVisitBreadth(t *T) {
 	chk := mchk.Checker{
 		Init: func() mchk.State {
 			return state{
+				g: Null,
 				ranks: []map[string]bool{
-					map[string]bool{"start": true},
-					map[string]bool{},
+					{"start": true},
+					{},
 				},
 			}
 		},
@@ -340,7 +351,7 @@ func TestVisitBreadth(t *T) {
 			var err error
 			expRanks := s.ranks
 			currRank := map[string]bool{}
-			s.g.VisitBreadth(strV("start"), func(n Node) bool {
+			VisitBreadth(s.g, strV("start"), func(n Node) bool {
 				currRank[n.Value.ID] = true
 				if len(currRank) != len(expRanks[0]) {
 					return true
