@@ -37,12 +37,30 @@ func NewValue(V interface{}) Value {
 
 // Edge is a directional edge connecting two values in a Graph, the Tail and the
 // Head.
-type Edge struct {
-	Tail, Head Value
+type Edge interface {
+	Tail() Value // The Value the Edge is coming from
+	Head() Value // The Value the Edge is going to
 }
 
-func (e Edge) id() string {
-	return fmt.Sprintf("%q->%q", e.Tail, e.Head)
+func edgeID(e Edge) string {
+	return fmt.Sprintf("%q->%q", e.Tail().ID, e.Head().ID)
+}
+
+type edge struct {
+	tail, head Value
+}
+
+// NewEdge constructs and returns an Edge running from tail to head.
+func NewEdge(tail, head Value) Edge {
+	return edge{tail, head}
+}
+
+func (e edge) Tail() Value {
+	return e.tail
+}
+
+func (e edge) Head() Value {
+	return e.head
 }
 
 // an edgeIndex maps valueIDs to a set of edgeIDs. Graph keeps two edgeIndex's,
@@ -125,7 +143,7 @@ func (g Graph) String() string {
 // Add returns a new Graph instance with the given Edge added to it. If the
 // original Graph already had that Edge this returns the original Graph.
 func (g Graph) Add(e Edge) Graph {
-	id := e.id()
+	id := edgeID(e)
 	if _, ok := g.m[id]; ok {
 		return g
 	}
@@ -137,8 +155,8 @@ func (g Graph) Add(e Edge) Graph {
 
 func (g Graph) addDirty(edgeID string, e Edge) {
 	g.m[edgeID] = e
-	g.vIns.add(e.Head.ID, edgeID)
-	g.vOuts.add(e.Tail.ID, edgeID)
+	g.vIns.add(e.Head().ID, edgeID)
+	g.vOuts.add(e.Tail().ID, edgeID)
 }
 
 func (g Graph) estSize() int {
@@ -153,15 +171,15 @@ func (g Graph) estSize() int {
 // Del returns a new Graph instance without the given Edge in it. If the
 // original Graph didn't have that Edge this returns the original Graph.
 func (g Graph) Del(e Edge) Graph {
-	id := e.id()
+	id := edgeID(e)
 	if _, ok := g.m[id]; !ok {
 		return g
 	}
 
 	g2 := g.cp()
 	delete(g2.m, id)
-	g2.vIns.del(e.Head.ID, id)
-	g2.vOuts.del(e.Tail.ID, id)
+	g2.vIns.del(e.Head().ID, id)
+	g2.vOuts.del(e.Tail().ID, id)
 	return g2
 }
 
@@ -170,8 +188,8 @@ func (g Graph) Del(e Edge) Graph {
 func (g Graph) Disjoin() []Graph {
 	valM := make(map[string]*Graph, len(g.vOuts))
 	graphForEdge := func(edge Edge) *Graph {
-		headGraph := valM[edge.Head.ID]
-		tailGraph := valM[edge.Tail.ID]
+		headGraph := valM[edge.Head().ID]
+		tailGraph := valM[edge.Tail().ID]
 		if headGraph == nil && tailGraph == nil {
 			newGraph := Graph{}.cp() // cp also initializes
 			return &newGraph
@@ -203,8 +221,8 @@ func (g Graph) Disjoin() []Graph {
 	for edgeID, edge := range g.m {
 		graph := graphForEdge(edge)
 		(*graph).addDirty(edgeID, edge)
-		valM[edge.Head.ID] = graph
-		valM[edge.Tail.ID] = graph
+		valM[edge.Head().ID] = graph
+		valM[edge.Tail().ID] = graph
 	}
 
 	found := map[*Graph]bool{}
@@ -276,14 +294,16 @@ func (g Graph) Nodes() map[string]Node {
 		// if head and tail are modified at the same time it messes up the case
 		// where they are the same node
 		{
-			head := nodesM[edge.Head.ID]
-			head.Value = edge.Head
+			headV := edge.Head()
+			head := nodesM[headV.ID]
+			head.Value = headV
 			head.Ins = append(head.Ins, edge)
 			nodesM[head.ID] = head
 		}
 		{
-			tail := nodesM[edge.Tail.ID]
-			tail.Value = edge.Tail
+			tailV := edge.Tail()
+			tail := nodesM[tailV.ID]
+			tail.Value = tailV
 			tail.Outs = append(tail.Outs, edge)
 			nodesM[tail.ID] = tail
 		}
@@ -359,10 +379,11 @@ func (g Graph) VisitBreadth(start Value, callback func(n Node) bool) {
 		}
 		visited[val.ID] = true
 		for _, edge := range node.Outs {
-			if visited[edge.Head.ID] {
+			headV := edge.Head()
+			if visited[headV.ID] {
 				continue
 			}
-			toVisit = append(toVisit, edge.Head)
+			toVisit = append(toVisit, headV)
 		}
 	}
 }
@@ -400,10 +421,10 @@ func (g Graph) VisitDepth(start Value, callback func(n Node) bool) {
 		}
 		visited[val.ID] = true
 		for _, edge := range node.Outs {
-			if visited[edge.Head.ID] {
+			if visited[edge.Head().ID] {
 				continue
 			}
-			toVisit = append(toVisit, edge.Head)
+			toVisit = append(toVisit, edge.Head())
 		}
 	}
 }

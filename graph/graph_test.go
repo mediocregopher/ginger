@@ -36,7 +36,7 @@ func TestGraph(t *T) {
 		Next: func(ss mchk.State) mchk.Action {
 			s := ss.(state)
 			var p params
-			if i := mrand.Intn(10); i == 0 {
+			if i := mrand.Intn(10); i == 0 && len(s.m) > 0 {
 				// add edge which is already there
 				for _, e := range s.m {
 					p.add = e
@@ -44,24 +44,24 @@ func TestGraph(t *T) {
 				}
 			} else if i == 1 {
 				// delete edge which isn't there
-				p.del = Edge{Tail: strV("z"), Head: strV("z")}
+				p.del = NewEdge(strV("z"), strV("z"))
 			} else if i <= 5 {
 				// add probably new edge
-				p.add = Edge{Tail: strV(mrand.Hex(1)), Head: strV(mrand.Hex(1))}
+				p.add = NewEdge(strV(mrand.Hex(1)), strV(mrand.Hex(1)))
 			} else {
 				// probably del edge
-				p.del = Edge{Tail: strV(mrand.Hex(1)), Head: strV(mrand.Hex(1))}
+				p.del = NewEdge(strV(mrand.Hex(1)), strV(mrand.Hex(1)))
 			}
 			return mchk.Action{Params: p}
 		},
 		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
 			s, p := ss.(state), a.Params.(params)
-			if p.add != (Edge{}) {
+			if p.add != nil {
 				s.Graph = s.Graph.Add(p.add)
-				s.m[p.add.id()] = p.add
+				s.m[edgeID(p.add)] = p.add
 			} else {
 				s.Graph = s.Graph.Del(p.del)
-				delete(s.m, p.del.id())
+				delete(s.m, edgeID(p.del))
 			}
 
 			{ // test Nodes and Edges methods
@@ -72,14 +72,14 @@ func TestGraph(t *T) {
 				ins, outs := map[string]int{}, map[string]int{}
 				for _, e := range s.m {
 					aa = append(aa, massert.Has(edges, e))
-					aa = append(aa, massert.HasKey(nodes, e.Head.ID))
-					aa = append(aa, massert.Has(nodes[e.Head.ID].Ins, e))
-					aa = append(aa, massert.HasKey(nodes, e.Tail.ID))
-					aa = append(aa, massert.Has(nodes[e.Tail.ID].Outs, e))
-					vals[e.Head.ID] = true
-					vals[e.Tail.ID] = true
-					ins[e.Head.ID]++
-					outs[e.Tail.ID]++
+					aa = append(aa, massert.HasKey(nodes, e.Head().ID))
+					aa = append(aa, massert.Has(nodes[e.Head().ID].Ins, e))
+					aa = append(aa, massert.HasKey(nodes, e.Tail().ID))
+					aa = append(aa, massert.Has(nodes[e.Tail().ID].Outs, e))
+					vals[e.Head().ID] = true
+					vals[e.Tail().ID] = true
+					ins[e.Head().ID]++
+					outs[e.Tail().ID]++
 				}
 				aa = append(aa, massert.Len(edges, len(s.m)))
 				aa = append(aa, massert.Len(nodes, len(vals)))
@@ -145,7 +145,7 @@ func TestSubGraphAndEqual(t *T) {
 		Next: func(ss mchk.State) mchk.Action {
 			i := mrand.Intn(10)
 			p := params{
-				e:    Edge{Tail: strV(mrand.Hex(4)), Head: strV(mrand.Hex(4))},
+				e:    NewEdge(strV(mrand.Hex(4)), strV(mrand.Hex(4))),
 				add1: i != 0,
 				add2: i != 1,
 			}
@@ -206,20 +206,20 @@ func TestDisjoinUnion(t *T) {
 			prefix := mrand.Hex(1)
 			var edge Edge
 			if vals := s.valM[prefix]; len(vals) == 0 {
-				edge = Edge{
-					Tail: strV(prefix + mrand.Hex(1)),
-					Head: strV(prefix + mrand.Hex(1)),
-				}
+				edge = NewEdge(
+					strV(prefix+mrand.Hex(1)),
+					strV(prefix+mrand.Hex(1)),
+				)
 			} else if mrand.Intn(2) == 0 {
-				edge = Edge{
-					Tail: mrand.Element(vals, nil).(Value),
-					Head: strV(prefix + mrand.Hex(1)),
-				}
+				edge = NewEdge(
+					mrand.Element(vals, nil).(Value),
+					strV(prefix+mrand.Hex(1)),
+				)
 			} else {
-				edge = Edge{
-					Tail: strV(prefix + mrand.Hex(1)),
-					Head: mrand.Element(vals, nil).(Value),
-				}
+				edge = NewEdge(
+					strV(prefix+mrand.Hex(1)),
+					mrand.Element(vals, nil).(Value),
+				)
 			}
 
 			return mchk.Action{Params: params{prefix: prefix, e: edge}}
@@ -227,7 +227,7 @@ func TestDisjoinUnion(t *T) {
 		Apply: func(ss mchk.State, a mchk.Action) (mchk.State, error) {
 			s, p := ss.(state), a.Params.(params)
 			s.g = s.g.Add(p.e)
-			s.valM[p.prefix] = append(s.valM[p.prefix], p.e.Head, p.e.Tail)
+			s.valM[p.prefix] = append(s.valM[p.prefix], p.e.Head(), p.e.Tail())
 			s.disjM[p.prefix] = s.disjM[p.prefix].Add(p.e)
 
 			var aa []massert.Assertion
@@ -314,11 +314,15 @@ func TestVisitBreadth(t *T) {
 			var p params
 			p.newRank = len(thisRank(s)) > 0 && mrand.Intn(10) == 0
 			if p.newRank {
-				p.e.Head = randNew(s)
-				p.e.Tail = randFromRank(s, thisRank)
+				p.e = NewEdge(
+					randFromRank(s, thisRank),
+					randNew(s),
+				)
 			} else {
-				p.e.Head = strV(mrand.Hex(2))
-				p.e.Tail = randFromRank(s, prevRank)
+				p.e = NewEdge(
+					randFromRank(s, prevRank),
+					strV(mrand.Hex(2)),
+				)
 			}
 			return mchk.Action{Params: p}
 		},
@@ -327,8 +331,8 @@ func TestVisitBreadth(t *T) {
 			if p.newRank {
 				s.ranks = append(s.ranks, map[string]bool{})
 			}
-			if !s.g.Has(p.e.Head) {
-				thisRank(s)[p.e.Head.ID] = true
+			if !s.g.Has(p.e.Head()) {
+				thisRank(s)[p.e.Head().ID] = true
 			}
 			s.g = s.g.Add(p.e)
 
