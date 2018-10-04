@@ -286,6 +286,15 @@ func TestVisitBreadth(t *T) {
 		return strV(mrand.Element(rankL, nil).(string))
 	}
 
+	randNew := func(s state) Value {
+		for {
+			v := strV(mrand.Hex(2))
+			if !s.g.Has(v) {
+				return v
+			}
+		}
+	}
+
 	type params struct {
 		newRank bool
 		e       Edge
@@ -305,7 +314,7 @@ func TestVisitBreadth(t *T) {
 			var p params
 			p.newRank = len(thisRank(s)) > 0 && mrand.Intn(10) == 0
 			if p.newRank {
-				p.e.Head = strV(mrand.Hex(3))
+				p.e.Head = randNew(s)
 				p.e.Tail = randFromRank(s, thisRank)
 			} else {
 				p.e.Head = strV(mrand.Hex(2))
