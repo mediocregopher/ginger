@@ -1,0 +1,15 @@
+decr- add- |- in
+           |- (-1)
+
+fib- (
+    fibInner- (
+        {n, a, b}- in
+        out- if- |- zero?- n
+                 |- a
+                 |- fibInner- |- decr- n
+                              |- b
+                              |- add- {a,b}
+    )
+)
+
+out- fib- atoi- first- in
