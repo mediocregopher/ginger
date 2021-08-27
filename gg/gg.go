@@ -21,7 +21,7 @@ type Value struct {
 // passed in twice then the two returned Value instances will be treated as
 // being different values by Graph.
 func NewValue(V interface{}) Value {
-	b := make([]byte, 8)
+	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		panic(err)
 	}
@@ -39,9 +39,11 @@ const (
 	// one edge (either input or output)
 	ValueVertex VertexType = "value"
 
-	// JunctionVertex is a Vertex which contains two or more in edges and
+	// TupleVertex is a Vertex which contains two or more in edges and
 	// exactly one out edge
-	JunctionVertex VertexType = "junction"
+	//
+	// TODO ^ what about 0 or 1 in edges?
+	TupleVertex VertexType = "tuple"
 )
 
 // Edge is a uni-directional connection between two vertices with an attribute
@@ -85,7 +87,7 @@ func (oe OpenEdge) id() string {
 // as a branch.
 //
 // If a OpenEdge contains a fromV which is a Value that vertex won't have its in
-// slice populated no matter what. If fromV is a Junction it will be populated,
+// slice populated no matter what. If fromV is a Tuple it will be populated,
 // with any sub-Value's not being populated and so-on recursively
 //
 // When a view is constructed in makeView these Value instances are deduplicated
@@ -135,8 +137,9 @@ type Graph struct {
 	all   map[string]*Vertex
 }
 
-// Null is the root empty graph, and is the base off which all graphs are built
-var Null = &Graph{
+// ZeroGraph is the root empty graph, and is the base off which all graphs are
+// built.
+var ZeroGraph = &Graph{
 	vM:    map[string]vertex{},
 	byVal: map[string]*Vertex{},
 	all:   map[string]*Vertex{},
@@ -163,7 +166,7 @@ func mkVertex(typ VertexType, val Value, ins ...OpenEdge) vertex {
 	case ValueVertex:
 		v.id = val.ID
 		v.val = val
-	case JunctionVertex:
+	case TupleVertex:
 		inIDs := make([]string, len(ins))
 		for i := range ins {
 			inIDs[i] = ins[i].id()
@@ -186,16 +189,16 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 	return OpenEdge{fromV: mkVertex(ValueVertex, val), val: edgeVal}
 }
 
-// JunctionOut creates a OpenEdge which, when used to construct a Graph,
+// TupleOut creates an OpenEdge which, when used to construct a Graph,
 // represents an edge (with edgeVal attached to it) coming from the
-// JunctionVertex comprised of the given ordered-set of input edges.
+// TupleVertex comprised of the given ordered-set of input edges.
 //
-// When constructing Graphs Junction vertices are de-duplicated on their input
-// edges. So multiple Junction OpenEdges constructed with the same set of input
-// edges will be leaving the same Junction instance in the constructed Graph.
-func JunctionOut(ins []OpenEdge, edgeVal Value) OpenEdge {
+// When constructing Graphs Tuple vertices are de-duplicated on their input
+// edges. So multiple Tuple OpenEdges constructed with the same set of input
+// edges will be leaving the same Tuple instance in the constructed Graph.
+func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge {
 	return OpenEdge{
-		fromV: mkVertex(JunctionVertex, Value{}, ins...),
+		fromV: mkVertex(TupleVertex, Value{}, ins...),
 		val:   edgeVal,
 	}
 }
@@ -278,7 +281,7 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
 		for _, in := range curr.in {
 			if in.fromV.VertexType == ValueVertex && in.fromV.id == vID {
 				return true
-			} else if in.fromV.VertexType == JunctionVertex && connectedTo(vID, in.fromV) {
+			} else if in.fromV.VertexType == TupleVertex && connectedTo(vID, in.fromV) {
 				return true
 			}
 		}
@@ -313,7 +316,7 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
 	rmOrphaned = func(oe OpenEdge) {
 		if oe.fromV.VertexType == ValueVertex && isOrphaned(oe.fromV) {
 			delete(g.vM, oe.fromV.id)
-		} else if oe.fromV.VertexType == JunctionVertex {
+		} else if oe.fromV.VertexType == TupleVertex {
 			for _, juncOe := range oe.fromV.in {
 				rmOrphaned(juncOe)
 			}
@@ -352,9 +355,9 @@ func (g *Graph) Union(g2 *Graph) *Graph {
 // and not across to the other Graphs, and the Union of all returned Graphs will
 // be the original again.
 //
-// The order of the Graphs returned is not deterministic.
+// The order of the Graphs returned is not deterministic. (TODO booooooo)
 //
-// Null.Disjoin() returns empty slice.
+// ZeroGraph.Disjoin() returns empty slice.
 func (g *Graph) Disjoin() []*Graph {
 	m := map[string]*Graph{}    // maps each id to the Graph it belongs to
 	mG := map[*Graph]struct{}{} // tracks unique Graphs created
@@ -375,8 +378,8 @@ func (g *Graph) Disjoin() []*Graph {
 	}
 
 	// used upon finding out that previously-thought-to-be disconnected vertices
-	// aren't. Merges the two graphs they're connected into together into one
-	// and updates all state internal to this function accordingly.
+	// aren't. Merges the two graphs they're connected into one and updates all
+	// state internal to this function accordingly.
 	rejoin := func(gDst, gSrc *Graph) {
 		for id, v := range gSrc.vM {
 			gDst.vM[id] = v
@@ -404,7 +407,7 @@ func (g *Graph) Disjoin() []*Graph {
 		// if gV is nil it means this vertex is part of a new Graph which
 		// nothing else has been connected to yet.
 		if gV == nil {
-			gV = Null.cp()
+			gV = ZeroGraph.cp()
 			mG[gV] = struct{}{}
 		}
 		gV.vM[id] = v
@@ -443,8 +446,8 @@ func (g *Graph) makeView() {
 		// we can be sure all Value vertices will be called with top==true at
 		// some point, so we only need to descend into the input edges if:
 		// * top is true
-		// * this is a junction's first time being gotten
-		if !top && (ok || v.VertexType != JunctionVertex) {
+		// * this is a tuple's first time being gotten
+		if !top && (ok || v.VertexType != TupleVertex) {
 			return V
 		}
 
@@ -498,7 +501,7 @@ func Equal(g1, g2 *Graph) bool {
 
 		// since the vertices are values we must make sure their input sets are
 		// the same (which is tricky since they're unordered, unlike a
-		// junction's)
+		// tuple's)
 		if len(v1.in) != len(v2.in) {
 			return false
 		}

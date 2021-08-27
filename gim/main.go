@@ -40,7 +40,7 @@ func mkGraph() (*gg.Graph, gg.Value) {
 	oaE1 := gg.ValueOut(a, aE1)
 	oaE2 := gg.ValueOut(a, aE2)
 	oaE3 := gg.ValueOut(a, aE3)
-	g := gg.Null
+	g := gg.ZeroGraph
 	g = g.AddValueIn(oaE0, b0)
 	g = g.AddValueIn(oaE1, b1)
 	g = g.AddValueIn(oaE2, b2)
@@ -48,7 +48,7 @@ func mkGraph() (*gg.Graph, gg.Value) {
 
 	c := gg.NewValue("c")
 	empty := gg.NewValue("")
-	jE := gg.JunctionOut([]gg.OpenEdge{
+	jE := gg.TupleOut([]gg.OpenEdge{
 		gg.ValueOut(b0, empty),
 		gg.ValueOut(b1, empty),
 		gg.ValueOut(b2, empty),

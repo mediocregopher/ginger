@@ -1,15 +1,108 @@
-decr- add- |- in
-           |- (-1)
+# 2021/08/26
+#
+# output of godoc on gg is this:
 
-fib- (
-    fibInner- (
-        {n, a, b}- in
-        out- if- |- zero?- n
-                 |- a
-                 |- fibInner- |- decr- n
-                              |- b
-                              |- add- {a,b}
-    )
-)
+var ZeroGraph = &Graph{ ... }
+func Equal(g1, g2 *Graph) bool
+type Edge struct{ ... }
+type Graph struct{ ... }
+type OpenEdge struct{ ... }
+    func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge
+    func ValueOut(val, edgeVal Value) OpenEdge
+type Value struct{ ... }
+    func NewValue(V interface{}) Value
+type Vertex struct{ ... }
+type VertexType string
+    const ValueVertex VertexType = "value" ...
 
-out- fib- atoi- first- in
+We just need to formulate a syntax which describes these operations and
+entities.
+
+Based on an old note I found in this file it seems like it reads
+better to actually order everything "backwards" in the syntax, so I'm going to
+go with that. I left the note at the bottom, commented out
+
+-(<openEdge>,...)           TupleOut                 (an openEdge)
+-<edgeVal>-(<openEdge>,...) TupleOut with an edgeVal (an openEdge)
+-<val>                      ValueOut                 (an openEdge)
+-<edgeVal>-<val>            ValueOut with an edgeVal (an openEdge)
+{<val> <openEdge>, ...}     ValueIn                  (a graph)
+
+values can only be alphanumeric, or graphs.
+TODO what to do about negative numbers? -1 is ambiguous
+
+This means the below fibonnaci can be done using:
+
+{
+    decr -{ out -sub-(-in, -1) }
+
+    out -{
+        n -0-in,
+        a -1-in,
+        b -2-in,
+
+        out -if-(
+            -zero?-n,
+            -a,
+            -recur-(
+                -decr-n,
+                -b,
+                -add-(-a,-b)
+            ),
+        )
+    }-(-in, -0, -1)
+}
+
+###
+
+Let's try to get rid of all the ugly prefix dashes (and maybe solve the -1
+question). We ditch the dashes all-together; TupleOut with an edgeVal can be
+done by just joining the two, and ValueOut with an edgeVal we can just make look
+like a TupleOut with a single openEdge (which... it kind of is anyway).
+
+(<openEdge>,...)          TupleOut                 (an openEdge)
+<edgeVal>(<openEdge>,...) TupleOut with an edgeVal (an openEdge)
+<val>                     ValueOut                 (an openEdge)
+<edgeVal>(<val>)          ValueOut with an edgeVal (an openEdge)
+{<val> <openEdge>[, ...]} ValueIn                  (a graph)
+
+values can only be alphanumeric, or graphs.
+
+```
+{
+    decr { out add(in, -1) }
+
+    out {
+        n 0(in),
+        a 1(in),
+        b 2(in),
+
+        out if(
+            zero?(n),
+            a,
+            recur(decr(n), b, add(a,b))
+        )
+
+    }(in, 0, 1)
+}
+```
+
+################
+# The Old Note #
+################
+#
+#decr- add- |- in
+#           |- (-1)
+#
+#fib- (
+#    fibInner- (
+#        {n, a, b}- in
+#        out- if- |- zero?- n
+#                 |- a
+#                 |- fibInner- |- decr- n
+#                              |- b
+#                              |- add- {a,b}
+#    )
+#)
+#
+#out- fib- atoi- first- in

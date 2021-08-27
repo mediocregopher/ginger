@@ -21,10 +21,10 @@ func value(val Value, in ...Edge) *Vertex {
 	}
 }
 
-func junction(val Value, in ...Edge) Edge {
+func tuple(val Value, in ...Edge) Edge {
 	return Edge{
 		From: &Vertex{
-			VertexType: JunctionVertex,
+			VertexType: TupleVertex,
 			In:         in,
 		},
 		Value: val,
@@ -113,7 +113,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-basic",
 			func() *Graph {
-				return Null.AddValueIn(ValueOut(v0, e0), v1)
+				return ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 			},
 			2, 0,
 			value(v0),
@@ -123,7 +123,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-2edges",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
+				g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v2)
 				return g0.AddValueIn(ValueOut(v1, e1), v2)
 			},
 			3, 0,
@@ -138,7 +138,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-separate",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 				return g0.AddValueIn(ValueOut(v2, e2), v3)
 			},
 			4, 0,
@@ -151,7 +151,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-circular",
 			func() *Graph {
-				return Null.AddValueIn(ValueOut(v0, e0), v0)
+				return ZeroGraph.AddValueIn(ValueOut(v0, e0), v0)
 			},
 			1, 0,
 			value(v0, edge(e0, value(v0))),
@@ -160,7 +160,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-circular2",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 				return g0.AddValueIn(ValueOut(v1, e1), v0)
 			},
 			2, 0,
@@ -171,7 +171,7 @@ func TestGraph(t *T) {
 		mkTest(
 			"values-circular3",
 			func() *Graph {
-				g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+				g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 				g1 := g0.AddValueIn(ValueOut(v1, e1), v2)
 				return g1.AddValueIn(ValueOut(v2, e2), v1)
 			},
@@ -188,41 +188,41 @@ func TestGraph(t *T) {
 		),
 
 		mkTest(
-			"junction-basic",
+			"tuple-basic",
 			func() *Graph {
 				e0 := ValueOut(v0, e0)
 				e1 := ValueOut(v1, e1)
-				ej0 := JunctionOut([]OpenEdge{e0, e1}, ej0)
-				return Null.AddValueIn(ej0, v2)
+				ej0 := TupleOut([]OpenEdge{e0, e1}, ej0)
+				return ZeroGraph.AddValueIn(ej0, v2)
 			},
 			3, 1,
 			value(v0), value(v1),
-			value(v2, junction(ej0,
+			value(v2, tuple(ej0,
 				edge(e0, value(v0)),
 				edge(e1, value(v1)),
 			)),
 		),
 
 		mkTest(
-			"junction-basic2",
+			"tuple-basic2",
 			func() *Graph {
 				e00 := ValueOut(v0, e00)
 				e10 := ValueOut(v1, e10)
-				ej0 := JunctionOut([]OpenEdge{e00, e10}, ej0)
+				ej0 := TupleOut([]OpenEdge{e00, e10}, ej0)
 				e01 := ValueOut(v0, e01)
 				e11 := ValueOut(v1, e11)
-				ej1 := JunctionOut([]OpenEdge{e01, e11}, ej1)
-				ej2 := JunctionOut([]OpenEdge{ej0, ej1}, ej2)
-				return Null.AddValueIn(ej2, v2)
+				ej1 := TupleOut([]OpenEdge{e01, e11}, ej1)
+				ej2 := TupleOut([]OpenEdge{ej0, ej1}, ej2)
+				return ZeroGraph.AddValueIn(ej2, v2)
 			},
 			3, 3,
 			value(v0), value(v1),
-			value(v2, junction(ej2,
-				junction(ej0,
+			value(v2, tuple(ej2,
+				tuple(ej0,
 					edge(e00, value(v0)),
 					edge(e10, value(v1)),
 				),
-				junction(ej1,
+				tuple(ej1,
 					edge(e01, value(v0)),
 					edge(e11, value(v1)),
 				),
@@ -230,27 +230,27 @@ func TestGraph(t *T) {
 		),
 
 		mkTest(
-			"junction-circular",
+			"tuple-circular",
 			func() *Graph {
 				e0 := ValueOut(v0, e0)
 				e1 := ValueOut(v1, e1)
-				ej0 := JunctionOut([]OpenEdge{e0, e1}, ej0)
-				g0 := Null.AddValueIn(ej0, v2)
+				ej0 := TupleOut([]OpenEdge{e0, e1}, ej0)
+				g0 := ZeroGraph.AddValueIn(ej0, v2)
 				e20 := ValueOut(v2, e20)
 				g1 := g0.AddValueIn(e20, v0)
 				e21 := ValueOut(v2, e21)
 				return g1.AddValueIn(e21, v1)
 			},
 			3, 1,
-			value(v0, edge(e20, value(v2, junction(ej0,
+			value(v0, edge(e20, value(v2, tuple(ej0,
 				edge(e0, value(v0)),
 				edge(e1, value(v1, edge(e21, value(v2)))),
 			)))),
-			value(v1, edge(e21, value(v2, junction(ej0,
+			value(v1, edge(e21, value(v2, tuple(ej0,
 				edge(e0, value(v0, edge(e20, value(v2)))),
 				edge(e1, value(v1)),
 			)))),
-			value(v2, junction(ej0,
+			value(v2, tuple(ej0,
 				edge(e0, value(v0, edge(e20, value(v2)))),
 				edge(e1, value(v1, edge(e21, value(v2)))),
 			)),
@@ -290,9 +290,9 @@ func TestGraphImmutability(t *T) {
 	v1 := NewValue("v1")
 	e0 := NewValue("e0")
 	oe0 := ValueOut(v0, e0)
-	g0 := Null.AddValueIn(oe0, v1)
-	assert.Nil(t, Null.ValueVertex(v0))
-	assert.Nil(t, Null.ValueVertex(v1))
+	g0 := ZeroGraph.AddValueIn(oe0, v1)
+	assert.Nil(t, ZeroGraph.ValueVertex(v0))
+	assert.Nil(t, ZeroGraph.ValueVertex(v1))
 	assert.NotNil(t, g0.ValueVertex(v0))
 	assert.NotNil(t, g0.ValueVertex(v1))
 
@@ -323,39 +323,39 @@ func TestGraphDelValueIn(t *T) {
 	v1 := NewValue("v1")
 	e0 := NewValue("e0")
 	{ // removing from null
-		g := Null.DelValueIn(ValueOut(v0, e0), v1)
-		assert.True(t, Equal(Null, g))
+		g := ZeroGraph.DelValueIn(ValueOut(v0, e0), v1)
+		assert.True(t, Equal(ZeroGraph, g))
 	}
 
 	e1 := NewValue("e1")
 	{ // removing edge from vertex which doesn't have that edge
-		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+		g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 		g1 := g0.DelValueIn(ValueOut(v0, e1), v1)
 		assert.True(t, Equal(g0, g1))
 	}
 
 	{ // removing only edge
 		oe := ValueOut(v0, e0)
-		g0 := Null.AddValueIn(oe, v1)
+		g0 := ZeroGraph.AddValueIn(oe, v1)
 		g1 := g0.DelValueIn(oe, v1)
-		assert.True(t, Equal(Null, g1))
+		assert.True(t, Equal(ZeroGraph, g1))
 	}
 
 	ej0 := NewValue("ej0")
 	v2 := NewValue("v2")
-	{ // removing only edge (junction)
-		oe := JunctionOut([]OpenEdge{
+	{ // removing only edge (tuple)
+		oe := TupleOut([]OpenEdge{
 			ValueOut(v0, e0),
 			ValueOut(v1, e1),
 		}, ej0)
-		g0 := Null.AddValueIn(oe, v2)
+		g0 := ZeroGraph.AddValueIn(oe, v2)
 		g1 := g0.DelValueIn(oe, v2)
-		assert.True(t, Equal(Null, g1))
+		assert.True(t, Equal(ZeroGraph, g1))
 	}
 
 	{ // removing one of two edges
 		oe := ValueOut(v1, e0)
-		g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
+		g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v2)
 		g1 := g0.AddValueIn(oe, v2)
 		g2 := g1.DelValueIn(oe, v2)
 		assert.True(t, Equal(g0, g2))
@@ -367,14 +367,14 @@ func TestGraphDelValueIn(t *T) {
 	e2 := NewValue("e2")
 	eja, ejb := NewValue("eja"), NewValue("ejb")
 	v3 := NewValue("v3")
-	{ // removing one of two edges (junction)
+	{ // removing one of two edges (tuple)
 		e0 := ValueOut(v0, e0)
 		e1 := ValueOut(v1, e1)
 		e2 := ValueOut(v2, e2)
-		oeA := JunctionOut([]OpenEdge{e0, e1}, eja)
-		oeB := JunctionOut([]OpenEdge{e1, e2}, ejb)
-		g0a := Null.AddValueIn(oeA, v3)
-		g0b := Null.AddValueIn(oeB, v3)
+		oeA := TupleOut([]OpenEdge{e0, e1}, eja)
+		oeB := TupleOut([]OpenEdge{e1, e2}, ejb)
+		g0a := ZeroGraph.AddValueIn(oeA, v3)
+		g0b := ZeroGraph.AddValueIn(oeB, v3)
 		g1 := g0a.Union(g0b).DelValueIn(oeA, v3)
 		assert.True(t, Equal(g1, g0b))
 		assert.Nil(t, g1.ValueVertex(v0))
@@ -386,24 +386,24 @@ func TestGraphDelValueIn(t *T) {
 	{ // removing one of two edges in circular graph
 		e0 := ValueOut(v0, e0)
 		e1 := ValueOut(v1, e1)
-		g0 := Null.AddValueIn(e0, v1).AddValueIn(e1, v0)
+		g0 := ZeroGraph.AddValueIn(e0, v1).AddValueIn(e1, v0)
 		g1 := g0.DelValueIn(e0, v1)
-		assert.True(t, Equal(Null.AddValueIn(e1, v0), g1))
+		assert.True(t, Equal(ZeroGraph.AddValueIn(e1, v0), g1))
 		assert.NotNil(t, g1.ValueVertex(v0))
 		assert.NotNil(t, g1.ValueVertex(v1))
 	}
 
 	ej := NewValue("ej")
 	{ // removing to's only edge, sub-nodes have edge to each other
-		oej := JunctionOut([]OpenEdge{
+		oej := TupleOut([]OpenEdge{
 			ValueOut(v0, ej0),
 			ValueOut(v1, ej0),
 		}, ej)
-		g0 := Null.AddValueIn(oej, v2)
+		g0 := ZeroGraph.AddValueIn(oej, v2)
 		e0 := ValueOut(v0, e0)
 		g1 := g0.AddValueIn(e0, v1)
 		g2 := g1.DelValueIn(oej, v2)
-		assert.True(t, Equal(Null.AddValueIn(e0, v1), g2))
+		assert.True(t, Equal(ZeroGraph.AddValueIn(e0, v1), g2))
 		assert.NotNil(t, g2.ValueVertex(v0))
 		assert.NotNil(t, g2.ValueVertex(v1))
 		assert.Nil(t, g2.ValueVertex(v2))
@@ -481,11 +481,11 @@ func TestGraphUnion(t *T) {
 	v0 := NewValue("v0")
 	v1 := NewValue("v1")
 	e0 := NewValue("e0")
-	{ // Union with Null
-		assert.True(t, Equal(Null, Null.Union(Null)))
+	{ // Union with ZeroGraph
+		assert.True(t, Equal(ZeroGraph, ZeroGraph.Union(ZeroGraph)))
 
-		g := Null.AddValueIn(ValueOut(v0, e0), v1)
-		assert.True(t, Equal(g, assertUnion(g, Null)))
+		g := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
+		assert.True(t, Equal(g, assertUnion(g, ZeroGraph)))
 
 		assertDisjoin(g, g)
 	}
@@ -494,8 +494,8 @@ func TestGraphUnion(t *T) {
 	v3 := NewValue("v3")
 	e1 := NewValue("e1")
 	{ // Two disparate graphs union'd
-		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
-		g1 := Null.AddValueIn(ValueOut(v2, e1), v3)
+		g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
+		g1 := ZeroGraph.AddValueIn(ValueOut(v2, e1), v3)
 		g := assertUnion(g0, g1)
 		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
 		assertVertexEqual(t, value(v1, edge(e0, value(v0))), g.ValueVertex(v1))
@@ -511,12 +511,12 @@ func TestGraphUnion(t *T) {
 	ea0, eb0 := NewValue("ea0"), NewValue("eb0")
 	ea1, eb1 := NewValue("ea1"), NewValue("eb1")
 	eaj, ebj := NewValue("eaj"), NewValue("ebj")
-	{ // Two disparate graphs with junctions
-		ga := Null.AddValueIn(JunctionOut([]OpenEdge{
+	{ // Two disparate graphs with tuples
+		ga := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 			ValueOut(va0, ea0),
 			ValueOut(va1, ea1),
 		}, eaj), va2)
-		gb := Null.AddValueIn(JunctionOut([]OpenEdge{
+		gb := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 			ValueOut(vb0, eb0),
 			ValueOut(vb1, eb1),
 		}, ebj), vb2)
@@ -524,7 +524,7 @@ func TestGraphUnion(t *T) {
 		assertVertexEqual(t, value(va0), g.ValueVertex(va0))
 		assertVertexEqual(t, value(va1), g.ValueVertex(va1))
 		assertVertexEqual(t,
-			value(va2, junction(eaj,
+			value(va2, tuple(eaj,
 				edge(ea0, value(va0)),
 				edge(ea1, value(va1)))),
 			g.ValueVertex(va2),
@@ -532,7 +532,7 @@ func TestGraphUnion(t *T) {
 		assertVertexEqual(t, value(vb0), g.ValueVertex(vb0))
 		assertVertexEqual(t, value(vb1), g.ValueVertex(vb1))
 		assertVertexEqual(t,
-			value(vb2, junction(ebj,
+			value(vb2, tuple(ebj,
 				edge(eb0, value(vb0)),
 				edge(eb1, value(vb1)))),
 			g.ValueVertex(vb2),
@@ -542,8 +542,8 @@ func TestGraphUnion(t *T) {
 	}
 
 	{ // Two partially overlapping graphs
-		g0 := Null.AddValueIn(ValueOut(v0, e0), v2)
-		g1 := Null.AddValueIn(ValueOut(v1, e1), v2)
+		g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v2)
+		g1 := ZeroGraph.AddValueIn(ValueOut(v1, e1), v2)
 		g := assertUnion(g0, g1)
 		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
 		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
@@ -560,12 +560,12 @@ func TestGraphUnion(t *T) {
 
 	ej0 := NewValue("ej0")
 	ej1 := NewValue("ej1")
-	{ // two partially overlapping graphs with junctions
-		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
+	{ // two partially overlapping graphs with tuples
+		g0 := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 			ValueOut(v0, e0),
 			ValueOut(v1, e1),
 		}, ej0), v2)
-		g1 := Null.AddValueIn(JunctionOut([]OpenEdge{
+		g1 := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 			ValueOut(v0, e0),
 			ValueOut(v1, e1),
 		}, ej1), v2)
@@ -574,8 +574,8 @@ func TestGraphUnion(t *T) {
 		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
 		assertVertexEqual(t,
 			value(v2,
-				junction(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
-				junction(ej1, edge(e0, value(v0)), edge(e1, value(v1))),
+				tuple(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
+				tuple(ej1, edge(e0, value(v0)), edge(e1, value(v1))),
 			),
 			g.ValueVertex(v2),
 		)
@@ -584,7 +584,7 @@ func TestGraphUnion(t *T) {
 	}
 
 	{ // Two equal graphs
-		g0 := Null.AddValueIn(ValueOut(v0, e0), v1)
+		g0 := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 		g := assertUnion(g0, g0)
 		assertVertexEqual(t, value(v0), g.ValueVertex(v0))
 		assertVertexEqual(t,
@@ -593,8 +593,8 @@ func TestGraphUnion(t *T) {
 		)
 	}
 
-	{ // Two equal graphs with junctions
-		g0 := Null.AddValueIn(JunctionOut([]OpenEdge{
+	{ // Two equal graphs with tuples
+		g0 := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 			ValueOut(v0, e0),
 			ValueOut(v1, e1),
 		}, ej0), v2)
@@ -603,7 +603,7 @@ func TestGraphUnion(t *T) {
 		assertVertexEqual(t, value(v1), g.ValueVertex(v1))
 		assertVertexEqual(t,
 			value(v2,
-				junction(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
+				tuple(ej0, edge(e0, value(v0)), edge(e1, value(v1))),
 			),
 			g.ValueVertex(v2),
 		)
@@ -621,7 +621,7 @@ func TestGraphEqual(t *T) {
 		assert.False(t, Equal(g2, g1))
 	}
 
-	assertEqual(Null, Null) // duh
+	assertEqual(ZeroGraph, ZeroGraph) // duh
 
 	v0 := NewValue("v0")
 	v1 := NewValue("v1")
@@ -632,8 +632,8 @@ func TestGraphEqual(t *T) {
 	{
 		// graph is equal to itself, not to null
 		e0 := ValueOut(v0, e0)
-		g0 := Null.AddValueIn(e0, v1)
-		assertNotEqual(g0, Null)
+		g0 := ZeroGraph.AddValueIn(e0, v1)
+		assertNotEqual(g0, ZeroGraph)
 		assertEqual(g0, g0)
 
 		// adding the an existing edge again shouldn't do anything
@@ -646,19 +646,19 @@ func TestGraphEqual(t *T) {
 	}
 
 	{ // equal construction should yield equality, even if out of order
-		ga := Null.AddValueIn(ValueOut(v0, e0), v1)
+		ga := ZeroGraph.AddValueIn(ValueOut(v0, e0), v1)
 		ga = ga.AddValueIn(ValueOut(v1, e1), v2)
-		gb := Null.AddValueIn(ValueOut(v1, e1), v2)
+		gb := ZeroGraph.AddValueIn(ValueOut(v1, e1), v2)
 		gb = gb.AddValueIn(ValueOut(v0, e0), v1)
 		assertEqual(ga, gb)
 	}
 
 	ej := NewValue("ej")
-	{ // junction basic test
+	{ // tuple basic test
 		e0 := ValueOut(v0, e0)
 		e1 := ValueOut(v1, e1)
-		ga := Null.AddValueIn(JunctionOut([]OpenEdge{e0, e1}, ej), v2)
-		gb := Null.AddValueIn(JunctionOut([]OpenEdge{e1, e0}, ej), v2)
+		ga := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{e0, e1}, ej), v2)
+		gb := ZeroGraph.AddValueIn(TupleOut([]OpenEdge{e1, e0}, ej), v2)
 		assertEqual(ga, ga)
 		assertNotEqual(ga, gb)
 	}

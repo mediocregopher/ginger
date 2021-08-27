@@ -112,7 +112,7 @@ func (l *Lexer) emitErr(err error) {
 		Row:       l.absRow,
 		Col:       l.absCol,
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		tok.TokenType = EOF
 	}
 	l.emitTok(tok)

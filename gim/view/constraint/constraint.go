@@ -27,7 +27,7 @@ type Engine struct {
 
 // NewEngine initializes and returns an empty Engine
 func NewEngine() *Engine {
-	return &Engine{g: gg.Null, vals: map[string]gg.Value{}}
+	return &Engine{g: gg.ZeroGraph, vals: map[string]gg.Value{}}
 }
 
 func (e *Engine) getVal(elem string) gg.Value {
