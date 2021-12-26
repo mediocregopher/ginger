@@ -410,7 +410,7 @@ func TestGraphDelValueIn(t *T) {
 	}
 }
 
-// deterministically hashes a Graph
+// deterministically hashes a Graph.
 func graphStr(g *Graph) string {
 	var vStr func(vertex) string
 	var oeStr func(OpenEdge) string

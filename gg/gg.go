@@ -31,12 +31,12 @@ func NewValue(V interface{}) Value {
 	}
 }
 
-// VertexType enumerates the different possible vertex types
+// VertexType enumerates the different possible vertex types.
 type VertexType string
 
 const (
 	// ValueVertex is a Vertex which contains exactly one value and has at least
-	// one edge (either input or output)
+	// one edge (either input or output).
 	ValueVertex VertexType = "value"
 
 	// TupleVertex is a Vertex which contains two or more in edges and
@@ -47,7 +47,7 @@ const (
 )
 
 // Edge is a uni-directional connection between two vertices with an attribute
-// value
+// value.
 type Edge struct {
 	From  *Vertex
 	Value Value
@@ -55,7 +55,7 @@ type Edge struct {
 }
 
 // Vertex is a vertex in a Graph. No fields should be modified directly, only
-// through method calls
+// through method calls.
 type Vertex struct {
 	ID string
 	VertexType
@@ -128,7 +128,7 @@ func (v vertex) cpAndDelOpenEdge(oe OpenEdge) (vertex, bool) {
 	return v, false
 }
 
-// Graph is a wrapper around a set of connected Vertices
+// Graph is a wrapper around a set of connected Vertices.
 type Graph struct {
 	vM map[string]vertex // only contains value vertices
 
@@ -146,7 +146,7 @@ var ZeroGraph = &Graph{
 }
 
 // this does _not_ copy the view, as it's assumed the only reason to copy a
-// graph is to modify it anyway
+// graph is to modify it anyway.
 func (g *Graph) cp() *Graph {
 	cp := &Graph{
 		vM: make(map[string]vertex, len(g.vM)),
@@ -331,7 +331,7 @@ func (g *Graph) DelValueIn(oe OpenEdge, val Value) *Graph {
 // two. Value vertices which are shared between the two will be merged so that
 // the new vertex has the input edges of both.
 //
-// TODO it bothers me that the opposite of Disjoin is Union and not "Join"
+// TODO it bothers me that the opposite of Disjoin is Union and not "Join".
 func (g *Graph) Union(g2 *Graph) *Graph {
 	g = g.cp()
 	for vID, v2 := range g2.vM {
@@ -472,13 +472,13 @@ func (g *Graph) makeView() {
 }
 
 // ValueVertex returns the Value Vertex for the given value. If the Graph
-// doesn't contain a vertex for the value then nil is returned
+// doesn't contain a vertex for the value then nil is returned.
 func (g *Graph) ValueVertex(val Value) *Vertex {
 	g.makeView()
 	return g.byVal[val.ID]
 }
 
-// ValueVertices returns all Value Vertices in the Graph
+// ValueVertices returns all Value Vertices in the Graph.
 func (g *Graph) ValueVertices() []*Vertex {
 	g.makeView()
 	vv := make([]*Vertex, 0, len(g.byVal))
@@ -488,7 +488,7 @@ func (g *Graph) ValueVertices() []*Vertex {
 	return vv
 }
 
-// Equal returns whether or not the two Graphs are equivalent in value
+// Equal returns whether or not the two Graphs are equivalent in value.
 func Equal(g1, g2 *Graph) bool {
 	if len(g1.vM) != len(g2.vM) {
 		return false
@@ -550,7 +550,7 @@ func (g *Graph) Iter(callback func(*Vertex) bool) {
 	}
 }
 
-// ByID returns all vertices indexed by their ID field
+// ByID returns all vertices indexed by their ID field.
 func (g *Graph) ByID() map[string]*Vertex {
 	g.makeView()
 	return g.all
