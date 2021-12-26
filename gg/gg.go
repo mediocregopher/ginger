@@ -1,6 +1,11 @@
 // Package gg implements ginger graph creation, traversal, and (de)serialization
 package gg
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Value represents a value being stored in a Graph. No more than one field may
 // be non-nil. No fields being set indicates lack of value.
 type Value struct {
@@ -33,19 +38,40 @@ func (v Value) Equal(v2 Value) bool {
 	}
 }
 
+func (v Value) String() string {
+
+	switch {
+
+	case v == Value{}:
+		return "<noval>"
+
+	case v.Name != nil:
+		return *v.Name
+
+	case v.Number != nil:
+		return fmt.Sprint(*v.Number)
+
+	case v.Graph != nil:
+		return v.Graph.String()
+
+	default:
+		panic("unknown value kind")
+	}
+}
+
 // VertexType enumerates the different possible vertex types.
 type VertexType string
 
 const (
 	// ValueVertex is a Vertex which contains exactly one value and has at least
 	// one edge (either input or output).
-	ValueVertex VertexType = "value"
+	ValueVertex VertexType = "val"
 
 	// TupleVertex is a Vertex which contains two or more in edges and
 	// exactly one out edge
 	//
 	// TODO ^ what about 0 or 1 in edges?
-	TupleVertex VertexType = "tuple"
+	TupleVertex VertexType = "tup"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +90,10 @@ func (oe OpenEdge) WithEdgeVal(val Value) OpenEdge {
 	return oe
 }
 
+func (oe OpenEdge) String() string {
+	return fmt.Sprintf("%s(%s, %s)", oe.fromV.VertexType, oe.fromV.String(), oe.val.String())
+}
+
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
@@ -79,8 +109,16 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 // returned as-is.
 func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge {
 
-	if len(ins) == 1 && edgeVal == (Value{}) {
-		return ins[0]
+	if len(ins) == 1 {
+
+		if edgeVal == (Value{}) {
+			return ins[0]
+		}
+
+		if ins[0].val == (Value{}) {
+			return ins[0].WithEdgeVal(edgeVal)
+		}
+
 	}
 
 	return OpenEdge{
@@ -128,6 +166,29 @@ func (v vertex) equal(v2 vertex) bool {
 	}
 
 	return true
+}
+
+func (v vertex) String() string {
+
+	switch v.VertexType {
+
+	case ValueVertex:
+		return v.val.String()
+
+	case TupleVertex:
+
+		strs := make([]string, len(v.tup))
+
+		for i := range v.tup {
+			strs[i] = v.tup[i].String()
+		}
+
+		return fmt.Sprintf("[%s]", strings.Join(strs, ", "))
+
+	default:
+		panic("unknown vertix kind")
+	}
+
 }
 
 type graphValueIn struct {
@@ -190,8 +251,21 @@ func (g *Graph) cp() *Graph {
 	return cp
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Graph creation
+func (g *Graph) String() string {
+
+	var strs []string
+
+	for _, valIn := range g.valIns {
+		for _, oe := range valIn.edges {
+			strs = append(
+				strs,
+				fmt.Sprintf("valIn(%s, %s)", oe.String(), valIn.val.String()),
+			)
+		}
+	}
+
+	return fmt.Sprintf("graph(%s)", strings.Join(strs, ", "))
+}
 
 func (g *Graph) valIn(val Value) graphValueIn {
 	for _, valIn := range g.valIns {

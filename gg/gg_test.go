@@ -57,11 +57,21 @@ func TestEqual(t *testing.T) {
 			exp: false,
 		},
 		{
-			// tuple with a single input edge that has no edgeVal should be
+			// tuple with no edge value and just a single input edge should be
 			// equivalent to just that edge.
 			a: ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 				ValueOut(i(1), n("ident")),
 			}, Value{}), n("out")),
+			b:   ZeroGraph.AddValueIn(ValueOut(i(1), n("ident")), n("out")),
+			exp: true,
+		},
+		{
+			// tuple with an edge value and just a single input edge that has no
+			// edgeVal should be equivalent to just that edge with the tuple's
+			// edge value.
+			a: ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
+				ValueOut(i(1), Value{}),
+			}, n("ident")), n("out")),
 			b:   ZeroGraph.AddValueIn(ValueOut(i(1), n("ident")), n("out")),
 			exp: true,
 		},

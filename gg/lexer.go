@@ -16,7 +16,7 @@ type LexerError struct {
 }
 
 func (e *LexerError) Error() string {
-	return fmt.Sprintf("%d: %d: %s", e.Col, e.Row, e.Err.Error())
+	return fmt.Sprintf("%d:%d: %s", e.Row, e.Col, e.Err.Error())
 }
 
 func (e *LexerError) Unwrap() error {

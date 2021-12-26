@@ -9,23 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockReader struct {
-	body []byte
-	err  error
-}
-
-func (r *mockReader) Read(b []byte) (int, error) {
-
-	n := copy(b, r.body)
-	r.body = r.body[n:]
-
-	if len(r.body) == 0 {
-		return n, r.err
-	}
-
-	return n, nil
-}
-
 func TestLexer(t *testing.T) {
 
 	expErr := errors.New("eof")
