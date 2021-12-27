@@ -1,8 +1,8 @@
 // Package gg implements ginger graph creation, traversal, and (de)serialization
 package gg
 
-// Value represents a value being stored in a Graph. Exactly one field must be
-// non-nil.
+// Value represents a value being stored in a Graph. No more than one field may
+// be non-nil. No fields being set indicates lack of value.
 type Value struct {
 	Name   *string
 	Number *int64
@@ -15,6 +15,9 @@ type Value struct {
 // Equal returns true if the passed in Value is equivalent.
 func (v Value) Equal(v2 Value) bool {
 	switch {
+
+	case v == Value{} && v2 == Value{}:
+		return true
 
 	case v.Name != nil && v2.Name != nil && *v.Name == *v2.Name:
 		return true
@@ -54,13 +57,16 @@ type OpenEdge struct {
 	val   Value
 }
 
+// WithEdgeVal returns a copy of the OpenEdge with the edge value replaced by
+// the given one.
+func (oe OpenEdge) WithEdgeVal(val Value) OpenEdge {
+	oe.val = val
+	return oe
+}
+
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
-//
-// When constructing Graphs, Value vertices are de-duplicated on their Value. So
-// multiple ValueOut OpenEdges constructed with the same val will be leaving the
-// same Vertex instance in the constructed Graph.
 func ValueOut(val, edgeVal Value) OpenEdge {
 	return OpenEdge{fromV: mkVertex(ValueVertex, val), val: edgeVal}
 }
@@ -69,10 +75,14 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 // represents an edge (with edgeVal attached to it) coming from the
 // TupleVertex comprised of the given ordered-set of input edges.
 //
-// When constructing Graphs Tuple vertices are de-duplicated on their input
-// edges. So multiple Tuple OpenEdges constructed with the same set of input
-// edges will be leaving the same Tuple instance in the constructed Graph.
+// If len(ins) == 1 and edgeVal == Value{}, then that single OpenEdge is
+// returned as-is.
 func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge {
+
+	if len(ins) == 1 && edgeVal == (Value{}) {
+		return ins[0]
+	}
+
 	return OpenEdge{
 		fromV: mkVertex(TupleVertex, Value{}, ins...),
 		val:   edgeVal,
