@@ -201,20 +201,7 @@ func (l *lexer) next() (LexerToken, *LexerError) {
 				return LexerToken{}, err
 			}
 
-			// terminating newline is deliberately not discarded. Loop and find
-			// the next token (which will be that newline).
-
-		case r == '\n':
-			// newlines are considered punctuation, not whitespace
-
-			l.discardRune()
-
-			return LexerToken{
-				Kind:  LexerTokenKindPunctuation,
-				Value: string(r),
-				Row:   l.lastRow,
-				Col:   l.lastCol,
-			}, nil
+			// terminating newline will be discarded on next loop
 
 		case r == '"' || r == '`':
 

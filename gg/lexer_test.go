@@ -35,47 +35,7 @@ func TestLexer(t *testing.T) {
 		exp []LexerToken
 	}{
 		{in: "", exp: []LexerToken{}},
-		{in: "* fooo", exp: []LexerToken{}},
-		{
-			in: "*\n",
-			exp: []LexerToken{
-				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "\n",
-					Row:   0, Col: 1,
-				},
-			},
-		},
-		{
-			in: "foo\nbar\n\n",
-			exp: []LexerToken{
-				{
-					Kind:  LexerTokenKindName,
-					Value: "foo",
-					Row:   0, Col: 0,
-				},
-				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "\n",
-					Row:   0, Col: 3,
-				},
-				{
-					Kind:  LexerTokenKindName,
-					Value: "bar",
-					Row:   1, Col: 0,
-				},
-				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "\n",
-					Row:   1, Col: 3,
-				},
-				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "\n",
-					Row:   2, Col: 0,
-				},
-			},
-		},
+		{in: "* fooo\n", exp: []LexerToken{}},
 		{
 			in: "foo",
 			exp: []LexerToken{
@@ -87,7 +47,7 @@ func TestLexer(t *testing.T) {
 			},
 		},
 		{
-			in: "foo bar f-o f0O Foo",
+			in: "foo bar\nf-o f0O Foo",
 			exp: []LexerToken{
 				{
 					Kind:  LexerTokenKindName,
@@ -102,17 +62,17 @@ func TestLexer(t *testing.T) {
 				{
 					Kind:  LexerTokenKindName,
 					Value: "f-o",
-					Row:   0, Col: 8,
+					Row:   1, Col: 0,
 				},
 				{
 					Kind:  LexerTokenKindName,
 					Value: "f0O",
-					Row:   0, Col: 12,
+					Row:   1, Col: 4,
 				},
 				{
 					Kind:  LexerTokenKindName,
 					Value: "Foo",
-					Row:   0, Col: 16,
+					Row:   1, Col: 8,
 				},
 			},
 		},
