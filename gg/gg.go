@@ -94,6 +94,15 @@ func (oe OpenEdge) String() string {
 	return fmt.Sprintf("%s(%s, %s)", vertexType, oe.fromV.String(), oe.edgeVal.String())
 }
 
+// WithEdgeValue returns a copy of the OpenEdge with the given Value replacing
+// the previous edge value.
+//
+// NOTE I _think_ this can be factored out once Graph is genericized.
+func (oe OpenEdge) WithEdgeValue(val Value) OpenEdge {
+	oe.edgeVal = val
+	return oe
+}
+
 // EdgeValue returns the Value which lies on the edge itself.
 func (oe OpenEdge) EdgeValue() Value {
 	return oe.edgeVal
@@ -274,14 +283,16 @@ func (g *Graph) String() string {
 	return fmt.Sprintf("graph(%s)", strings.Join(strs, ", "))
 }
 
-func (g *Graph) valIn(val Value) graphValueIn {
+// ValueIns returns, if any, all OpenEdges which lead to the given Value in the
+// Graph (ie, all those added via AddValueIn).
+func (g *Graph) ValueIns(val Value) []OpenEdge {
 	for _, valIn := range g.valIns {
 		if valIn.val.Equal(val) {
-			return valIn
+			return valIn.cp().edges
 		}
 	}
 
-	return graphValueIn{val: val}
+	return nil
 }
 
 // AddValueIn takes a OpenEdge and connects it to the Value Vertex containing
@@ -290,16 +301,17 @@ func (g *Graph) valIn(val Value) graphValueIn {
 // be created in this step.
 func (g *Graph) AddValueIn(oe OpenEdge, val Value) *Graph {
 
-	valIn := g.valIn(val)
+	edges := g.ValueIns(val)
 
-	for _, existingOE := range valIn.edges {
+	for _, existingOE := range edges {
 		if existingOE.equal(oe) {
 			return g
 		}
 	}
 
-	valIn = valIn.cp()
-	valIn.edges = append(valIn.edges, oe)
+	// ValueIns returns a copy of edges, so we're ok to modify it.
+	edges = append(edges, oe)
+	valIn := graphValueIn{val: val, edges: edges}
 
 	g = g.cp()
 
