@@ -6,22 +6,37 @@ import (
 	"strings"
 )
 
-// Value represents a value being stored in a Graph. No more than one field may
-// be non-nil. No fields being set indicates lack of value.
+// ZeroValue is a Value with no fields set.
+var ZeroValue Value
+
+// Value represents a value being stored in a Graph.
 type Value struct {
+
+	// Only one of these fields may be set
 	Name   *string
 	Number *int64
 	Graph  *Graph
 
 	// TODO coming soon!
 	// String *string
+
+	// Optional fields indicating the token which was used to construct this
+	// Value, if any.
+	LexerToken *LexerToken
+}
+
+// IsZero returns true if the Value is the zero value (none of the sub-value
+// fields are set). LexerToken is ignored for this check.
+func (v Value) IsZero() bool {
+	v.LexerToken = nil
+	return v == Value{}
 }
 
 // Equal returns true if the passed in Value is equivalent.
 func (v Value) Equal(v2 Value) bool {
 	switch {
 
-	case v == Value{} && v2 == Value{}:
+	case v.IsZero() && v2.IsZero():
 		return true
 
 	case v.Name != nil && v2.Name != nil && *v.Name == *v2.Name:
@@ -42,8 +57,8 @@ func (v Value) String() string {
 
 	switch {
 
-	case v == Value{}:
-		return "<noval>"
+	case v.IsZero():
+		return "<zero>"
 
 	case v.Name != nil:
 		return *v.Name
@@ -105,24 +120,24 @@ func ValueOut(val, edgeVal Value) OpenEdge {
 // represents an edge (with edgeVal attached to it) coming from the
 // TupleVertex comprised of the given ordered-set of input edges.
 //
-// If len(ins) == 1 and edgeVal == Value{}, then that single OpenEdge is
+// If len(ins) == 1 && edgeVal.IsZero(), then that single OpenEdge is
 // returned as-is.
 func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge {
 
 	if len(ins) == 1 {
 
-		if edgeVal == (Value{}) {
+		if edgeVal.IsZero() {
 			return ins[0]
 		}
 
-		if ins[0].val == (Value{}) {
+		if ins[0].val.IsZero() {
 			return ins[0].WithEdgeVal(edgeVal)
 		}
 
 	}
 
 	return OpenEdge{
-		fromV: mkVertex(TupleVertex, Value{}, ins...),
+		fromV: mkVertex(TupleVertex, ZeroValue, ins...),
 		val:   edgeVal,
 	}
 }

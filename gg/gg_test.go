@@ -61,7 +61,7 @@ func TestEqual(t *testing.T) {
 			// equivalent to just that edge.
 			a: ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
 				ValueOut(i(1), n("ident")),
-			}, Value{}), n("out")),
+			}, ZeroValue), n("out")),
 			b:   ZeroGraph.AddValueIn(ValueOut(i(1), n("ident")), n("out")),
 			exp: true,
 		},
@@ -70,7 +70,7 @@ func TestEqual(t *testing.T) {
 			// edgeVal should be equivalent to just that edge with the tuple's
 			// edge value.
 			a: ZeroGraph.AddValueIn(TupleOut([]OpenEdge{
-				ValueOut(i(1), Value{}),
+				ValueOut(i(1), ZeroValue),
 			}, n("ident")), n("out")),
 			b:   ZeroGraph.AddValueIn(ValueOut(i(1), n("ident")), n("out")),
 			exp: true,

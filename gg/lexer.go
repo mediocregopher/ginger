@@ -8,15 +8,26 @@ import (
 	"unicode"
 )
 
-// LexerError is returned by Lexer when an unexpected error occurs parsing a
-// stream of LexerTokens.
-type LexerError struct {
-	Err      error
+// LexerLocation describes the location in a file where a particular token was
+// parsed from.
+type LexerLocation struct {
 	Row, Col int
 }
 
+func (l LexerLocation) String() string {
+	return fmt.Sprintf("%d:%d", l.Row, l.Col)
+}
+
+// LexerError is returned by Lexer when an unexpected error occurs parsing a
+// stream of LexerTokens.
+type LexerError struct {
+	Err error
+
+	Location LexerLocation
+}
+
 func (e *LexerError) Error() string {
-	return fmt.Sprintf("%d:%d: %s", e.Row, e.Col, e.Err.Error())
+	return fmt.Sprintf("%s: %s", e.Location.String(), e.Err.Error())
 }
 
 func (e *LexerError) Unwrap() error {
@@ -39,7 +50,11 @@ type LexerToken struct {
 	Kind  LexerTokenKind
 	Value string // never empty string
 
-	Row, Col int
+	Location LexerLocation
+}
+
+func (t LexerToken) errPrefix() string {
+	return fmt.Sprintf("%s: at %q", t.Location.String(), t.Value)
 }
 
 // Lexer is used to parse a string stream into a sequence of tokens which can
@@ -90,8 +105,10 @@ func (l *lexer) fmtErr(err error) *LexerError {
 
 	return &LexerError{
 		Err: err,
-		Row: row,
-		Col: col,
+		Location: LexerLocation{
+			Row: row,
+			Col: col,
+		},
 	}
 }
 
@@ -167,7 +184,9 @@ func (l *lexer) readWhile(
 	return LexerToken{
 		Kind:  kind,
 		Value: l.stringBuilder.String(),
-		Row:   row, Col: col,
+		Location: LexerLocation{
+			Row: row, Col: col,
+		},
 	}, lexErr
 }
 
@@ -236,8 +255,10 @@ func (l *lexer) next() (LexerToken, *LexerError) {
 			return LexerToken{
 				Kind:  LexerTokenKindPunctuation,
 				Value: string(r),
-				Row:   l.lastRow,
-				Col:   l.lastCol,
+				Location: LexerLocation{
+					Row: l.lastRow,
+					Col: l.lastCol,
+				},
 			}, nil
 
 		case unicode.IsSpace(r):

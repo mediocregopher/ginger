@@ -19,7 +19,7 @@ const (
 )
 
 func decoderErr(tok LexerToken, err error) error {
-	return fmt.Errorf("%d:%d: %w", tok.Row, tok.Col, err)
+	return fmt.Errorf("%s: %w", tok.errPrefix(), err)
 }
 
 func decoderErrf(tok LexerToken, str string, args ...interface{}) error {
@@ -53,7 +53,7 @@ func (d *decoder) parseSingleValue(
 	tok, rest := toks[0], toks[1:]
 
 	if len(rest) == 0 {
-		return Value{}, nil, false, decoderErrf(tok, "cannot be final token, possibly missing %q", punctTerm)
+		return ZeroValue, nil, false, decoderErrf(tok, "cannot be final token, possibly missing %q", punctTerm)
 	}
 
 	termed := isTerm(rest[0])
@@ -65,20 +65,20 @@ func (d *decoder) parseSingleValue(
 	switch tok.Kind {
 
 	case LexerTokenKindName:
-		return Value{Name: &tok.Value}, rest, termed, nil
+		return Value{Name: &tok.Value, LexerToken: &tok}, rest, termed, nil
 
 	case LexerTokenKindNumber:
 
 		i, err := strconv.ParseInt(tok.Value, 10, 64)
 
 		if err != nil {
-			return Value{}, nil, false, decoderErrf(tok, "parsing %q as integer: %w", tok.Value, err)
+			return ZeroValue, nil, false, decoderErrf(tok, "parsing %q as integer: %w", tok.Value, err)
 		}
 
-		return Value{Number: &i}, rest, termed, nil
+		return Value{Number: &i, LexerToken: &tok}, rest, termed, nil
 
 	case LexerTokenKindPunctuation:
-		return Value{}, nil, false, decoderErrf(tok, "expected value, found punctuation %q", tok.Value)
+		return ZeroValue, nil, false, decoderErrf(tok, "expected value, found punctuation %q", tok.Value)
 
 	default:
 		panic(fmt.Sprintf("unexpected token kind %q", tok.Kind))
@@ -116,7 +116,7 @@ func (d *decoder) parseOpenEdge(
 	}
 
 	if termed {
-		return ValueOut(val, Value{}), toks, nil
+		return ValueOut(val, ZeroValue), toks, nil
 	}
 
 	opTok, toks := toks[0], toks[1:]
@@ -181,7 +181,7 @@ func (d *decoder) parseTuple(
 		toks = toks[1:]
 	}
 
-	return TupleOut(edges, Value{}), toks, nil
+	return TupleOut(edges, ZeroValue), toks, nil
 }
 
 // returned boolean value indicates if the token following the graph is a term.
@@ -211,18 +211,18 @@ func (d *decoder) parseGraphValue(
 				break
 			}
 
-			return Value{}, nil, false, decoderErrf(openTok, "no matching %q", punctCloseGraph)
+			return ZeroValue, nil, false, decoderErrf(openTok, "no matching %q", punctCloseGraph)
 
 		} else if closingTok := toks[0]; isPunct(closingTok, punctCloseGraph) {
 
 			if !expectWrappers {
-				return Value{}, nil, false, decoderErrf(closingTok, "unexpected %q", punctCloseGraph)
+				return ZeroValue, nil, false, decoderErrf(closingTok, "unexpected %q", punctCloseGraph)
 			}
 
 			toks = toks[1:]
 
 			if len(toks) == 0 {
-				return Value{}, nil, false, decoderErrf(closingTok, "cannot be final token, possibly missing %q", punctTerm)
+				return ZeroValue, nil, false, decoderErrf(closingTok, "cannot be final token, possibly missing %q", punctTerm)
 			}
 
 			break
@@ -231,7 +231,7 @@ func (d *decoder) parseGraphValue(
 		var err error
 
 		if g, toks, err = d.parseValIn(g, toks); err != nil {
-			return Value{}, nil, false, err
+			return ZeroValue, nil, false, err
 		}
 	}
 
@@ -240,6 +240,8 @@ func (d *decoder) parseGraphValue(
 	if !expectWrappers {
 		return val, toks, true, nil
 	}
+
+	val.LexerToken = &openTok
 
 	termed := isTerm(toks[0])
 
@@ -276,7 +278,7 @@ func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerTok
 		return nil, nil, err
 	}
 
-	dstVal := Value{Name: &dst.Value}
+	dstVal := Value{Name: &dst.Value, LexerToken: &dst}
 
 	return into.AddValueIn(oe, dstVal), toks, nil
 }

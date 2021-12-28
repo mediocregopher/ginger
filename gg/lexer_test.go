@@ -23,9 +23,9 @@ func TestLexer(t *testing.T) {
 			in: "foo",
 			exp: []LexerToken{
 				{
-					Kind:  LexerTokenKindName,
-					Value: "foo",
-					Row:   0, Col: 0,
+					Kind:     LexerTokenKindName,
+					Value:    "foo",
+					Location: LexerLocation{Row: 0, Col: 0},
 				},
 			},
 		},
@@ -33,29 +33,29 @@ func TestLexer(t *testing.T) {
 			in: "foo bar\nf-o f0O Foo",
 			exp: []LexerToken{
 				{
-					Kind:  LexerTokenKindName,
-					Value: "foo",
-					Row:   0, Col: 0,
+					Kind:     LexerTokenKindName,
+					Value:    "foo",
+					Location: LexerLocation{Row: 0, Col: 0},
 				},
 				{
-					Kind:  LexerTokenKindName,
-					Value: "bar",
-					Row:   0, Col: 4,
+					Kind:     LexerTokenKindName,
+					Value:    "bar",
+					Location: LexerLocation{Row: 0, Col: 4},
 				},
 				{
-					Kind:  LexerTokenKindName,
-					Value: "f-o",
-					Row:   1, Col: 0,
+					Kind:     LexerTokenKindName,
+					Value:    "f-o",
+					Location: LexerLocation{Row: 1, Col: 0},
 				},
 				{
-					Kind:  LexerTokenKindName,
-					Value: "f0O",
-					Row:   1, Col: 4,
+					Kind:     LexerTokenKindName,
+					Value:    "f0O",
+					Location: LexerLocation{Row: 1, Col: 4},
 				},
 				{
-					Kind:  LexerTokenKindName,
-					Value: "Foo",
-					Row:   1, Col: 8,
+					Kind:     LexerTokenKindName,
+					Value:    "Foo",
+					Location: LexerLocation{Row: 1, Col: 8},
 				},
 			},
 		},
@@ -63,19 +63,19 @@ func TestLexer(t *testing.T) {
 			in: "1 100 -100",
 			exp: []LexerToken{
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "1",
-					Row:   0, Col: 0,
+					Kind:     LexerTokenKindNumber,
+					Value:    "1",
+					Location: LexerLocation{Row: 0, Col: 0},
 				},
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "100",
-					Row:   0, Col: 2,
+					Kind:     LexerTokenKindNumber,
+					Value:    "100",
+					Location: LexerLocation{Row: 0, Col: 2},
 				},
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "-100",
-					Row:   0, Col: 6,
+					Kind:     LexerTokenKindNumber,
+					Value:    "-100",
+					Location: LexerLocation{Row: 0, Col: 6},
 				},
 			},
 		},
@@ -83,39 +83,39 @@ func TestLexer(t *testing.T) {
 			in: "1<2!-3 ()",
 			exp: []LexerToken{
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "1",
-					Row:   0, Col: 0,
+					Kind:     LexerTokenKindNumber,
+					Value:    "1",
+					Location: LexerLocation{Row: 0, Col: 0},
 				},
 				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "<",
-					Row:   0, Col: 1,
+					Kind:     LexerTokenKindPunctuation,
+					Value:    "<",
+					Location: LexerLocation{Row: 0, Col: 1},
 				},
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "2",
-					Row:   0, Col: 2,
+					Kind:     LexerTokenKindNumber,
+					Value:    "2",
+					Location: LexerLocation{Row: 0, Col: 2},
 				},
 				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "!",
-					Row:   0, Col: 3,
+					Kind:     LexerTokenKindPunctuation,
+					Value:    "!",
+					Location: LexerLocation{Row: 0, Col: 3},
 				},
 				{
-					Kind:  LexerTokenKindNumber,
-					Value: "-3",
-					Row:   0, Col: 4,
+					Kind:     LexerTokenKindNumber,
+					Value:    "-3",
+					Location: LexerLocation{Row: 0, Col: 4},
 				},
 				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: "(",
-					Row:   0, Col: 7,
+					Kind:     LexerTokenKindPunctuation,
+					Value:    "(",
+					Location: LexerLocation{Row: 0, Col: 7},
 				},
 				{
-					Kind:  LexerTokenKindPunctuation,
-					Value: ")",
-					Row:   0, Col: 8,
+					Kind:     LexerTokenKindPunctuation,
+					Value:    ")",
+					Location: LexerLocation{Row: 0, Col: 8},
 				},
 			},
 		},
@@ -142,8 +142,8 @@ func TestLexer(t *testing.T) {
 			inParts := strings.Split(test.in, "\n")
 
 			assert.ErrorIs(t, lexErr, expErr)
-			assert.Equal(t, lexErr.Row, len(inParts)-1)
-			assert.Equal(t, lexErr.Col, len(inParts[len(inParts)-1]))
+			assert.Equal(t, lexErr.Location.Row, len(inParts)-1)
+			assert.Equal(t, lexErr.Location.Col, len(inParts[len(inParts)-1]))
 		})
 	}
 
