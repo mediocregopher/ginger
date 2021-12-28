@@ -74,46 +74,56 @@ func (v Value) String() string {
 	}
 }
 
-// VertexType enumerates the different possible vertex types.
-type VertexType string
-
-const (
-	// ValueVertex is a Vertex which contains exactly one value and has at least
-	// one edge (either input or output).
-	ValueVertex VertexType = "val"
-
-	// TupleVertex is a Vertex which contains two or more in edges and
-	// exactly one out edge
-	//
-	// TODO ^ what about 0 or 1 in edges?
-	TupleVertex VertexType = "tup"
-)
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // OpenEdge is an un-realized Edge which can't be used for anything except
 // constructing graphs. It has no meaning on its own.
 type OpenEdge struct {
-	fromV vertex
-	val   Value
-}
-
-// WithEdgeVal returns a copy of the OpenEdge with the edge value replaced by
-// the given one.
-func (oe OpenEdge) WithEdgeVal(val Value) OpenEdge {
-	oe.val = val
-	return oe
+	fromV   vertex
+	edgeVal Value
 }
 
 func (oe OpenEdge) String() string {
-	return fmt.Sprintf("%s(%s, %s)", oe.fromV.VertexType, oe.fromV.String(), oe.val.String())
+
+	vertexType := "tup"
+
+	if oe.fromV.val != nil {
+		vertexType = "val"
+	}
+
+	return fmt.Sprintf("%s(%s, %s)", vertexType, oe.fromV.String(), oe.edgeVal.String())
+}
+
+// EdgeValue returns the Value which lies on the edge itself.
+func (oe OpenEdge) EdgeValue() Value {
+	return oe.edgeVal
+}
+
+// FromValue returns the Value from which the OpenEdge was created via ValueOut,
+// or false if it wasn't created via ValueOut.
+func (oe OpenEdge) FromValue() (Value, bool) {
+	if oe.fromV.val == nil {
+		return ZeroValue, false
+	}
+
+	return *oe.fromV.val, true
+}
+
+// FromTuple returns the tuple of OpenEdges from which the OpenEdge was created
+// via TupleOut, or false if it wasn't created via TupleOut.
+func (oe OpenEdge) FromTuple() ([]OpenEdge, bool) {
+	if oe.fromV.val != nil {
+		return nil, false
+	}
+
+	return oe.fromV.tup, true
 }
 
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
 func ValueOut(val, edgeVal Value) OpenEdge {
-	return OpenEdge{fromV: mkVertex(ValueVertex, val), val: edgeVal}
+	return OpenEdge{fromV: vertex{val: &val}, edgeVal: edgeVal}
 }
 
 // TupleOut creates an OpenEdge which, when used to construct a Graph,
@@ -126,48 +136,38 @@ func TupleOut(ins []OpenEdge, edgeVal Value) OpenEdge {
 
 	if len(ins) == 1 {
 
+		in := ins[0]
+
 		if edgeVal.IsZero() {
-			return ins[0]
+			return in
 		}
 
-		if ins[0].val.IsZero() {
-			return ins[0].WithEdgeVal(edgeVal)
+		if in.edgeVal.IsZero() {
+			in.edgeVal = edgeVal
+			return in
 		}
 
 	}
 
 	return OpenEdge{
-		fromV: mkVertex(TupleVertex, ZeroValue, ins...),
-		val:   edgeVal,
+		fromV:   vertex{tup: ins},
+		edgeVal: edgeVal,
 	}
 }
 
 func (oe OpenEdge) equal(oe2 OpenEdge) bool {
-	return oe.val.Equal(oe2.val) && oe.fromV.equal(oe2.fromV)
+	return oe.edgeVal.Equal(oe2.edgeVal) && oe.fromV.equal(oe2.fromV)
 }
 
 type vertex struct {
-	VertexType
-	val Value
+	val *Value
 	tup []OpenEdge
-}
-
-func mkVertex(typ VertexType, val Value, tupIns ...OpenEdge) vertex {
-	return vertex{
-		VertexType: typ,
-		val:        val,
-		tup:        tupIns,
-	}
 }
 
 func (v vertex) equal(v2 vertex) bool {
 
-	if v.VertexType != v2.VertexType {
-		return false
-	}
-
-	if v.VertexType == ValueVertex {
-		return v.val.Equal(v2.val)
+	if v.val != nil {
+		return v2.val != nil && v.val.Equal(*v2.val)
 	}
 
 	if len(v.tup) != len(v2.tup) {
@@ -185,25 +185,17 @@ func (v vertex) equal(v2 vertex) bool {
 
 func (v vertex) String() string {
 
-	switch v.VertexType {
-
-	case ValueVertex:
+	if v.val != nil {
 		return v.val.String()
-
-	case TupleVertex:
-
-		strs := make([]string, len(v.tup))
-
-		for i := range v.tup {
-			strs[i] = v.tup[i].String()
-		}
-
-		return fmt.Sprintf("[%s]", strings.Join(strs, ", "))
-
-	default:
-		panic("unknown vertix kind")
 	}
 
+	strs := make([]string, len(v.tup))
+
+	for i := range v.tup {
+		strs[i] = v.tup[i].String()
+	}
+
+	return fmt.Sprintf("[%s]", strings.Join(strs, ", "))
 }
 
 type graphValueIn struct {
