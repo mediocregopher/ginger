@@ -5,9 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mediocregopher/ginger/graph"
 )
 
 func TestDecoder(t *testing.T) {
+
+	zeroGraph := new(graph.Graph[Value])
 
 	i := func(i int64) Value {
 		return Value{Number: &i}
@@ -17,27 +21,37 @@ func TestDecoder(t *testing.T) {
 		return Value{Name: &n}
 	}
 
+	vOut := func(val, edgeVal Value) graph.OpenEdge[Value] {
+		return graph.ValueOut(val, edgeVal)
+	}
+
+	tOut := func(ins []graph.OpenEdge[Value], edgeVal Value) graph.OpenEdge[Value] {
+		return graph.TupleOut(ins, edgeVal)
+	}
+
+	type openEdge = graph.OpenEdge[Value]
+
 	tests := []struct {
 		in  string
-		exp *Graph
+		exp *graph.Graph[Value]
 	}{
 		{
 			in:  "",
-			exp: ZeroGraph,
+			exp: zeroGraph,
 		},
 		{
 			in:  "out = 1;",
-			exp: ZeroGraph.AddValueIn(ValueOut(i(1), ZeroValue), n("out")),
+			exp: zeroGraph.AddValueIn(vOut(i(1), ZeroValue), n("out")),
 		},
 		{
 			in:  "out = incr < 1;",
-			exp: ZeroGraph.AddValueIn(ValueOut(i(1), n("incr")), n("out")),
+			exp: zeroGraph.AddValueIn(vOut(i(1), n("incr")), n("out")),
 		},
 		{
 			in: "out = a < b < 1;",
-			exp: ZeroGraph.AddValueIn(
-				TupleOut(
-					[]OpenEdge{ValueOut(i(1), n("b"))},
+			exp: zeroGraph.AddValueIn(
+				tOut(
+					[]openEdge{vOut(i(1), n("b"))},
 					n("a"),
 				),
 				n("out"),
@@ -45,14 +59,14 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in: "out = a < b < (1; c < 2; d < e < 3;);",
-			exp: ZeroGraph.AddValueIn(
-				TupleOut(
-					[]OpenEdge{TupleOut(
-						[]OpenEdge{
-							ValueOut(i(1), ZeroValue),
-							ValueOut(i(2), n("c")),
-							TupleOut(
-								[]OpenEdge{ValueOut(i(3), n("e"))},
+			exp: zeroGraph.AddValueIn(
+				tOut(
+					[]openEdge{tOut(
+						[]openEdge{
+							vOut(i(1), ZeroValue),
+							vOut(i(2), n("c")),
+							tOut(
+								[]openEdge{vOut(i(3), n("e"))},
 								n("d"),
 							),
 						},
@@ -65,15 +79,15 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in: "out = a < b < (1; c < (d < 2; 3;); );",
-			exp: ZeroGraph.AddValueIn(
-				TupleOut(
-					[]OpenEdge{TupleOut(
-						[]OpenEdge{
-							ValueOut(i(1), ZeroValue),
-							TupleOut(
-								[]OpenEdge{
-									ValueOut(i(2), n("d")),
-									ValueOut(i(3), ZeroValue),
+			exp: zeroGraph.AddValueIn(
+				tOut(
+					[]openEdge{tOut(
+						[]openEdge{
+							vOut(i(1), ZeroValue),
+							tOut(
+								[]openEdge{
+									vOut(i(2), n("d")),
+									vOut(i(3), ZeroValue),
 								},
 								n("c"),
 							),
@@ -87,14 +101,14 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in: "out = { a = 1; b = c < d < 2; };",
-			exp: ZeroGraph.AddValueIn(
-				ValueOut(
-					Value{Graph: ZeroGraph.
-						AddValueIn(ValueOut(i(1), ZeroValue), n("a")).
+			exp: zeroGraph.AddValueIn(
+				vOut(
+					Value{Graph: zeroGraph.
+						AddValueIn(vOut(i(1), ZeroValue), n("a")).
 						AddValueIn(
-							TupleOut(
-								[]OpenEdge{
-									ValueOut(i(2), n("d")),
+							tOut(
+								[]openEdge{
+									vOut(i(2), n("d")),
 								},
 								n("c"),
 							),
@@ -108,13 +122,13 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in: "out = a < { b = 1; } < 2;",
-			exp: ZeroGraph.AddValueIn(
-				TupleOut(
-					[]OpenEdge{
-						ValueOut(
+			exp: zeroGraph.AddValueIn(
+				tOut(
+					[]openEdge{
+						vOut(
 							i(2),
-							Value{Graph: ZeroGraph.
-								AddValueIn(ValueOut(i(1), ZeroValue), n("b")),
+							Value{Graph: zeroGraph.
+								AddValueIn(vOut(i(1), ZeroValue), n("b")),
 							},
 						),
 					},
@@ -125,9 +139,9 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in: "a = 1; b = 2;",
-			exp: ZeroGraph.
-				AddValueIn(ValueOut(i(1), ZeroValue), n("a")).
-				AddValueIn(ValueOut(i(2), ZeroValue), n("b")),
+			exp: zeroGraph.
+				AddValueIn(vOut(i(1), ZeroValue), n("a")).
+				AddValueIn(vOut(i(2), ZeroValue), n("b")),
 		},
 	}
 
@@ -139,7 +153,7 @@ func TestDecoder(t *testing.T) {
 
 			got, err := DecodeLexer(lexer)
 			assert.NoError(t, err)
-			assert.True(t, Equal(got, test.exp), "\nexp:%v\ngot:%v", test.exp, got)
+			assert.True(t, got.Equal(test.exp), "\nexp:%v\ngot:%v", test.exp, got)
 
 		})
 	}

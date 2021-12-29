@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+
+	"github.com/mediocregopher/ginger/graph"
 )
 
 // Punctuations which are used in the gg file format.
@@ -88,7 +90,7 @@ func (d *decoder) parseSingleValue(
 func (d *decoder) parseOpenEdge(
 	toks []LexerToken,
 ) (
-	OpenEdge, []LexerToken, error,
+	graph.OpenEdge[Value], []LexerToken, error,
 ) {
 
 	if isPunct(toks[0], punctOpenTuple) {
@@ -111,31 +113,31 @@ func (d *decoder) parseOpenEdge(
 	}
 
 	if err != nil {
-		return OpenEdge{}, nil, err
+		return graph.OpenEdge[Value]{}, nil, err
 
 	}
 
 	if termed {
-		return ValueOut(val, ZeroValue), toks, nil
+		return graph.ValueOut[Value](val, ZeroValue), toks, nil
 	}
 
 	opTok, toks := toks[0], toks[1:]
 
 	if !isPunct(opTok, punctOp) {
-		return OpenEdge{}, nil, decoderErrf(opTok, "must be %q or %q", punctOp, punctTerm)
+		return graph.OpenEdge[Value]{}, nil, decoderErrf(opTok, "must be %q or %q", punctOp, punctTerm)
 	}
 
 	if len(toks) == 0 {
-		return OpenEdge{}, nil, decoderErrf(opTok, "%q cannot terminate an edge declaration", punctOp)
+		return graph.OpenEdge[Value]{}, nil, decoderErrf(opTok, "%q cannot terminate an edge declaration", punctOp)
 	}
 
 	oe, toks, err := d.parseOpenEdge(toks)
 
 	if err != nil {
-		return OpenEdge{}, nil, err
+		return graph.OpenEdge[Value]{}, nil, err
 	}
 
-	oe = TupleOut([]OpenEdge{oe}, val)
+	oe = graph.TupleOut[Value]([]graph.OpenEdge[Value]{oe}, val)
 
 	return oe, toks, nil
 }
@@ -143,17 +145,17 @@ func (d *decoder) parseOpenEdge(
 func (d *decoder) parseTuple(
 	toks []LexerToken,
 ) (
-	OpenEdge, []LexerToken, error,
+	graph.OpenEdge[Value], []LexerToken, error,
 ) {
 
 	openTok, toks := toks[0], toks[1:]
 
-	var edges []OpenEdge
+	var edges []graph.OpenEdge[Value]
 
 	for {
 
 		if len(toks) == 0 {
-			return OpenEdge{}, nil, decoderErrf(openTok, "no matching %q", punctCloseTuple)
+			return graph.OpenEdge[Value]{}, nil, decoderErrf(openTok, "no matching %q", punctCloseTuple)
 
 		} else if isPunct(toks[0], punctCloseTuple) {
 			toks = toks[1:]
@@ -161,14 +163,14 @@ func (d *decoder) parseTuple(
 		}
 
 		var (
-			oe  OpenEdge
+			oe  graph.OpenEdge[Value]
 			err error
 		)
 
 		oe, toks, err = d.parseOpenEdge(toks)
 
 		if err != nil {
-			return OpenEdge{}, nil, err
+			return graph.OpenEdge[Value]{}, nil, err
 		}
 
 		edges = append(edges, oe)
@@ -181,7 +183,7 @@ func (d *decoder) parseTuple(
 		toks = toks[1:]
 	}
 
-	return TupleOut(edges, ZeroValue), toks, nil
+	return graph.TupleOut[Value](edges, ZeroValue), toks, nil
 }
 
 // returned boolean value indicates if the token following the graph is a term.
@@ -201,7 +203,7 @@ func (d *decoder) parseGraphValue(
 		openTok, toks = toks[0], toks[1:]
 	}
 
-	g := ZeroGraph
+	g := new(graph.Graph[Value])
 
 	for {
 
@@ -252,7 +254,7 @@ func (d *decoder) parseGraphValue(
 	return val, toks, termed, nil
 }
 
-func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerToken, error) {
+func (d *decoder) parseValIn(into *graph.Graph[Value], toks []LexerToken) (*graph.Graph[Value], []LexerToken, error) {
 
 	if len(toks) == 0 {
 		return into, nil, nil
@@ -283,7 +285,7 @@ func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerTok
 	return into.AddValueIn(oe, dstVal), toks, nil
 }
 
-func (d *decoder) decode(lexer Lexer) (*Graph, error) {
+func (d *decoder) decode(lexer Lexer) (*graph.Graph[Value], error) {
 
 	var toks []LexerToken
 
@@ -314,7 +316,7 @@ func (d *decoder) decode(lexer Lexer) (*Graph, error) {
 // construct a Graph according to the rules of the gg file format. DecodeLexer
 // will only return an error if there is a non-EOF file returned from the Lexer,
 // or the tokens read cannot be used to construct a valid Graph.
-func DecodeLexer(lexer Lexer) (*Graph, error) {
+func DecodeLexer(lexer Lexer) (*graph.Graph[Value], error) {
 	decoder := &decoder{}
 	return decoder.decode(lexer)
 }
