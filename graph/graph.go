@@ -16,23 +16,57 @@ type Value interface {
 // OpenEdge is an un-realized Edge which can't be used for anything except
 // constructing graphs. It has no meaning on its own.
 type OpenEdge[V Value] struct {
-	fromV   vertex[V]
+	val *V
+	tup []OpenEdge[V]
+
 	edgeVal V
 }
 
 func (oe OpenEdge[V]) equal(oe2 OpenEdge[V]) bool {
-	return oe.edgeVal.Equal(oe2.edgeVal) && oe.fromV.equal(oe2.fromV)
+	if !oe.edgeVal.Equal(oe2.edgeVal) {
+		return false
+	}
+
+	if oe.val != nil {
+		return oe2.val != nil && (*oe.val).Equal(*oe2.val)
+	}
+
+	if len(oe.tup) != len(oe2.tup) {
+		return false
+	}
+
+	for i := range oe.tup {
+		if !oe.tup[i].equal(oe2.tup[i]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (oe OpenEdge[V]) String() string {
 
 	vertexType := "tup"
 
-	if oe.fromV.val != nil {
+	var fromStr string
+
+	if oe.val != nil {
+
 		vertexType = "val"
+		fromStr = (*oe.val).String()
+
+	} else {
+
+		strs := make([]string, len(oe.tup))
+
+		for i := range oe.tup {
+			strs[i] = oe.tup[i].String()
+		}
+
+		fromStr = fmt.Sprintf("[%s]", strings.Join(strs, ", "))
 	}
 
-	return fmt.Sprintf("%s(%s, %s)", vertexType, oe.fromV.String(), oe.edgeVal.String())
+	return fmt.Sprintf("%s(%s, %s)", vertexType, fromStr, oe.edgeVal.String())
 }
 
 // WithEdgeValue returns a copy of the OpenEdge with the given Value replacing
@@ -52,29 +86,29 @@ func (oe OpenEdge[V]) EdgeValue() V {
 // FromValue returns the Value from which the OpenEdge was created via ValueOut,
 // or false if it wasn't created via ValueOut.
 func (oe OpenEdge[V]) FromValue() (V, bool) {
-	if oe.fromV.val == nil {
+	if oe.val == nil {
 		var zero V
 		return zero, false
 	}
 
-	return *oe.fromV.val, true
+	return *oe.val, true
 }
 
 // FromTuple returns the tuple of OpenEdges from which the OpenEdge was created
 // via TupleOut, or false if it wasn't created via TupleOut.
 func (oe OpenEdge[V]) FromTuple() ([]OpenEdge[V], bool) {
-	if oe.fromV.val != nil {
+	if oe.val != nil {
 		return nil, false
 	}
 
-	return oe.fromV.tup, true
+	return oe.tup, true
 }
 
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the ValueVertex containing
 // val.
 func ValueOut[V Value](val, edgeVal V) OpenEdge[V] {
-	return OpenEdge[V]{fromV: vertex[V]{val: &val}, edgeVal: edgeVal}
+	return OpenEdge[V]{val: &val, edgeVal: edgeVal}
 }
 
 // TupleOut creates an OpenEdge which, when used to construct a Graph,
@@ -102,49 +136,9 @@ func TupleOut[V Value](ins []OpenEdge[V], edgeVal V) OpenEdge[V] {
 	}
 
 	return OpenEdge[V]{
-		fromV:   vertex[V]{tup: ins},
+		tup: ins,
 		edgeVal: edgeVal,
 	}
-}
-
-
-type vertex[V Value] struct {
-	val *V
-	tup []OpenEdge[V]
-}
-
-func (v vertex[V]) equal(v2 vertex[V]) bool {
-
-	if v.val != nil {
-		return v2.val != nil && (*v.val).Equal(*v2.val)
-	}
-
-	if len(v.tup) != len(v2.tup) {
-		return false
-	}
-
-	for i := range v.tup {
-		if !v.tup[i].equal(v2.tup[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (v vertex[V]) String() string {
-
-	if v.val != nil {
-		return (*v.val).String()
-	}
-
-	strs := make([]string, len(v.tup))
-
-	for i := range v.tup {
-		strs[i] = v.tup[i].String()
-	}
-
-	return fmt.Sprintf("[%s]", strings.Join(strs, ", "))
 }
 
 type graphValueIn[V Value] struct {
