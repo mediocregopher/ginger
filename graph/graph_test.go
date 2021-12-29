@@ -41,7 +41,7 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			a: zeroGraph.AddValueIn(ValueOut[S]("in", "incr"), "out"),
-			b: zeroGraph.AddValueIn(TupleOut[S]([]OpenEdge[S]{
+			b: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
 				ValueOut[S]("in", "ident"),
 				ValueOut[S]("1", "ident"),
 			}, "add"), "out"),
@@ -49,11 +49,11 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			// tuples are different order
-			a: zeroGraph.AddValueIn(TupleOut[S]([]OpenEdge[S]{
+			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
 				ValueOut[S]("1", "ident"),
 				ValueOut[S]("in", "ident"),
 			}, "add"), "out"),
-			b: zeroGraph.AddValueIn(TupleOut[S]([]OpenEdge[S]{
+			b: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
 				ValueOut[S]("in", "ident"),
 				ValueOut[S]("1", "ident"),
 			}, "add"), "out"),
@@ -62,7 +62,7 @@ func TestEqual(t *testing.T) {
 		{
 			// tuple with no edge value and just a single input edge should be
 			// equivalent to just that edge.
-			a: zeroGraph.AddValueIn(TupleOut[S]([]OpenEdge[S]{
+			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
 				ValueOut[S]("1", "ident"),
 			}, zeroValue), "out"),
 			b:   zeroGraph.AddValueIn(ValueOut[S]("1", "ident"), "out"),
@@ -72,7 +72,7 @@ func TestEqual(t *testing.T) {
 			// tuple with an edge value and just a single input edge that has no
 			// edgeVal should be equivalent to just that edge with the tuple's
 			// edge value.
-			a: zeroGraph.AddValueIn(TupleOut[S]([]OpenEdge[S]{
+			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
 				ValueOut[S]("1", zeroValue),
 			}, "ident"), "out"),
 			b:   zeroGraph.AddValueIn(ValueOut[S]("1", "ident"), "out"),

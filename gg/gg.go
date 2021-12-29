@@ -1,4 +1,4 @@
-// Package gg implements ginger graph creation, traversal, and (de)serialization
+// Package gg implements graph serialization to/from the gg text format.
 package gg
 
 import (
@@ -10,7 +10,7 @@ import (
 // ZeroValue is a Value with no fields set.
 var ZeroValue Value
 
-// Value represents a value being stored in a Graph.
+// Value represents a value which can be serialized by the gg text format.
 type Value struct {
 
 	// Only one of these fields may be set

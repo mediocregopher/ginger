@@ -90,7 +90,7 @@ func (d *decoder) parseSingleValue(
 func (d *decoder) parseOpenEdge(
 	toks []LexerToken,
 ) (
-	graph.OpenEdge[Value], []LexerToken, error,
+	*graph.OpenEdge[Value], []LexerToken, error,
 ) {
 
 	if isPunct(toks[0], punctOpenTuple) {
@@ -113,7 +113,7 @@ func (d *decoder) parseOpenEdge(
 	}
 
 	if err != nil {
-		return graph.OpenEdge[Value]{}, nil, err
+		return nil, nil, err
 
 	}
 
@@ -124,20 +124,20 @@ func (d *decoder) parseOpenEdge(
 	opTok, toks := toks[0], toks[1:]
 
 	if !isPunct(opTok, punctOp) {
-		return graph.OpenEdge[Value]{}, nil, decoderErrf(opTok, "must be %q or %q", punctOp, punctTerm)
+		return nil, nil, decoderErrf(opTok, "must be %q or %q", punctOp, punctTerm)
 	}
 
 	if len(toks) == 0 {
-		return graph.OpenEdge[Value]{}, nil, decoderErrf(opTok, "%q cannot terminate an edge declaration", punctOp)
+		return nil, nil, decoderErrf(opTok, "%q cannot terminate an edge declaration", punctOp)
 	}
 
 	oe, toks, err := d.parseOpenEdge(toks)
 
 	if err != nil {
-		return graph.OpenEdge[Value]{}, nil, err
+		return nil, nil, err
 	}
 
-	oe = graph.TupleOut[Value]([]graph.OpenEdge[Value]{oe}, val)
+	oe = graph.TupleOut[Value]([]*graph.OpenEdge[Value]{oe}, val)
 
 	return oe, toks, nil
 }
@@ -145,17 +145,17 @@ func (d *decoder) parseOpenEdge(
 func (d *decoder) parseTuple(
 	toks []LexerToken,
 ) (
-	graph.OpenEdge[Value], []LexerToken, error,
+	*graph.OpenEdge[Value], []LexerToken, error,
 ) {
 
 	openTok, toks := toks[0], toks[1:]
 
-	var edges []graph.OpenEdge[Value]
+	var edges []*graph.OpenEdge[Value]
 
 	for {
 
 		if len(toks) == 0 {
-			return graph.OpenEdge[Value]{}, nil, decoderErrf(openTok, "no matching %q", punctCloseTuple)
+			return nil, nil, decoderErrf(openTok, "no matching %q", punctCloseTuple)
 
 		} else if isPunct(toks[0], punctCloseTuple) {
 			toks = toks[1:]
@@ -163,14 +163,14 @@ func (d *decoder) parseTuple(
 		}
 
 		var (
-			oe  graph.OpenEdge[Value]
+			oe  *graph.OpenEdge[Value]
 			err error
 		)
 
 		oe, toks, err = d.parseOpenEdge(toks)
 
 		if err != nil {
-			return graph.OpenEdge[Value]{}, nil, err
+			return nil, nil, err
 		}
 
 		edges = append(edges, oe)

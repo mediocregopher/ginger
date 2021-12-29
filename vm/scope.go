@@ -23,7 +23,7 @@ type Scope interface {
 
 // edgeToValue ignores the edgeValue, it only evaluates the edge's vertex as a
 // Value.
-func edgeToValue(edge graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
+func edgeToValue(edge *graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
 
 	if ggVal, ok := edge.FromValue(); ok {
 
@@ -61,7 +61,7 @@ func edgeToValue(edge graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
 // EvaluateEdge will use the given Scope to evaluate the edge's ultimate Value,
 // after passing all leaf vertices up the tree through all Operations found on
 // edge values.
-func EvaluateEdge(edge graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
+func EvaluateEdge(edge *graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
 
 	edgeVal := Value{Value: edge.EdgeValue()}
 

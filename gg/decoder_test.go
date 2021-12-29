@@ -21,15 +21,15 @@ func TestDecoder(t *testing.T) {
 		return Value{Name: &n}
 	}
 
-	vOut := func(val, edgeVal Value) graph.OpenEdge[Value] {
+	vOut := func(val, edgeVal Value) *graph.OpenEdge[Value] {
 		return graph.ValueOut(val, edgeVal)
 	}
 
-	tOut := func(ins []graph.OpenEdge[Value], edgeVal Value) graph.OpenEdge[Value] {
+	tOut := func(ins []*graph.OpenEdge[Value], edgeVal Value) *graph.OpenEdge[Value] {
 		return graph.TupleOut(ins, edgeVal)
 	}
 
-	type openEdge = graph.OpenEdge[Value]
+	type openEdge = *graph.OpenEdge[Value]
 
 	tests := []struct {
 		in  string
