@@ -111,7 +111,7 @@ func (oe OpenEdge[E, V]) FromTuple() ([]*OpenEdge[E, V], bool) {
 
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the vertex containing val.
-func ValueOut[E, V Value](val V, edgeVal E) *OpenEdge[E, V] {
+func ValueOut[E, V Value](edgeVal E, val V) *OpenEdge[E, V] {
 	return &OpenEdge[E, V]{
 		val: &val,
 		edgeVal: edgeVal,
@@ -121,7 +121,7 @@ func ValueOut[E, V Value](val V, edgeVal E) *OpenEdge[E, V] {
 // TupleOut creates an OpenEdge which, when used to construct a Graph,
 // represents an edge (with edgeVal attached to it) coming from the vertex
 // comprised of the given ordered-set of input edges.
-func TupleOut[E, V Value](ins []*OpenEdge[E, V], edgeVal E) *OpenEdge[E, V] {
+func TupleOut[E, V Value](edgeVal E, ins ...*OpenEdge[E, V]) *OpenEdge[E, V] {
 
 	if len(ins) == 1 {
 
@@ -218,7 +218,7 @@ func (g *Graph[E, V]) dedupeEdge(edge *OpenEdge[E, V]) *OpenEdge[E, V] {
 		tupEdges[i] = g.dedupeEdge(edge.tup[i])
 	}
 
-	return TupleOut(tupEdges, edge.EdgeValue())
+	return TupleOut(edge.EdgeValue(), tupEdges...)
 }
 
 // ValueIns returns, if any, all OpenEdges which lead to the given Value in the
@@ -240,7 +240,7 @@ func (g *Graph[E, V]) ValueIns(val Value) []*OpenEdge[E, V] {
 
 // AddValueIn takes a OpenEdge and connects it to the Value vertex containing
 // val, returning the new Graph which reflects that connection.
-func (g *Graph[E, V]) AddValueIn(oe *OpenEdge[E, V], val V) *Graph[E, V] {
+func (g *Graph[E, V]) AddValueIn(val V, oe *OpenEdge[E, V]) *Graph[E, V] {
 
 	valIn := graphValueIn[E, V]{
 		val: val,

@@ -52,14 +52,14 @@ func preEvalEdgeOp(fn func(*gg.OpenEdge) (Value, error)) Operation {
 			tupEdges := make([]*gg.OpenEdge, len(val.Tuple))
 
 			for i := range val.Tuple {
-				tupEdges[i] = graph.ValueOut[gg.Value](val.Tuple[i].Value, gg.ZeroValue)
+				tupEdges[i] = graph.ValueOut[gg.Value](gg.ZeroValue, val.Tuple[i].Value)
 			}
 
-			edge = graph.TupleOut[gg.Value](tupEdges, gg.ZeroValue)
+			edge = graph.TupleOut[gg.Value](gg.ZeroValue, tupEdges...)
 
 		} else {
 
-			edge = graph.ValueOut[gg.Value](val.Value, gg.ZeroValue)
+			edge = graph.ValueOut[gg.Value](gg.ZeroValue, val.Value)
 
 		}
 
@@ -92,7 +92,7 @@ func (g *graphOp) Perform(edge *gg.OpenEdge, scope Scope) (Value, error) {
 	return preEvalEdgeOp(func(edge *gg.OpenEdge) (Value, error) {
 
 		scope = ScopeFromGraph(
-			g.Graph.AddValueIn(edge, inVal.Value),
+			g.Graph.AddValueIn(inVal.Value, edge),
 			g.scope,
 		)
 

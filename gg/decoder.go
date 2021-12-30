@@ -124,7 +124,7 @@ func (d *decoder) parseOpenEdge(
 	}
 
 	if termed {
-		return graph.ValueOut[Value](val, ZeroValue), toks, nil
+		return graph.ValueOut[Value](ZeroValue, val), toks, nil
 	}
 
 	opTok, toks := toks[0], toks[1:]
@@ -143,7 +143,7 @@ func (d *decoder) parseOpenEdge(
 		return nil, nil, err
 	}
 
-	oe = graph.TupleOut[Value]([]*OpenEdge{oe}, val)
+	oe = graph.TupleOut[Value](val, oe)
 
 	return oe, toks, nil
 }
@@ -189,7 +189,7 @@ func (d *decoder) parseTuple(
 		toks = toks[1:]
 	}
 
-	return graph.TupleOut[Value](edges, ZeroValue), toks, nil
+	return graph.TupleOut[Value](ZeroValue, edges...), toks, nil
 }
 
 // returned boolean value indicates if the token following the graph is a term.
@@ -288,7 +288,7 @@ func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerTok
 
 	dstVal := Value{Name: &dst.Value, LexerToken: &dst}
 
-	return into.AddValueIn(oe, dstVal), toks, nil
+	return into.AddValueIn(dstVal, oe), toks, nil
 }
 
 func (d *decoder) decode(lexer Lexer) (*Graph, error) {

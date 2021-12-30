@@ -21,12 +21,12 @@ func TestDecoder(t *testing.T) {
 		return Value{Name: &n}
 	}
 
-	vOut := func(val, edgeVal Value) *OpenEdge {
-		return graph.ValueOut(val, edgeVal)
+	vOut := func(edgeVal, val Value) *OpenEdge {
+		return graph.ValueOut(edgeVal, val)
 	}
 
-	tOut := func(ins []*OpenEdge, edgeVal Value) *OpenEdge {
-		return graph.TupleOut(ins, edgeVal)
+	tOut := func(edgeVal Value, ins ...*OpenEdge) *OpenEdge {
+		return graph.TupleOut(edgeVal, ins...)
 	}
 
 	tests := []struct {
@@ -39,107 +39,98 @@ func TestDecoder(t *testing.T) {
 		},
 		{
 			in:  "out = 1;",
-			exp: zeroGraph.AddValueIn(vOut(i(1), ZeroValue), n("out")),
+			exp: zeroGraph.AddValueIn(n("out"), vOut(ZeroValue, i(1))),
 		},
 		{
 			in:  "out = incr < 1;",
-			exp: zeroGraph.AddValueIn(vOut(i(1), n("incr")), n("out")),
+			exp: zeroGraph.AddValueIn(n("out"), vOut(n("incr"), i(1))),
 		},
 		{
 			in: "out = a < b < 1;",
 			exp: zeroGraph.AddValueIn(
-				tOut(
-					[]*OpenEdge{vOut(i(1), n("b"))},
-					n("a"),
-				),
 				n("out"),
+				tOut(
+					n("a"),
+					vOut(n("b"),
+					i(1)),
+				),
 			),
 		},
 		{
 			in: "out = a < b < (1; c < 2; d < e < 3;);",
 			exp: zeroGraph.AddValueIn(
-				tOut(
-					[]*OpenEdge{tOut(
-						[]*OpenEdge{
-							vOut(i(1), ZeroValue),
-							vOut(i(2), n("c")),
-							tOut(
-								[]*OpenEdge{vOut(i(3), n("e"))},
-								n("d"),
-							),
-						},
-						n("b"),
-					)},
-					n("a"),
-				),
 				n("out"),
+				tOut(
+					n("a"),
+					tOut(
+						n("b"),
+						vOut(ZeroValue, i(1)),
+						vOut(n("c"), i(2)),
+						tOut(
+							n("d"),
+							vOut(n("e"), i(3)),
+						),
+					),
+				),
 			),
 		},
 		{
 			in: "out = a < b < (1; c < (d < 2; 3;); );",
 			exp: zeroGraph.AddValueIn(
-				tOut(
-					[]*OpenEdge{tOut(
-						[]*OpenEdge{
-							vOut(i(1), ZeroValue),
-							tOut(
-								[]*OpenEdge{
-									vOut(i(2), n("d")),
-									vOut(i(3), ZeroValue),
-								},
-								n("c"),
-							),
-						},
-						n("b"),
-					)},
-					n("a"),
-				),
 				n("out"),
+				tOut(
+					n("a"),
+					tOut(
+						n("b"),
+						vOut(ZeroValue, i(1)),
+						tOut(
+							n("c"),
+							vOut(n("d"), i(2)),
+							vOut(ZeroValue, i(3)),
+						),
+					),
+				),
 			),
 		},
 		{
 			in: "out = { a = 1; b = c < d < 2; };",
 			exp: zeroGraph.AddValueIn(
+				n("out"),
 				vOut(
+					ZeroValue,
 					Value{Graph: zeroGraph.
-						AddValueIn(vOut(i(1), ZeroValue), n("a")).
+						AddValueIn(n("a"), vOut(ZeroValue, i(1))).
 						AddValueIn(
-							tOut(
-								[]*OpenEdge{
-									vOut(i(2), n("d")),
-								},
-								n("c"),
-							),
 							n("b"),
+							tOut(
+								n("c"),
+								vOut(n("d"), i(2)),
+							),
 						),
 					},
-					ZeroValue,
 				),
-				n("out"),
 			),
 		},
 		{
 			in: "out = a < { b = 1; } < 2;",
 			exp: zeroGraph.AddValueIn(
-				tOut(
-					[]*OpenEdge{
-						vOut(
-							i(2),
-							Value{Graph: zeroGraph.
-								AddValueIn(vOut(i(1), ZeroValue), n("b")),
-							},
-						),
-					},
-					n("a"),
-				),
 				n("out"),
+				tOut(
+					n("a"),
+					vOut(
+						Value{Graph: zeroGraph.
+							AddValueIn(n("b"), vOut(ZeroValue, i(1))),
+						},
+						i(2),
+					),
+				),
 			),
 		},
 		{
 			in: "a = 1; b = 2;",
 			exp: zeroGraph.
-				AddValueIn(vOut(i(1), ZeroValue), n("a")).
-				AddValueIn(vOut(i(2), ZeroValue), n("b")),
+				AddValueIn(n("a"), vOut(ZeroValue, i(1))).
+				AddValueIn(n("b"), vOut(ZeroValue, i(2))),
 		},
 	}
 

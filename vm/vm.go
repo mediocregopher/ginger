@@ -115,5 +115,5 @@ func EvaluateSource(opSrc io.Reader, input gg.Value, scope Scope) (Value, error)
 
 	op := OperationFromGraph(g, scope.NewScope())
 
-	return op.Perform(graph.ValueOut[gg.Value](input, gg.ZeroValue), scope)
+	return op.Perform(graph.ValueOut[gg.Value](gg.ZeroValue, input), scope)
 }
