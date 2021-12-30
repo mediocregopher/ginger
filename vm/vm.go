@@ -115,5 +115,13 @@ func EvaluateSource(opSrc io.Reader, input gg.Value, scope Scope) (Value, error)
 
 	op := OperationFromGraph(g, scope.NewScope())
 
-	return op.Perform(graph.ValueOut[gg.Value](gg.ZeroValue, input), scope)
+	thunk, err := op.Perform([]Thunk{
+		func() (Value, error) { return Value{Value: input}, nil },
+	})
+
+	if err != nil {
+		return ZeroValue, err
+	}
+
+	return thunk()
 }

@@ -2,70 +2,73 @@ package vm
 
 import (
 	"github.com/mediocregopher/ginger/gg"
-	"github.com/mediocregopher/ginger/graph"
 )
 
 var (
-	inVal  = nameVal("in")
 	outVal = nameVal("out")
 )
 
-// Operation is an entity which can accept a single argument (the OpenEdge),
-// perform some internal processing on that argument, and return a resultant
-// Value.
-//
-// The Scope passed into Perform can be used to Evaluate the OpenEdge, as
-// needed.
+// Thunk is returned from the performance of an Operation. When called it will
+// return the result of that Operation having been called with the particular
+// arguments which were passed in.
+type Thunk func() (Value, error)
+
+func valThunk(val Value) Thunk {
+	return func() (Value, error) { return val, nil }
+}
+
+// evalThunks is used to coalesce the results of multiple Thunks into a single
+// Thunk which will return a tuple Value. As a special case, if only one Thunk
+// is given then it is returned directly (1-tuple is equivalent to its only
+// element).
+func evalThunks(args []Thunk) Thunk {
+
+	if len(args) == 1 {
+		return args[0]
+	}
+
+	return func() (Value, error) {
+
+		var (
+			err error
+			tupVals = make([]Value, len(args))
+		)
+
+		for i := range args {
+			if tupVals[i], err = args[i](); err != nil {
+				return ZeroValue, err
+			}
+		}
+
+		return Value{Tuple: tupVals}, nil
+	}
+}
+
+
+// Operation is an entity which can accept one or more arguments (each not
+// having been evaluated yet) and return a Thunk which will perform some internal processing on those
+// arguments and return a resultant Value.
 type Operation interface {
-	Perform(*gg.OpenEdge, Scope) (Value, error)
+	Perform([]Thunk) (Thunk, error)
 }
 
 func preEvalValOp(fn func(Value) (Value, error)) Operation {
 
-	return OperationFunc(func(edge *gg.OpenEdge, scope Scope) (Value, error) {
+	return OperationFunc(func(args []Thunk) (Thunk, error) {
 
-		edgeVal, err := EvaluateEdge(edge, scope)
+		return func() (Value, error) {
 
-		if err != nil {
-			return Value{}, err
-		}
+			val, err := evalThunks(args)()
 
-		return fn(edgeVal)
-	})
-}
-
-// NOTE this is a giant hack to get around the fact that we're not yet
-// using a genericized Graph implementation, so when we do AddValueIn
-// on a gg.Graph we can't use a Tuple value (because gg has no Tuple
-// value), we have to use a Tuple vertex instead.
-//
-// This also doesn't yet support passing an operation as a value to another
-// operation.
-func preEvalEdgeOp(fn func(*gg.OpenEdge) (Value, error)) Operation {
-
-	return preEvalValOp(func(val Value) (Value, error) {
-
-		var edge *gg.OpenEdge
-
-		if len(val.Tuple) > 0 {
-
-			tupEdges := make([]*gg.OpenEdge, len(val.Tuple))
-
-			for i := range val.Tuple {
-				tupEdges[i] = graph.ValueOut[gg.Value](gg.ZeroValue, val.Tuple[i].Value)
+			if err != nil {
+				return ZeroValue, err
 			}
 
-			edge = graph.TupleOut[gg.Value](gg.ZeroValue, tupEdges...)
+			return fn(val)
 
-		} else {
+		}, nil
 
-			edge = graph.ValueOut[gg.Value](gg.ZeroValue, val.Value)
-
-		}
-
-		return fn(edge)
 	})
-
 }
 
 type graphOp struct {
@@ -76,10 +79,9 @@ type graphOp struct {
 // OperationFromGraph wraps the given Graph such that it can be used as an
 // operation.
 //
-// When Perform is called the passed in OpenEdge is set to the "in" name value
-// of the given Graph, then that resultant graph and the given parent Scope are
-// used to construct a new Scope. The "out" name value is Evaluated on that
-// Scope to obtain a resultant Value.
+// The Thunk returned by Perform will evaluate the passed in Thunks, and set
+// them to the "in" name value of the given Graph. The "out" name value is
+// Evaluated using the given Scope to obtain a resultant Value.
 func OperationFromGraph(g *gg.Graph, scope Scope) Operation {
 	return &graphOp{
 		Graph: g,
@@ -87,25 +89,18 @@ func OperationFromGraph(g *gg.Graph, scope Scope) Operation {
 	}
 }
 
-func (g *graphOp) Perform(edge *gg.OpenEdge, scope Scope) (Value, error) {
-
-	return preEvalEdgeOp(func(edge *gg.OpenEdge) (Value, error) {
-
-		scope = ScopeFromGraph(
-			g.Graph.AddValueIn(inVal.Value, edge),
-			g.scope,
-		)
-
-		return scope.Evaluate(outVal)
-
-	}).Perform(edge, scope)
-
+func (g *graphOp) Perform(args []Thunk) (Thunk, error) {
+	return ScopeFromGraph(
+		g.Graph,
+		evalThunks(args),
+		g.scope,
+	).Evaluate(outVal)
 }
 
 // OperationFunc is a function which implements the Operation interface.
-type OperationFunc func(*gg.OpenEdge, Scope) (Value, error)
+type OperationFunc func([]Thunk) (Thunk, error)
 
 // Perform calls the underlying OperationFunc directly.
-func (f OperationFunc) Perform(edge *gg.OpenEdge, scope Scope) (Value, error) {
-	return f(edge, scope)
+func (f OperationFunc) Perform(args []Thunk) (Thunk, error) {
+	return f(args)
 }

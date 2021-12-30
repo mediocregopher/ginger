@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mediocregopher/ginger/gg"
+	"github.com/mediocregopher/ginger/graph"
 )
 
 // Scope encapsulates a set of names and the values they indicate, or the means
@@ -11,50 +12,13 @@ import (
 // its value.
 type Scope interface {
 
-	// Evaluate accepts a name Value and returns the real Value which that name
-	// points to.
-	Evaluate(Value) (Value, error)
+	// Evaluate accepts a name Value and returns a Thunk which will return the
+	// real Value which that name points to.
+	Evaluate(Value) (Thunk, error)
 
 	// NewScope returns a new Scope which sub-operations within this Scope
 	// should use for themselves.
 	NewScope() Scope
-}
-
-// edgeToValue ignores the edgeValue, it only evaluates the edge's vertex as a
-// Value.
-func edgeToValue(edge *gg.OpenEdge, scope Scope) (Value, error) {
-
-	if ggVal, ok := edge.FromValue(); ok {
-
-		val := Value{Value: ggVal}
-
-		if val.Name != nil {
-			return scope.Evaluate(val)
-		}
-
-		return val, nil
-	}
-
-	var tupVal Value
-
-	tup, _ := edge.FromTuple()
-
-	for _, tupEdge := range tup {
-
-		val, err := EvaluateEdge(tupEdge, scope)
-
-		if err != nil {
-			return Value{}, err
-		}
-
-		tupVal.Tuple = append(tupVal.Tuple, val)
-	}
-
-	if len(tupVal.Tuple) == 1 {
-		return tupVal.Tuple[0], nil
-	}
-
-	return tupVal, nil
 }
 
 // EvaluateEdge will use the given Scope to evaluate the edge's ultimate Value,
@@ -62,35 +26,62 @@ func edgeToValue(edge *gg.OpenEdge, scope Scope) (Value, error) {
 // edge values.
 func EvaluateEdge(edge *gg.OpenEdge, scope Scope) (Value, error) {
 
-	edgeVal := Value{Value: edge.EdgeValue()}
+	thunk, err := graph.MapReduce[gg.Value, gg.Value, Thunk](
+		edge,
+		func(ggVal gg.Value) (Thunk, error) {
 
-	if edgeVal.IsZero() {
-		return edgeToValue(edge, scope)
+			val := Value{Value: ggVal}
+
+			if val.Name != nil {
+				return scope.Evaluate(val)
+			}
+
+			return valThunk(val), nil
+
+		},
+		func(ggEdgeVal gg.Value, args []Thunk) (Thunk, error) {
+
+			if ggEdgeVal.IsZero() {
+				return evalThunks(args), nil
+			}
+
+			edgeVal := Value{Value: ggEdgeVal}
+
+			if edgeVal.Name != nil {
+
+				nameThunk, err := scope.Evaluate(edgeVal)
+
+				if err != nil {
+					return nil, err
+
+				} else if edgeVal, err = nameThunk(); err != nil {
+					return nil, err
+				}
+			}
+
+			if edgeVal.Graph != nil {
+
+				edgeVal = Value{
+					Operation: OperationFromGraph(
+						edgeVal.Graph,
+						scope.NewScope(),
+					),
+				}
+			}
+
+			if edgeVal.Operation == nil {
+				return nil, fmt.Errorf("edge value must be an operation")
+			}
+
+			return edgeVal.Operation.Perform(args)
+		},
+	)
+
+	if err != nil {
+		return ZeroValue, err
 	}
 
-	edge = edge.WithEdgeValue(gg.ZeroValue)
-
-	if edgeVal.Name != nil {
-
-		var err error
-
-		if edgeVal, err = scope.Evaluate(edgeVal); err != nil {
-			return Value{}, err
-		}
-	}
-
-	if edgeVal.Graph != nil {
-
-		edgeVal = Value{
-			Operation: OperationFromGraph(edgeVal.Graph, scope.NewScope()),
-		}
-	}
-
-	if edgeVal.Operation == nil {
-		return Value{}, fmt.Errorf("edge value must be an operation")
-	}
-
-	return edgeVal.Operation.Perform(edge, scope)
+	return thunk()
 }
 
 // ScopeMap implements the Scope interface.
@@ -100,19 +91,19 @@ var _ Scope = ScopeMap{}
 
 // Evaluate uses the given name Value as a key into the ScopeMap map, and
 // returns the Value held there for the key, if any.
-func (m ScopeMap) Evaluate(nameVal Value) (Value, error) {
+func (m ScopeMap) Evaluate(nameVal Value) (Thunk, error) {
 
 	if nameVal.Name == nil {
-		return Value{}, fmt.Errorf("value %v is not a name value", nameVal)
+		return nil, fmt.Errorf("value %v is not a name value", nameVal)
 	}
 
 	val, ok := m[*nameVal.Name]
 
 	if !ok {
-		return Value{}, fmt.Errorf("%q not defined", *nameVal.Name)
+		return nil, fmt.Errorf("%q not defined", *nameVal.Name)
 	}
 
-	return val, nil
+	return valThunk(val), nil
 }
 
 // NewScope returns the ScopeMap as-is.
@@ -122,6 +113,7 @@ func (m ScopeMap) NewScope() Scope {
 
 type graphScope struct {
 	*gg.Graph
+	in Thunk
 	parent Scope
 }
 
@@ -132,23 +124,31 @@ type graphScope struct {
 // be followed, with edge values being evaluated to Operations, until a Value
 // can be obtained.
 //
+// As a special case, if the name "in" is evaluated, either directly or as part
+// of an outer evaluation, then the given Thunk is used to evaluate the Value.
+//
 // If a name does not appear in the Graph, then the given parent Scope will be
 // used to evaluate that name. If the parent Scope is nil then an error is
 // returned.
 //
 // NewScope will return the parent scope, if one is given, or an empty ScopeMap
 // if not.
-func ScopeFromGraph(g *gg.Graph, parent Scope) Scope {
+func ScopeFromGraph(g *gg.Graph, in Thunk, parent Scope) Scope {
 	return &graphScope{
 		Graph:  g,
+		in: in,
 		parent: parent,
 	}
 }
 
-func (g *graphScope) Evaluate(nameVal Value) (Value, error) {
+func (g *graphScope) Evaluate(nameVal Value) (Thunk, error) {
 
 	if nameVal.Name == nil {
-		return Value{}, fmt.Errorf("value %v is not a name value", nameVal)
+		return nil, fmt.Errorf("value %v is not a name value", nameVal)
+	}
+
+	if *nameVal.Name == "in" {
+		return g.in, nil
 	}
 
 	edgesIn := g.ValueIns(nameVal.Value)
@@ -159,13 +159,13 @@ func (g *graphScope) Evaluate(nameVal Value) (Value, error) {
 
 	} else if l != 1 {
 
-		return Value{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"%q must have exactly one input edge, found %d input edges",
 			*nameVal.Name, l,
 		)
 	}
 
-	return EvaluateEdge(edgesIn[0], g)
+	return func() (Value, error) { return EvaluateEdge(edgesIn[0], g) }, nil
 }
 
 func (g *graphScope) NewScope() Scope {
