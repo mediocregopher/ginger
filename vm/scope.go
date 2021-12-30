@@ -24,7 +24,9 @@ type Scope interface {
 // EvaluateEdge will use the given Scope to evaluate the edge's ultimate Value,
 // after passing all leaf vertices up the tree through all Operations found on
 // edge values.
-func EvaluateEdge(edge *gg.OpenEdge, scope Scope) (Value, error) {
+//
+// The Operation is the Operation which is evaluating the edge, if any.
+func EvaluateEdge(edge *gg.OpenEdge, scope Scope, op Operation) (Value, error) {
 
 	thunk, err := graph.MapReduce[gg.Value, gg.Value, Thunk](
 		edge,
@@ -73,7 +75,7 @@ func EvaluateEdge(edge *gg.OpenEdge, scope Scope) (Value, error) {
 				return nil, fmt.Errorf("edge value must be an operation")
 			}
 
-			return edgeVal.Operation.Perform(args)
+			return edgeVal.Operation.Perform(args, op)
 		},
 	)
 
@@ -115,6 +117,7 @@ type graphScope struct {
 	*gg.Graph
 	in Thunk
 	parent Scope
+	op Operation
 }
 
 // ScopeFromGraph returns a Scope which will use the given Graph for evaluation.
@@ -133,11 +136,12 @@ type graphScope struct {
 //
 // NewScope will return the parent scope, if one is given, or an empty ScopeMap
 // if not.
-func ScopeFromGraph(g *gg.Graph, in Thunk, parent Scope) Scope {
+func ScopeFromGraph(g *gg.Graph, in Thunk, parent Scope, op Operation) Scope {
 	return &graphScope{
 		Graph:  g,
 		in: in,
 		parent: parent,
+		op: op,
 	}
 }
 
@@ -165,7 +169,9 @@ func (g *graphScope) Evaluate(nameVal Value) (Thunk, error) {
 		)
 	}
 
-	return func() (Value, error) { return EvaluateEdge(edgesIn[0], g) }, nil
+	return func() (Value, error) {
+		return EvaluateEdge(edgesIn[0], g, g.op)
+	}, nil
 }
 
 func (g *graphScope) NewScope() Scope {

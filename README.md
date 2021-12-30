@@ -4,17 +4,23 @@ Fibonacci function in ginger:
 
 ```
 fib = {
+
     decr = { out = add < (in; -1;); };
 
     out = {
-        n = 0 < in;
-        a = 1 < in;
-        b = 2 < in;
 
-        out < if < (
+        n = tupEl < (in; 0;);
+        a = tupEl < (in; 1;);
+        b = tupEl < (in; 2;);
+
+        out = if < (
             zero? < n;
             a;
-            recur < (decr < n; b; add < (a;b;); );
+            recur < (
+                decr < n;
+                b;
+                add < (a;b;);
+            );
         );
 
     } < (in; 0; 1;);

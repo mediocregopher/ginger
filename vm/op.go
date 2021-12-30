@@ -46,15 +46,18 @@ func evalThunks(args []Thunk) Thunk {
 
 
 // Operation is an entity which can accept one or more arguments (each not
-// having been evaluated yet) and return a Thunk which will perform some internal processing on those
-// arguments and return a resultant Value.
+// having been evaluated yet) and return a Thunk which will perform some
+// internal processing on those arguments and return a resultant Value.
+//
+// The Operation passed into Perform is the Operation which is calling the
+// Perform. It may be nil.
 type Operation interface {
-	Perform([]Thunk) (Thunk, error)
+	Perform([]Thunk, Operation) (Thunk, error)
 }
 
 func preEvalValOp(fn func(Value) (Value, error)) Operation {
 
-	return OperationFunc(func(args []Thunk) (Thunk, error) {
+	return OperationFunc(func(args []Thunk, _ Operation) (Thunk, error) {
 
 		return func() (Value, error) {
 
@@ -89,18 +92,19 @@ func OperationFromGraph(g *gg.Graph, scope Scope) Operation {
 	}
 }
 
-func (g *graphOp) Perform(args []Thunk) (Thunk, error) {
+func (g *graphOp) Perform(args []Thunk, _ Operation) (Thunk, error) {
 	return ScopeFromGraph(
 		g.Graph,
 		evalThunks(args),
 		g.scope,
+		g,
 	).Evaluate(outVal)
 }
 
 // OperationFunc is a function which implements the Operation interface.
-type OperationFunc func([]Thunk) (Thunk, error)
+type OperationFunc func([]Thunk, Operation) (Thunk, error)
 
 // Perform calls the underlying OperationFunc directly.
-func (f OperationFunc) Perform(args []Thunk) (Thunk, error) {
-	return f(args)
+func (f OperationFunc) Perform(args []Thunk, op Operation) (Thunk, error) {
+	return f(args, op)
 }
