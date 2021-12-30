@@ -16,7 +16,7 @@ type Value struct {
 	// Only one of these fields may be set
 	Name   *string
 	Number *int64
-	Graph  *graph.Graph[Value]
+	Graph  *Graph
 
 	// TODO coming soon!
 	// String *string

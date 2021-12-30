@@ -11,7 +11,7 @@ import (
 
 func TestDecoder(t *testing.T) {
 
-	zeroGraph := new(graph.Graph[Value])
+	zeroGraph := new(Graph)
 
 	i := func(i int64) Value {
 		return Value{Number: &i}
@@ -21,19 +21,17 @@ func TestDecoder(t *testing.T) {
 		return Value{Name: &n}
 	}
 
-	vOut := func(val, edgeVal Value) *graph.OpenEdge[Value] {
+	vOut := func(val, edgeVal Value) *OpenEdge {
 		return graph.ValueOut(val, edgeVal)
 	}
 
-	tOut := func(ins []*graph.OpenEdge[Value], edgeVal Value) *graph.OpenEdge[Value] {
+	tOut := func(ins []*OpenEdge, edgeVal Value) *OpenEdge {
 		return graph.TupleOut(ins, edgeVal)
 	}
 
-	type openEdge = *graph.OpenEdge[Value]
-
 	tests := []struct {
 		in  string
-		exp *graph.Graph[Value]
+		exp *Graph
 	}{
 		{
 			in:  "",
@@ -51,7 +49,7 @@ func TestDecoder(t *testing.T) {
 			in: "out = a < b < 1;",
 			exp: zeroGraph.AddValueIn(
 				tOut(
-					[]openEdge{vOut(i(1), n("b"))},
+					[]*OpenEdge{vOut(i(1), n("b"))},
 					n("a"),
 				),
 				n("out"),
@@ -61,12 +59,12 @@ func TestDecoder(t *testing.T) {
 			in: "out = a < b < (1; c < 2; d < e < 3;);",
 			exp: zeroGraph.AddValueIn(
 				tOut(
-					[]openEdge{tOut(
-						[]openEdge{
+					[]*OpenEdge{tOut(
+						[]*OpenEdge{
 							vOut(i(1), ZeroValue),
 							vOut(i(2), n("c")),
 							tOut(
-								[]openEdge{vOut(i(3), n("e"))},
+								[]*OpenEdge{vOut(i(3), n("e"))},
 								n("d"),
 							),
 						},
@@ -81,11 +79,11 @@ func TestDecoder(t *testing.T) {
 			in: "out = a < b < (1; c < (d < 2; 3;); );",
 			exp: zeroGraph.AddValueIn(
 				tOut(
-					[]openEdge{tOut(
-						[]openEdge{
+					[]*OpenEdge{tOut(
+						[]*OpenEdge{
 							vOut(i(1), ZeroValue),
 							tOut(
-								[]openEdge{
+								[]*OpenEdge{
 									vOut(i(2), n("d")),
 									vOut(i(3), ZeroValue),
 								},
@@ -107,7 +105,7 @@ func TestDecoder(t *testing.T) {
 						AddValueIn(vOut(i(1), ZeroValue), n("a")).
 						AddValueIn(
 							tOut(
-								[]openEdge{
+								[]*OpenEdge{
 									vOut(i(2), n("d")),
 								},
 								n("c"),
@@ -124,7 +122,7 @@ func TestDecoder(t *testing.T) {
 			in: "out = a < { b = 1; } < 2;",
 			exp: zeroGraph.AddValueIn(
 				tOut(
-					[]openEdge{
+					[]*OpenEdge{
 						vOut(
 							i(2),
 							Value{Graph: zeroGraph.

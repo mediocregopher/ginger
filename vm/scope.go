@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/mediocregopher/ginger/gg"
-	"github.com/mediocregopher/ginger/graph"
 )
 
 // Scope encapsulates a set of names and the values they indicate, or the means
@@ -23,7 +22,7 @@ type Scope interface {
 
 // edgeToValue ignores the edgeValue, it only evaluates the edge's vertex as a
 // Value.
-func edgeToValue(edge *graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
+func edgeToValue(edge *gg.OpenEdge, scope Scope) (Value, error) {
 
 	if ggVal, ok := edge.FromValue(); ok {
 
@@ -61,7 +60,7 @@ func edgeToValue(edge *graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
 // EvaluateEdge will use the given Scope to evaluate the edge's ultimate Value,
 // after passing all leaf vertices up the tree through all Operations found on
 // edge values.
-func EvaluateEdge(edge *graph.OpenEdge[gg.Value], scope Scope) (Value, error) {
+func EvaluateEdge(edge *gg.OpenEdge, scope Scope) (Value, error) {
 
 	edgeVal := Value{Value: edge.EdgeValue()}
 
@@ -122,7 +121,7 @@ func (m ScopeMap) NewScope() Scope {
 }
 
 type graphScope struct {
-	*graph.Graph[gg.Value]
+	*gg.Graph
 	parent Scope
 }
 
@@ -139,7 +138,7 @@ type graphScope struct {
 //
 // NewScope will return the parent scope, if one is given, or an empty ScopeMap
 // if not.
-func ScopeFromGraph(g *graph.Graph[gg.Value], parent Scope) Scope {
+func ScopeFromGraph(g *gg.Graph, parent Scope) Scope {
 	return &graphScope{
 		Graph:  g,
 		parent: parent,

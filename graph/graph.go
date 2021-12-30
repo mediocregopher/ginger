@@ -15,16 +15,18 @@ type Value interface {
 	String() string
 }
 
-// OpenEdge is an un-realized Edge which can't be used for anything except
-// constructing graphs. It has no meaning on its own.
-type OpenEdge[V Value] struct {
+// OpenEdge consists of the edge value (E) and source vertex value (V) of an
+// edge in a Graph. When passed into the AddValueIn method a full edge is
+// created. An OpenEdge can also be sourced from a tuple vertex, whose value is
+// an ordered set of OpenEdges of this same type.
+type OpenEdge[E, V Value] struct {
 	val *V
-	tup []*OpenEdge[V]
+	tup []*OpenEdge[E, V]
 
-	edgeVal V
+	edgeVal E
 }
 
-func (oe *OpenEdge[V]) equal(oe2 *OpenEdge[V]) bool {
+func (oe *OpenEdge[E, V]) equal(oe2 *OpenEdge[E, V]) bool {
 	if !oe.edgeVal.Equal(oe2.edgeVal) {
 		return false
 	}
@@ -46,7 +48,7 @@ func (oe *OpenEdge[V]) equal(oe2 *OpenEdge[V]) bool {
 	return true
 }
 
-func (oe *OpenEdge[V]) String() string {
+func (oe *OpenEdge[E, V]) String() string {
 
 	vertexType := "tup"
 
@@ -75,20 +77,20 @@ func (oe *OpenEdge[V]) String() string {
 // the previous edge value.
 //
 // NOTE I _think_ this can be factored out once Graph is genericized.
-func (oe *OpenEdge[V]) WithEdgeValue(val V) *OpenEdge[V] {
+func (oe *OpenEdge[E, V]) WithEdgeValue(val E) *OpenEdge[E, V] {
 	oeCp := *oe
 	oeCp.edgeVal = val
 	return &oeCp
 }
 
 // EdgeValue returns the Value which lies on the edge itself.
-func (oe OpenEdge[V]) EdgeValue() V {
+func (oe OpenEdge[E, V]) EdgeValue() E {
 	return oe.edgeVal
 }
 
 // FromValue returns the Value from which the OpenEdge was created via ValueOut,
 // or false if it wasn't created via ValueOut.
-func (oe OpenEdge[V]) FromValue() (V, bool) {
+func (oe OpenEdge[E, V]) FromValue() (V, bool) {
 	if oe.val == nil {
 		var zero V
 		return zero, false
@@ -99,7 +101,7 @@ func (oe OpenEdge[V]) FromValue() (V, bool) {
 
 // FromTuple returns the tuple of OpenEdges from which the OpenEdge was created
 // via TupleOut, or false if it wasn't created via TupleOut.
-func (oe OpenEdge[V]) FromTuple() ([]*OpenEdge[V], bool) {
+func (oe OpenEdge[E, V]) FromTuple() ([]*OpenEdge[E, V], bool) {
 	if oe.val != nil {
 		return nil, false
 	}
@@ -109,8 +111,8 @@ func (oe OpenEdge[V]) FromTuple() ([]*OpenEdge[V], bool) {
 
 // ValueOut creates a OpenEdge which, when used to construct a Graph, represents
 // an edge (with edgeVal attached to it) coming from the vertex containing val.
-func ValueOut[V Value](val, edgeVal V) *OpenEdge[V] {
-	return &OpenEdge[V]{
+func ValueOut[E, V Value](val V, edgeVal E) *OpenEdge[E, V] {
+	return &OpenEdge[E, V]{
 		val: &val,
 		edgeVal: edgeVal,
 	}
@@ -119,7 +121,7 @@ func ValueOut[V Value](val, edgeVal V) *OpenEdge[V] {
 // TupleOut creates an OpenEdge which, when used to construct a Graph,
 // represents an edge (with edgeVal attached to it) coming from the vertex
 // comprised of the given ordered-set of input edges.
-func TupleOut[V Value](ins []*OpenEdge[V], edgeVal V) *OpenEdge[V] {
+func TupleOut[E, V Value](ins []*OpenEdge[E, V], edgeVal E) *OpenEdge[E, V] {
 
 	if len(ins) == 1 {
 
@@ -138,44 +140,44 @@ func TupleOut[V Value](ins []*OpenEdge[V], edgeVal V) *OpenEdge[V] {
 
 	}
 
-	return &OpenEdge[V]{
+	return &OpenEdge[E, V]{
 		tup: ins,
 		edgeVal: edgeVal,
 	}
 }
 
-type graphValueIn[V Value] struct {
+type graphValueIn[E, V Value] struct {
 	val   V
-	edge *OpenEdge[V]
+	edge *OpenEdge[E, V]
 }
 
-func (valIn graphValueIn[V]) equal(valIn2 graphValueIn[V]) bool {
+func (valIn graphValueIn[E, V]) equal(valIn2 graphValueIn[E, V]) bool {
 	return valIn.val.Equal(valIn2.val) && valIn.edge.equal(valIn2.edge)
 }
 
 // Graph is an immutable container of a set of vertices. The Graph keeps track
-// of all Values which terminate an OpenEdge (which may be a tree of Value/Tuple
-// vertices).
+// of all Values which terminate an OpenEdge. E indicates the type of edge
+// values, while V indicates the type of vertex values.
 //
 // NOTE The current implementation of Graph is incredibly inefficient, there's
 // lots of O(N) operations, unnecessary copying on changes, and duplicate data
 // in memory.
-type Graph[V Value] struct {
-	edges []*OpenEdge[V]
-	valIns []graphValueIn[V]
+type Graph[E, V Value] struct {
+	edges []*OpenEdge[E, V]
+	valIns []graphValueIn[E, V]
 }
 
-func (g *Graph[V]) cp() *Graph[V] {
-	cp := &Graph[V]{
-		edges: make([]*OpenEdge[V], len(g.edges)),
-		valIns: make([]graphValueIn[V], len(g.valIns)),
+func (g *Graph[E, V]) cp() *Graph[E, V] {
+	cp := &Graph[E, V]{
+		edges: make([]*OpenEdge[E, V], len(g.edges)),
+		valIns: make([]graphValueIn[E, V], len(g.valIns)),
 	}
 	copy(cp.edges, g.edges)
 	copy(cp.valIns, g.valIns)
 	return cp
 }
 
-func (g *Graph[V]) String() string {
+func (g *Graph[E, V]) String() string {
 
 	var strs []string
 
@@ -192,7 +194,7 @@ func (g *Graph[V]) String() string {
 // NOTE this method is used more for its functionality than for any performance
 // reasons... it's incredibly inefficient in how it deduplicates edges, but by
 // doing the deduplication we enable the graph map operation to work correctly.
-func (g *Graph[V]) dedupeEdge(edge *OpenEdge[V]) *OpenEdge[V] {
+func (g *Graph[E, V]) dedupeEdge(edge *OpenEdge[E, V]) *OpenEdge[E, V] {
 
 	// check if there's an existing edge which is fully equivalent in the graph
 	// already, and if so return that.
@@ -210,7 +212,7 @@ func (g *Graph[V]) dedupeEdge(edge *OpenEdge[V]) *OpenEdge[V] {
 	// this edge is a tuple edge, it's possible that one of its sub-edges is
 	// already in the graph. dedupe each sub-edge individually.
 
-	tupEdges := make([]*OpenEdge[V], len(edge.tup))
+	tupEdges := make([]*OpenEdge[E, V], len(edge.tup))
 
 	for i := range edge.tup {
 		tupEdges[i] = g.dedupeEdge(edge.tup[i])
@@ -223,9 +225,9 @@ func (g *Graph[V]) dedupeEdge(edge *OpenEdge[V]) *OpenEdge[V] {
 // Graph (ie, all those added via AddValueIn).
 //
 // The returned slice should not be modified.
-func (g *Graph[V]) ValueIns(val Value) []*OpenEdge[V] {
+func (g *Graph[E, V]) ValueIns(val Value) []*OpenEdge[E, V] {
 
-	var edges []*OpenEdge[V]
+	var edges []*OpenEdge[E, V]
 
 	for _, valIn := range g.valIns {
 		if valIn.val.Equal(val) {
@@ -238,9 +240,9 @@ func (g *Graph[V]) ValueIns(val Value) []*OpenEdge[V] {
 
 // AddValueIn takes a OpenEdge and connects it to the Value vertex containing
 // val, returning the new Graph which reflects that connection.
-func (g *Graph[V]) AddValueIn(oe *OpenEdge[V], val V) *Graph[V] {
+func (g *Graph[E, V]) AddValueIn(oe *OpenEdge[E, V], val V) *Graph[E, V] {
 
-	valIn := graphValueIn[V]{
+	valIn := graphValueIn[E, V]{
 		val: val,
 		edge: oe,
 	}
@@ -260,7 +262,7 @@ func (g *Graph[V]) AddValueIn(oe *OpenEdge[V], val V) *Graph[V] {
 }
 
 // Equal returns whether or not the two Graphs are equivalent in value.
-func (g *Graph[V]) Equal(g2 *Graph[V]) bool {
+func (g *Graph[E, V]) Equal(g2 *Graph[E, V]) bool {
 
 	if len(g.valIns) != len(g2.valIns) {
 		return false

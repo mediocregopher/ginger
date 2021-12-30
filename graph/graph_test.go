@@ -17,11 +17,11 @@ func TestEqual(t *testing.T) {
 
 	var (
 		zeroValue S
-		zeroGraph = new(Graph[S])
+		zeroGraph = new(Graph[S, S])
 	)
 
 	tests := []struct {
-		a, b *Graph[S]
+		a, b *Graph[S, S]
 		exp  bool
 	}{
 		{
@@ -31,78 +31,78 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			a:   zeroGraph,
-			b:   zeroGraph.AddValueIn(ValueOut[S]("in", "incr"), "out"),
+			b:   zeroGraph.AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
 			exp: false,
 		},
 		{
-			a:   zeroGraph.AddValueIn(ValueOut[S]("in", "incr"), "out"),
-			b:   zeroGraph.AddValueIn(ValueOut[S]("in", "incr"), "out"),
+			a:   zeroGraph.AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
+			b:   zeroGraph.AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
 			exp: true,
 		},
 		{
-			a: zeroGraph.AddValueIn(ValueOut[S]("in", "incr"), "out"),
-			b: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
-				ValueOut[S]("in", "ident"),
-				ValueOut[S]("1", "ident"),
+			a: zeroGraph.AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
+			b: zeroGraph.AddValueIn(TupleOut[S, S]([]*OpenEdge[S, S]{
+				ValueOut[S, S]("in", "ident"),
+				ValueOut[S, S]("1", "ident"),
 			}, "add"), "out"),
 			exp: false,
 		},
 		{
 			// tuples are different order
-			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
-				ValueOut[S]("1", "ident"),
-				ValueOut[S]("in", "ident"),
+			a: zeroGraph.AddValueIn(TupleOut[S, S]([]*OpenEdge[S, S]{
+				ValueOut[S, S]("1", "ident"),
+				ValueOut[S, S]("in", "ident"),
 			}, "add"), "out"),
-			b: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
-				ValueOut[S]("in", "ident"),
-				ValueOut[S]("1", "ident"),
+			b: zeroGraph.AddValueIn(TupleOut[S, S]([]*OpenEdge[S, S]{
+				ValueOut[S, S]("in", "ident"),
+				ValueOut[S, S]("1", "ident"),
 			}, "add"), "out"),
 			exp: false,
 		},
 		{
 			// tuple with no edge value and just a single input edge should be
 			// equivalent to just that edge.
-			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
-				ValueOut[S]("1", "ident"),
+			a: zeroGraph.AddValueIn(TupleOut[S, S]([]*OpenEdge[S, S]{
+				ValueOut[S, S]("1", "ident"),
 			}, zeroValue), "out"),
-			b:   zeroGraph.AddValueIn(ValueOut[S]("1", "ident"), "out"),
+			b:   zeroGraph.AddValueIn(ValueOut[S, S]("1", "ident"), "out"),
 			exp: true,
 		},
 		{
 			// tuple with an edge value and just a single input edge that has no
 			// edgeVal should be equivalent to just that edge with the tuple's
 			// edge value.
-			a: zeroGraph.AddValueIn(TupleOut[S]([]*OpenEdge[S]{
-				ValueOut[S]("1", zeroValue),
+			a: zeroGraph.AddValueIn(TupleOut[S, S]([]*OpenEdge[S, S]{
+				ValueOut[S, S]("1", zeroValue),
 			}, "ident"), "out"),
-			b:   zeroGraph.AddValueIn(ValueOut[S]("1", "ident"), "out"),
+			b:   zeroGraph.AddValueIn(ValueOut[S, S]("1", "ident"), "out"),
 			exp: true,
 		},
 		{
 			a: zeroGraph.
-				AddValueIn(ValueOut[S]("in", "incr"), "out").
-				AddValueIn(ValueOut[S]("in2", "incr2"), "out2"),
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out").
+				AddValueIn(ValueOut[S, S]("in2", "incr2"), "out2"),
 			b: zeroGraph.
-				AddValueIn(ValueOut[S]("in", "incr"), "out"),
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
 			exp: false,
 		},
 		{
 			a: zeroGraph.
-				AddValueIn(ValueOut[S]("in", "incr"), "out").
-				AddValueIn(ValueOut[S]("in2", "incr2"), "out2"),
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out").
+				AddValueIn(ValueOut[S, S]("in2", "incr2"), "out2"),
 			b: zeroGraph.
-				AddValueIn(ValueOut[S]("in", "incr"), "out").
-				AddValueIn(ValueOut[S]("in2", "incr2"), "out2"),
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out").
+				AddValueIn(ValueOut[S, S]("in2", "incr2"), "out2"),
 			exp: true,
 		},
 		{
 			// order of value ins shouldn't matter
 			a: zeroGraph.
-				AddValueIn(ValueOut[S]("in", "incr"), "out").
-				AddValueIn(ValueOut[S]("in2", "incr2"), "out2"),
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out").
+				AddValueIn(ValueOut[S, S]("in2", "incr2"), "out2"),
 			b: zeroGraph.
-				AddValueIn(ValueOut[S]("in2", "incr2"), "out2").
-				AddValueIn(ValueOut[S]("in", "incr"), "out"),
+				AddValueIn(ValueOut[S, S]("in2", "incr2"), "out2").
+				AddValueIn(ValueOut[S, S]("in", "incr"), "out"),
 			exp: true,
 		},
 	}

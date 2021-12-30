@@ -9,6 +9,12 @@ import (
 	"github.com/mediocregopher/ginger/graph"
 )
 
+// Type aliases for convenience
+type (
+	Graph = graph.Graph[Value, Value]
+	OpenEdge = graph.OpenEdge[Value, Value]
+)
+
 // Punctuations which are used in the gg file format.
 const (
 	punctTerm       = ";"
@@ -90,7 +96,7 @@ func (d *decoder) parseSingleValue(
 func (d *decoder) parseOpenEdge(
 	toks []LexerToken,
 ) (
-	*graph.OpenEdge[Value], []LexerToken, error,
+	*OpenEdge, []LexerToken, error,
 ) {
 
 	if isPunct(toks[0], punctOpenTuple) {
@@ -137,7 +143,7 @@ func (d *decoder) parseOpenEdge(
 		return nil, nil, err
 	}
 
-	oe = graph.TupleOut[Value]([]*graph.OpenEdge[Value]{oe}, val)
+	oe = graph.TupleOut[Value]([]*OpenEdge{oe}, val)
 
 	return oe, toks, nil
 }
@@ -145,12 +151,12 @@ func (d *decoder) parseOpenEdge(
 func (d *decoder) parseTuple(
 	toks []LexerToken,
 ) (
-	*graph.OpenEdge[Value], []LexerToken, error,
+	*OpenEdge, []LexerToken, error,
 ) {
 
 	openTok, toks := toks[0], toks[1:]
 
-	var edges []*graph.OpenEdge[Value]
+	var edges []*OpenEdge
 
 	for {
 
@@ -163,7 +169,7 @@ func (d *decoder) parseTuple(
 		}
 
 		var (
-			oe  *graph.OpenEdge[Value]
+			oe  *OpenEdge
 			err error
 		)
 
@@ -203,7 +209,7 @@ func (d *decoder) parseGraphValue(
 		openTok, toks = toks[0], toks[1:]
 	}
 
-	g := new(graph.Graph[Value])
+	g := new(Graph)
 
 	for {
 
@@ -254,7 +260,7 @@ func (d *decoder) parseGraphValue(
 	return val, toks, termed, nil
 }
 
-func (d *decoder) parseValIn(into *graph.Graph[Value], toks []LexerToken) (*graph.Graph[Value], []LexerToken, error) {
+func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerToken, error) {
 
 	if len(toks) == 0 {
 		return into, nil, nil
@@ -285,7 +291,7 @@ func (d *decoder) parseValIn(into *graph.Graph[Value], toks []LexerToken) (*grap
 	return into.AddValueIn(oe, dstVal), toks, nil
 }
 
-func (d *decoder) decode(lexer Lexer) (*graph.Graph[Value], error) {
+func (d *decoder) decode(lexer Lexer) (*Graph, error) {
 
 	var toks []LexerToken
 
@@ -316,7 +322,7 @@ func (d *decoder) decode(lexer Lexer) (*graph.Graph[Value], error) {
 // construct a Graph according to the rules of the gg file format. DecodeLexer
 // will only return an error if there is a non-EOF file returned from the Lexer,
 // or the tokens read cannot be used to construct a valid Graph.
-func DecodeLexer(lexer Lexer) (*graph.Graph[Value], error) {
+func DecodeLexer(lexer Lexer) (*Graph, error) {
 	decoder := &decoder{}
 	return decoder.decode(lexer)
 }
