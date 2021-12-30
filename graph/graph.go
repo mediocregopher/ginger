@@ -283,3 +283,140 @@ outer:
 
 	return true
 }
+
+
+func mapReduce[Ea, Va Value, Vb any](
+	root *OpenEdge[Ea, Va],
+	mapVal func(Va) (Vb, error),
+	reduceEdge func(*OpenEdge[Ea, Va], []Vb) (Vb, error),
+) (
+	Vb, error,
+){
+
+	if valA, ok := root.FromValue(); ok {
+
+		valB, err := mapVal(valA)
+
+		if err != nil {
+			var zero Vb
+			return zero, err
+		}
+
+		return reduceEdge(root, []Vb{valB})
+	}
+
+	tupA, _ := root.FromTuple()
+
+	valsB := make([]Vb, len(tupA))
+
+	for i := range tupA {
+
+		valB, err := mapReduce[Ea, Va, Vb](
+			tupA[i], mapVal, reduceEdge,
+		)
+
+		if err != nil {
+			var zero Vb
+			return zero, err
+		}
+
+		valsB[i] = valB
+	}
+
+	return reduceEdge(root, valsB)
+}
+
+type mappedVal[Va Value, Vb any] struct {
+	valA Va
+	valB Vb // result
+}
+
+type reducedEdge[Ea, Va Value, Vb any] struct {
+	edgeA *OpenEdge[Ea, Va]
+	valB Vb // result
+}
+
+// MapReduce recursively computes a resultant Value of type Vb from an
+// OpenEdge[Ea, Va].
+//
+// Tuple edges which are encountered will have Reduce called on each OpenEdge
+// branch of the tuple, to obtain a Vb for each branch. The edge value of the
+// tuple edge (Ea) and the just obtained Vbs are then passed to reduceEdge to
+// obtain a Vb for that edge.
+//
+// The values of value edges (Va) which are encountered are mapped to Vb using
+// the mapVal function. The edge value of those value edges (Ea) and the just
+// obtained Vb value are then passed to reduceEdge to obtain a Vb for that edge.
+//
+// If either the map or reduce function returns an error then processing is
+// immediately cancelled and that error is returned directly.
+//
+// If a value or edge is connected to multiple times within the root OpenEdge it
+// will only be mapped/reduced a single time, and the result of that single
+// map/reduction will be passed to each dependant operation.
+//
+func MapReduce[Ea, Va Value, Vb any](
+	root *OpenEdge[Ea, Va],
+	mapVal func(Va) (Vb, error),
+	reduceEdge func(Ea, []Vb) (Vb, error),
+) (
+	Vb, error,
+){
+
+	var (
+		zeroB Vb
+
+		// we use these to memoize reductions on values and edges, so a
+		// reduction is only performed a single time for each value/edge.
+		//
+		// NOTE this is not implemented very efficiently.
+		mappedVals []mappedVal[Va, Vb]
+		reducedEdges []reducedEdge[Ea, Va, Vb]
+	)
+
+	return mapReduce[Ea, Va, Vb](
+		root,
+		func(valA Va) (Vb, error) {
+
+			for _, mappedVal := range mappedVals {
+				if mappedVal.valA.Equal(valA) {
+					return mappedVal.valB, nil
+				}
+			}
+
+			valB, err := mapVal(valA)
+
+			if err != nil {
+				return zeroB, err
+			}
+
+			mappedVals = append(mappedVals, mappedVal[Va, Vb]{
+				valA: valA,
+				valB: valB,
+			})
+
+			return valB, nil
+		},
+		func(edgeA *OpenEdge[Ea, Va], valBs []Vb) (Vb, error) {
+
+			for _, reducedEdge := range reducedEdges {
+				if reducedEdge.edgeA.equal(edgeA) {
+					return reducedEdge.valB, nil
+				}
+			}
+
+			valB, err := reduceEdge(edgeA.EdgeValue(), valBs)
+
+			if err != nil {
+				return zeroB, err
+			}
+
+			reducedEdges = append(reducedEdges, reducedEdge[Ea, Va, Vb]{
+				edgeA: edgeA,
+				valB: valB,
+			})
+
+			return valB, nil
+		},
+	)
+}
