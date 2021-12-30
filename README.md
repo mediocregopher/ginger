@@ -1,37 +1,7 @@
 # Ginger
 
-Fibonacci function in ginger:
-
-```
-fib = {
-
-    decr = { out = add < (in; -1;); };
-
-    out = {
-
-        n = tupEl < (in; 0;);
-        a = tupEl < (in; 1;);
-        b = tupEl < (in; 2;);
-
-        out = if < (
-            zero? < n;
-            a;
-            recur < (
-                decr < n;
-                b;
-                add < (a;b;);
-            );
-        );
-
-    } < (in; 0; 1;);
-};
-```
-
-Usage of the function to generate the 6th fibonnaci number:
-
-```
-fib < 5;
-```
+A programming language utilizing a graph datastructure for syntax. Currently in
+super-early-alpha-don't-actually-use-this-for-anything development.
 
 ## Development
 
@@ -48,3 +18,16 @@ from the repo root and you will be dropped into a shell with all dependencies
 (including the correct go version) in your PATH, ready to use. This could
 probably be expanded to other OSs/architectures easily, if you care to do so
 please check out the `default.nix` file and submit a PR!
+
+## Demo
+
+An example program which computes the Nth fibonacci number can be found at
+`examples/fib.gg`. You can try it out by doing:
+
+```
+go run ./cmd/eval/main.go "$(cat examples/fib.gg)" 5
+```
+
+Where you can replace `5` with any number. The vm has only been given enough
+capability to run this program as a demo, and is extremely poorly optimized (as
+will be evident if you input any large number). Further work is obviously TODO.

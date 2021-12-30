@@ -115,9 +115,9 @@ func (m ScopeMap) NewScope() Scope {
 
 type graphScope struct {
 	*gg.Graph
-	in Thunk
+	in     Thunk
 	parent Scope
-	op Operation
+	op     Operation
 }
 
 // ScopeFromGraph returns a Scope which will use the given Graph for evaluation.
@@ -139,9 +139,9 @@ type graphScope struct {
 func ScopeFromGraph(g *gg.Graph, in Thunk, parent Scope, op Operation) Scope {
 	return &graphScope{
 		Graph:  g,
-		in: in,
+		in:     in,
 		parent: parent,
-		op: op,
+		op:     op,
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 
 // Type aliases for convenience
 type (
-	Graph = graph.Graph[Value, Value]
+	Graph    = graph.Graph[Value, Value]
 	OpenEdge = graph.OpenEdge[Value, Value]
 )
 
@@ -291,7 +291,7 @@ func (d *decoder) parseValIn(into *Graph, toks []LexerToken) (*Graph, []LexerTok
 	return into.AddValueIn(dstVal, oe), toks, nil
 }
 
-func (d *decoder) decode(lexer Lexer) (*Graph, error) {
+func (d *decoder) readAllTokens(lexer Lexer) ([]LexerToken, error) {
 
 	var toks []LexerToken
 
@@ -307,6 +307,17 @@ func (d *decoder) decode(lexer Lexer) (*Graph, error) {
 		}
 
 		toks = append(toks, tok)
+	}
+
+	return toks, nil
+}
+
+func (d *decoder) decode(lexer Lexer) (*Graph, error) {
+
+	toks, err := d.readAllTokens(lexer)
+
+	if err != nil {
+		return nil, err
 	}
 
 	val, _, _, err := d.parseGraphValue(toks, false)
@@ -325,4 +336,18 @@ func (d *decoder) decode(lexer Lexer) (*Graph, error) {
 func DecodeLexer(lexer Lexer) (*Graph, error) {
 	decoder := &decoder{}
 	return decoder.decode(lexer)
+}
+
+func DecodeSingleValueFromLexer(lexer Lexer) (Value, error) {
+	decoder := &decoder{}
+
+	toks, err := decoder.readAllTokens(lexer)
+
+	if err != nil {
+		return ZeroValue, err
+	}
+
+	val, _, _, err := decoder.parseSingleValue(toks)
+
+	return val, err
 }

@@ -113,7 +113,7 @@ func (oe OpenEdge[E, V]) FromTuple() ([]*OpenEdge[E, V], bool) {
 // an edge (with edgeVal attached to it) coming from the vertex containing val.
 func ValueOut[E, V Value](edgeVal E, val V) *OpenEdge[E, V] {
 	return &OpenEdge[E, V]{
-		val: &val,
+		val:     &val,
 		edgeVal: edgeVal,
 	}
 }
@@ -127,7 +127,7 @@ func TupleOut[E, V Value](edgeVal E, ins ...*OpenEdge[E, V]) *OpenEdge[E, V] {
 
 		var (
 			zero V
-			in = ins[0]
+			in   = ins[0]
 		)
 
 		if edgeVal.Equal(zero) {
@@ -141,13 +141,13 @@ func TupleOut[E, V Value](edgeVal E, ins ...*OpenEdge[E, V]) *OpenEdge[E, V] {
 	}
 
 	return &OpenEdge[E, V]{
-		tup: ins,
+		tup:     ins,
 		edgeVal: edgeVal,
 	}
 }
 
 type graphValueIn[E, V Value] struct {
-	val   V
+	val  V
 	edge *OpenEdge[E, V]
 }
 
@@ -163,13 +163,13 @@ func (valIn graphValueIn[E, V]) equal(valIn2 graphValueIn[E, V]) bool {
 // lots of O(N) operations, unnecessary copying on changes, and duplicate data
 // in memory.
 type Graph[E, V Value] struct {
-	edges []*OpenEdge[E, V]
+	edges  []*OpenEdge[E, V]
 	valIns []graphValueIn[E, V]
 }
 
 func (g *Graph[E, V]) cp() *Graph[E, V] {
 	cp := &Graph[E, V]{
-		edges: make([]*OpenEdge[E, V], len(g.edges)),
+		edges:  make([]*OpenEdge[E, V], len(g.edges)),
 		valIns: make([]graphValueIn[E, V], len(g.valIns)),
 	}
 	copy(cp.edges, g.edges)
@@ -243,7 +243,7 @@ func (g *Graph[E, V]) ValueIns(val Value) []*OpenEdge[E, V] {
 func (g *Graph[E, V]) AddValueIn(val V, oe *OpenEdge[E, V]) *Graph[E, V] {
 
 	valIn := graphValueIn[E, V]{
-		val: val,
+		val:  val,
 		edge: oe,
 	}
 
@@ -284,14 +284,13 @@ outer:
 	return true
 }
 
-
 func mapReduce[Ea, Va Value, Vb any](
 	root *OpenEdge[Ea, Va],
 	mapVal func(Va) (Vb, error),
 	reduceEdge func(*OpenEdge[Ea, Va], []Vb) (Vb, error),
 ) (
 	Vb, error,
-){
+) {
 
 	if valA, ok := root.FromValue(); ok {
 
@@ -333,7 +332,7 @@ type mappedVal[Va Value, Vb any] struct {
 
 type reducedEdge[Ea, Va Value, Vb any] struct {
 	edgeA *OpenEdge[Ea, Va]
-	valB Vb // result
+	valB  Vb // result
 }
 
 // MapReduce recursively computes a resultant Value of type Vb from an
@@ -361,7 +360,7 @@ func MapReduce[Ea, Va Value, Vb any](
 	reduceEdge func(Ea, []Vb) (Vb, error),
 ) (
 	Vb, error,
-){
+) {
 
 	var (
 		zeroB Vb
@@ -370,7 +369,7 @@ func MapReduce[Ea, Va Value, Vb any](
 		// reduction is only performed a single time for each value/edge.
 		//
 		// NOTE this is not implemented very efficiently.
-		mappedVals []mappedVal[Va, Vb]
+		mappedVals   []mappedVal[Va, Vb]
 		reducedEdges []reducedEdge[Ea, Va, Vb]
 	)
 
@@ -413,7 +412,7 @@ func MapReduce[Ea, Va Value, Vb any](
 
 			reducedEdges = append(reducedEdges, reducedEdge[Ea, Va, Vb]{
 				edgeA: edgeA,
-				valB: valB,
+				valB:  valB,
 			})
 
 			return valB, nil

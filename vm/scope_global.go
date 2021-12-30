@@ -74,5 +74,4 @@ var GlobalScope = ScopeMap{
 	"recur": Value{Operation: OperationFunc(func(args []Thunk, op Operation) (Thunk, error) {
 		return op.Perform(args, op)
 	})},
-
 }

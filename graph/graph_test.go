@@ -1,8 +1,8 @@
 package graph
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -129,7 +129,7 @@ func TestEqual(t *testing.T) {
 
 type mapReduceTestEdge struct {
 	name string
-	fn func([]int) int
+	fn   func([]int) int
 	done bool
 }
 
@@ -162,9 +162,9 @@ func (e *mapReduceTestEdge) do(ii []int) int {
 func TestMapReduce(t *testing.T) {
 
 	type (
-		Va = I
-		Vb = int
-		Ea = *mapReduceTestEdge
+		Va   = I
+		Vb   = int
+		Ea   = *mapReduceTestEdge
 		edge = OpenEdge[Ea, Va]
 	)
 
@@ -180,7 +180,7 @@ func TestMapReduce(t *testing.T) {
 		return TupleOut[Ea, Va](edge, ins...)
 	}
 
-	add := func() *mapReduceTestEdge{
+	add := func() *mapReduceTestEdge {
 		return &mapReduceTestEdge{
 			name: "add",
 			fn: func(ii []int) int {
@@ -193,7 +193,7 @@ func TestMapReduce(t *testing.T) {
 		}
 	}
 
-	mul := func() *mapReduceTestEdge{
+	mul := func() *mapReduceTestEdge {
 		return &mapReduceTestEdge{
 			name: "mul",
 			fn: func(ii []int) int {
@@ -225,15 +225,15 @@ func TestMapReduce(t *testing.T) {
 	}
 
 	tests := []struct {
-		in *edge
+		in  *edge
 		exp int
 	}{
 		{
-			in: vOut(nil, 1),
+			in:  vOut(nil, 1),
 			exp: 10,
 		},
 		{
-			in: vOut(add(), 1),
+			in:  vOut(add(), 1),
 			exp: 10,
 		},
 		{

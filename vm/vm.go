@@ -2,8 +2,8 @@
 package vm
 
 import (
-	"io"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/mediocregopher/ginger/gg"

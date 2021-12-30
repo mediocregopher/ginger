@@ -30,7 +30,7 @@ func evalThunks(args []Thunk) Thunk {
 	return func() (Value, error) {
 
 		var (
-			err error
+			err     error
 			tupVals = make([]Value, len(args))
 		)
 
@@ -43,7 +43,6 @@ func evalThunks(args []Thunk) Thunk {
 		return Value{Tuple: tupVals}, nil
 	}
 }
-
 
 // Operation is an entity which can accept one or more arguments (each not
 // having been evaluated yet) and return a Thunk which will perform some

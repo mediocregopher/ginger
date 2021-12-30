@@ -52,7 +52,7 @@ func TestDecoder(t *testing.T) {
 				tOut(
 					n("a"),
 					vOut(n("b"),
-					i(1)),
+						i(1)),
 				),
 			),
 		},
