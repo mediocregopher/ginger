@@ -22,6 +22,12 @@ type Value struct {
 	Tuple []Value
 }
 
+// Tuple returns a tuple Value comprising the given Values. Calling Tuple with
+// no arguments returns ZeroValue.
+func Tuple(vals ...Value) Value {
+	return Value{Tuple: vals}
+}
+
 // IsZero returns true if the Value is the zero value (aka the 0-tuple).
 // LexerToken (within the gg.Value) is ignored for this check.
 func (v Value) IsZero() bool {
@@ -105,7 +111,7 @@ func nameVal(n string) Value {
 //
 // scope contains pre-defined operations and values which are available during
 // the evaluation.
-func EvaluateSource(opSrc io.Reader, input gg.Value, scope Scope) (Value, error) {
+func EvaluateSource(opSrc io.Reader, input Value, scope Scope) (Value, error) {
 	lexer := gg.NewLexer(opSrc)
 
 	g, err := gg.DecodeLexer(lexer)
@@ -113,16 +119,11 @@ func EvaluateSource(opSrc io.Reader, input gg.Value, scope Scope) (Value, error)
 		return Value{}, err
 	}
 
-	op := OperationFromGraph(g, scope.NewScope())
-
-	thunk, err := op.Perform(
-		[]Thunk{valThunk(Value{Value: input})},
-		nil,
-	)
+	op, err := OperationFromGraph(g, scope.NewScope())
 
 	if err != nil {
-		return ZeroValue, err
+		return Value{}, err
 	}
 
-	return thunk()
+	return op.Perform(input), nil
 }

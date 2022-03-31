@@ -6,11 +6,23 @@ import (
 	"github.com/mediocregopher/ginger/gg"
 )
 
+func globalOp(fn func(Value) (Value, error)) Value {
+	return Value{
+		Operation: OperationFunc(func(in Value) Value {
+			res, err := fn(in)
+			if err != nil {
+				panic(err)
+			}
+			return res
+		}),
+	}
+}
+
 // GlobalScope contains operations and values which are available from within
 // any operation in a ginger program.
 var GlobalScope = ScopeMap{
 
-	"add": Value{Operation: preEvalValOp(func(val Value) (Value, error) {
+	"add": globalOp(func(val Value) (Value, error) {
 
 		var sum int64
 
@@ -25,17 +37,17 @@ var GlobalScope = ScopeMap{
 
 		return Value{Value: gg.Value{Number: &sum}}, nil
 
-	})},
+	}),
 
-	"tupEl": Value{Operation: preEvalValOp(func(val Value) (Value, error) {
+	"tupEl": globalOp(func(val Value) (Value, error) {
 
 		tup, i := val.Tuple[0], val.Tuple[1]
 
 		return tup.Tuple[int(*i.Number)], nil
 
-	})},
+	}),
 
-	"isZero": Value{Operation: preEvalValOp(func(val Value) (Value, error) {
+	"isZero": globalOp(func(val Value) (Value, error) {
 
 		if *val.Number == 0 {
 			one := int64(1)
@@ -45,33 +57,5 @@ var GlobalScope = ScopeMap{
 		zero := int64(0)
 		return Value{Value: gg.Value{Number: &zero}}, nil
 
-	})},
-
-	"if": Value{Operation: OperationFunc(func(args []Thunk, _ Operation) (Thunk, error) {
-
-		b := args[0]
-		onTrue := args[1]
-		onFalse := args[2]
-
-		return func() (Value, error) {
-
-			bVal, err := b()
-
-			if err != nil {
-				return ZeroValue, err
-			}
-
-			if *bVal.Number == 0 {
-				return onFalse()
-			}
-
-			return onTrue()
-
-		}, nil
-
-	})},
-
-	"recur": Value{Operation: OperationFunc(func(args []Thunk, op Operation) (Thunk, error) {
-		return op.Perform(args, op)
-	})},
+	}),
 }

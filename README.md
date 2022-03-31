@@ -28,6 +28,4 @@ An example program which computes the Nth fibonacci number can be found at
 go run ./cmd/eval/main.go "$(cat examples/fib.gg)" 5
 ```
 
-Where you can replace `5` with any number. The vm has only been given enough
-capability to run this program as a demo, and is extremely poorly optimized (as
-will be evident if you input any large number). Further work is obviously TODO.
+Where you can replace `5` with any number.

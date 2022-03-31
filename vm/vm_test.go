@@ -20,7 +20,7 @@ func TestVM(t *testing.T) {
 
 	val, err := EvaluateSource(
 		bytes.NewBufferString(src),
-		gg.Value{Number: &in},
+		Value{Value: gg.Number(in)},
 		GlobalScope,
 	)
 

@@ -29,7 +29,7 @@ func main() {
 
 	res, err := vm.EvaluateSource(
 		bytes.NewBufferString(opSrc),
-		inVal,
+		vm.Value{Value: inVal},
 		vm.GlobalScope,
 	)
 

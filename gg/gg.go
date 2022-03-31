@@ -26,6 +26,16 @@ type Value struct {
 	LexerToken *LexerToken
 }
 
+// Name returns a name Value.
+func Name(name string) Value {
+	return Value{Name: &name}
+}
+
+// Number returns a number Value.
+func Number(n int64) Value {
+	return Value{Number: &n}
+}
+
 // IsZero returns true if the Value is the zero value (none of the sub-value
 // fields are set). LexerToken is ignored for this check.
 func (v Value) IsZero() bool {
