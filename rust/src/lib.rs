@@ -1,3 +1,2 @@
-mod graph;
-
-pub use graph::Graph;
+pub mod graph;
+pub mod gg;

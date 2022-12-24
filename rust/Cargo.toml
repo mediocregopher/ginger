@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 im-rc = "15.1.0"
+char_reader = "0.1.1"
+unicode_categories = "0.1.1"

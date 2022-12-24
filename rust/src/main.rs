@@ -1,4 +1,4 @@
-use ginger::Graph;
+use ginger::graph::Graph;
 
 fn main() {
 
