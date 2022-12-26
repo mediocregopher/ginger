@@ -1,0 +1,19 @@
+<value> ::= <name> | <number> | <tuple> | <graph>
+
+<tuple>                      ::= "(" <tuple-open-edge>
+<tuple-open-edge>            ::= ")" | <tuple-open-edge-incomplete>
+<tuple-open-edge-incomplete> ::= <value> ")"
+                               | <value> "," <tuple-open-edge>
+                               | <value> "<" <tuple-open-edge-incomplete>
+
+<graph>                      ::= "{" <graph-branch>
+<graph-branch>               ::= "}" | <name> "<" <graph-open-edge-incomplete>
+<graph-open-edge-incomplete> ::= <value> "}"
+                               | <value> ";" <graph-branch>
+                               | <value> "<" <graph-open-edge-incomplete>
+
+<outer-graph>                      ::= <outer-graph-branch>
+<outer-graph-branch>               ::= <eof> | <name> "<" <outer-graph-open-edge-incomplete>
+<outer-graph-open-edge-incomplete> ::= <value> <eof>
+                                     | <value> ";" <outer-graph-branch>
+                                     | <value> "<" <outer-graph-open-edge-incomplete>
