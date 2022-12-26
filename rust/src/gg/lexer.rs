@@ -22,7 +22,7 @@ pub enum Error {
     IO(io::Error),
 }
 
-impl From<io::Error> for Error{
+impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::IO(e)
     }
@@ -33,6 +33,7 @@ pub enum TokenKind {
     Name,
     Number,
     Punctuation,
+    End,
 }
 
 #[derive(Debug, PartialEq)]
@@ -105,7 +106,7 @@ impl<R: Read> Lexer<R>{
         &mut self,
         kind: TokenKind,
         pred: impl Fn(char) -> bool,
-    ) -> Result<Option<(Token, Location)>, Error> {
+    ) -> Result<(Token, Location), Error> {
 
         let loc = self.next_loc;
         self.buf.truncate(0);
@@ -115,8 +116,9 @@ impl<R: Read> Lexer<R>{
             let (c, ok) = self.peek_a_bool()?;
 
             if !ok || !pred(c) {
-                return Ok(Some(
-                    (Token{kind: kind, value: self.buf.clone()}, loc)
+                return Ok((
+                    Token{kind: kind, value: self.buf.clone()},
+                    loc
                 ))
             }
 
@@ -129,13 +131,16 @@ impl<R: Read> Lexer<R>{
         c == '-' || ('0' <= c && c <= '9')
     }
 
-    pub fn next(&mut self) -> Result<Option<(Token, Location)>, Error> {
+    pub fn next(&mut self) -> Result<(Token, Location), Error> {
 
         loop {
 
             let (c, ok) = self.peek_a_bool()?;
             if !ok {
-                return Ok(None);
+                return Ok((
+                    Token{kind: TokenKind::End, value: String::new()},
+                    self.next_loc,
+                ));
 
             } else if c == '*' {
                 self.discard_while(|c| c != '\n')?;
@@ -155,15 +160,16 @@ impl<R: Read> Lexer<R>{
                 let loc = self.next_loc;
                 self.discard();
 
-                return Ok(Some(
-                    (Token{kind: TokenKind::Punctuation, value: c.to_string()}, loc)
+                return Ok((
+                    Token{kind: TokenKind::Punctuation, value: c.to_string()},
+                    loc,
                 ))
 
             } else if c.is_ascii_whitespace() {
                 self.discard_while(|c| c.is_ascii_whitespace())?;
 
             } else {
-                return Err(Error::Tokenizing("unexpected character", self.next_loc));
+                return Err(Error::Tokenizing("invalid character", self.next_loc));
             }
         }
     }
@@ -192,26 +198,34 @@ mod tests {
         let tests = vec![
             Test{
                 input: "",
-                exp: vec![],
+                exp: vec![
+                    tok(TokenKind::End, "", 0, 0),
+                ],
             },
             Test{
                 input: "* foo",
-                exp: vec![],
+                exp: vec![
+                    tok(TokenKind::End, "", 0, 5),
+                ],
             },
             Test{
                 input: "* foo\n",
-                exp: vec![],
+                exp: vec![
+                    tok(TokenKind::End, "", 1, 0),
+                ],
             },
             Test{
                 input: "* foo\nbar",
                 exp: vec![
                     tok(TokenKind::Name, "bar", 1, 0),
+                    tok(TokenKind::End, "", 1, 3),
                 ],
             },
             Test{
                 input: "* foo\nbar ",
                 exp: vec![
                     tok(TokenKind::Name, "bar", 1, 0),
+                    tok(TokenKind::End, "", 1, 4),
                 ],
             },
             Test{
@@ -222,6 +236,7 @@ mod tests {
                     tok(TokenKind::Name, "f-o", 1, 0),
                     tok(TokenKind::Name, "f0O", 1, 4),
                     tok(TokenKind::Name, "Foo", 1, 8),
+                    tok(TokenKind::End, "", 1, 11),
                 ],
             },
             Test{
@@ -230,6 +245,7 @@ mod tests {
                     tok(TokenKind::Number, "1", 0, 0),
                     tok(TokenKind::Number, "100", 0, 2),
                     tok(TokenKind::Number, "-100", 0, 6),
+                    tok(TokenKind::End, "", 0, 10),
                 ],
             },
             Test{
@@ -242,6 +258,7 @@ mod tests {
                     tok(TokenKind::Number, "-3", 0, 4),
                     tok(TokenKind::Punctuation, "(", 0, 7),
                     tok(TokenKind::Punctuation, ")", 0, 8),
+                    tok(TokenKind::End, "", 0, 9),
                 ],
             },
         ];
@@ -253,9 +270,12 @@ mod tests {
             let mut res = Vec::new();
 
             loop {
-                if let Some(token) = l.next().expect("no errors expected") {
-                    res.push(token);
-                } else {
+                let (token, loc) = l.next().expect("no errors expected");
+                let is_end = token.kind == TokenKind::End;
+
+                res.push((token, loc));
+
+                if is_end {
                     break;
                 }
             }

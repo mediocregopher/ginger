@@ -1,19 +1,27 @@
+<name>         ::= <letter> | <name-tail>
+<name-charset> ::= <letter> | <number> | <mark>
+<name-tail>    ::= <name-chareset> <name-tail> | ""
+
+<number>      ::= "-" <ascii-number> <number-tail>
+                | <ascii-number> <number-tail>
+<number-tail> ::= <ascii-number> <number-tail> | ""
+
 <value> ::= <name> | <number> | <tuple> | <graph>
 
-<tuple>                      ::= "(" <tuple-open-edge>
-<tuple-open-edge>            ::= ")" | <tuple-open-edge-incomplete>
-<tuple-open-edge-incomplete> ::= <value> ")"
-                               | <value> "," <tuple-open-edge>
-                               | <value> "<" <tuple-open-edge-incomplete>
+<tuple>                 ::= "(" <tuple-edge>
+<tuple-edge>            ::= ")" | <tuple-edge-incomplete>
+<tuple-edge-incomplete> ::= <value> ")"
+                          | <value> "," <tuple-edge>
+                          | <value> "<" <tuple-edge-incomplete>
 
-<graph>                      ::= "{" <graph-branch>
-<graph-branch>               ::= "}" | <name> "<" <graph-open-edge-incomplete>
-<graph-open-edge-incomplete> ::= <value> "}"
-                               | <value> ";" <graph-branch>
-                               | <value> "<" <graph-open-edge-incomplete>
+<graph>                 ::= "{" <graph-branch>
+<graph-branch>          ::= "}" | <name> "<" <graph-edge-incomplete>
+<graph-edge-incomplete> ::= <value> "}"
+                          | <value> ";" <graph-branch>
+                          | <value> "<" <graph-edge-incomplete>
 
-<outer-graph>                      ::= <outer-graph-branch>
-<outer-graph-branch>               ::= <eof> | <name> "<" <outer-graph-open-edge-incomplete>
-<outer-graph-open-edge-incomplete> ::= <value> <eof>
-                                     | <value> ";" <outer-graph-branch>
-                                     | <value> "<" <outer-graph-open-edge-incomplete>
+<outer-graph>                 ::= <outer-graph-branch>
+<outer-graph-branch>          ::= <end> | <name> "<" <outer-graph-edge-incomplete>
+<outer-graph-edge-incomplete> ::= <value> <end>
+                                | <value> ";" <outer-graph-branch>
+                                | <value> "<" <outer-graph-edge-incomplete>
