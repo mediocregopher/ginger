@@ -4,7 +4,8 @@ use unicode_categories::UnicodeCategories;
 
 use char_reader::CharReader;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Location {
     pub row: i64,
     pub col: i64,
@@ -16,9 +17,9 @@ impl fmt::Display for Location {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub enum Error {
-    Tokenizing(&'static str, Location),
+    Tokenizing(String, Location),
     IO(io::Error),
 }
 
@@ -28,7 +29,8 @@ impl From<io::Error> for Error {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub enum TokenKind {
     Name,
     Number,
@@ -36,16 +38,28 @@ pub enum TokenKind {
     End,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq, Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Token {
     pub kind: TokenKind,
     pub value: String,
 }
 
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            TokenKind::Name => write!(f, "{:#?}", self.value),
+            TokenKind::Number => write!(f, "{}", self.value),
+            TokenKind::Punctuation => write!(f, "'{}'", self.value),
+            TokenKind::End => write!(f, "<end>"),
+        }
+    }
+}
+
 pub struct Lexer<R: Read> {
     r: CharReader<BufReader<R>>,
     buf: String,
-
+    next_stack: Vec<(Token, Location)>,
     next_loc: Location,
 }
 
@@ -55,6 +69,7 @@ impl<R: Read> Lexer<R>{
         Lexer{
             r: CharReader::new(BufReader::new(r)),
             buf: String::new(),
+            next_stack: Vec::new(),
             next_loc: Location{
                 row: 0,
                 col: 0,
@@ -131,7 +146,15 @@ impl<R: Read> Lexer<R>{
         c == '-' || ('0' <= c && c <= '9')
     }
 
+    pub fn push_next(&mut self, token: Token, loc: Location) {
+        self.next_stack.push((token, loc))
+    }
+
     pub fn next(&mut self) -> Result<(Token, Location), Error> {
+
+        if let Some(r) = self.next_stack.pop() {
+            return Ok(r);
+        }
 
         loop {
 
@@ -169,7 +192,10 @@ impl<R: Read> Lexer<R>{
                 self.discard_while(|c| c.is_ascii_whitespace())?;
 
             } else {
-                return Err(Error::Tokenizing("invalid character", self.next_loc));
+                return Err(Error::Tokenizing(
+                    format!("unexpected character: {:#?}", c).to_string(),
+                    self.next_loc,
+                ));
             }
         }
     }
@@ -280,7 +306,7 @@ mod tests {
                 }
             }
 
-            assert_eq!(*res.as_slice(), *test.exp)
+            assert_eq!(*test.exp, *res.as_slice())
         }
     }
 }

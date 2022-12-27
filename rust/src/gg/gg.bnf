@@ -6,22 +6,19 @@
                 | <ascii-number> <number-tail>
 <number-tail> ::= <ascii-number> <number-tail> | ""
 
-<value> ::= <name> | <number> | <tuple> | <graph>
+<value> ::= <name> | <number> | "(" <tuple> | "{" <graph>
 
-<tuple>                 ::= "(" <tuple-edge>
-<tuple-edge>            ::= ")" | <tuple-edge-incomplete>
-<tuple-edge-incomplete> ::= <value> ")"
-                          | <value> "," <tuple-edge>
-                          | <value> "<" <tuple-edge-incomplete>
+<tuple>      ::= ")" | <tuple-tail> <tuple>
+<tuple-tail> ::= <value> ""
+               | <value> ","
+               | <value> "<" <tuple-tail>
 
-<graph>                 ::= "{" <graph-branch>
-<graph-branch>          ::= "}" | <name> "<" <graph-edge-incomplete>
-<graph-edge-incomplete> ::= <value> "}"
-                          | <value> ";" <graph-branch>
-                          | <value> "<" <graph-edge-incomplete>
+<graph>      ::= "}" | <name> "=" <graph-tail> <graph>
+<graph-tail> ::= <value> ""
+               | <value> ";"
+               | <value> "<" <graph-tail>
 
-<outer-graph>                 ::= <outer-graph-branch>
-<outer-graph-branch>          ::= <end> | <name> "<" <outer-graph-edge-incomplete>
-<outer-graph-edge-incomplete> ::= <value> <end>
-                                | <value> ";" <outer-graph-branch>
-                                | <value> "<" <outer-graph-edge-incomplete>
+<outer-graph>      ::= <end> | <name> "=" <outer-graph-tail> <outer-graph>
+<outer-graph-tail> ::= <value> ""
+                     | <value> ";"
+                     | <value> "<" <outer-graph-tail>
