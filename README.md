@@ -6,18 +6,16 @@ super-early-alpha-don't-actually-use-this-for-anything development.
 ## Development
 
 Current efforts on ginger are focused on a golang-based virtual machine, which
-will then be used to bootstrap the language. go >=1.18 is required for this vm.
+will then be used to bootstrap the language.
 
-If you are on a linux-amd64 machine with nix installed, you can run:
+If you are on a machine with nix installed, you can run:
 
 ```
-nix-shell -A shell
+nix develop
 ```
 
 from the repo root and you will be dropped into a shell with all dependencies
-(including the correct go version) in your PATH, ready to use. This could
-probably be expanded to other OSs/architectures easily, if you care to do so
-please check out the `default.nix` file and submit a PR!
+(including the correct go version) in your PATH, ready to use.
 
 ## Demo
 
