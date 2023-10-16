@@ -6,9 +6,9 @@ import (
 	"github.com/mediocregopher/ginger/gg"
 )
 
-func globalOp(fn func(Value) (Value, error)) Value {
+func globalFn(fn func(Value) (Value, error)) Value {
 	return Value{
-		Operation: OperationFunc(func(in Value) Value {
+		Function: FunctionFunc(func(in Value) Value {
 			res, err := fn(in)
 			if err != nil {
 				panic(err)
@@ -22,7 +22,7 @@ func globalOp(fn func(Value) (Value, error)) Value {
 // any operation in a ginger program.
 var GlobalScope = ScopeMap{
 
-	"add": globalOp(func(val Value) (Value, error) {
+	"add": globalFn(func(val Value) (Value, error) {
 
 		var sum int64
 
@@ -39,7 +39,7 @@ var GlobalScope = ScopeMap{
 
 	}),
 
-	"tupEl": globalOp(func(val Value) (Value, error) {
+	"tupEl": globalFn(func(val Value) (Value, error) {
 
 		tup, i := val.Tuple[0], val.Tuple[1]
 
@@ -47,7 +47,7 @@ var GlobalScope = ScopeMap{
 
 	}),
 
-	"isZero": globalOp(func(val Value) (Value, error) {
+	"isZero": globalFn(func(val Value) (Value, error) {
 
 		if *val.Number == 0 {
 			one := int64(1)

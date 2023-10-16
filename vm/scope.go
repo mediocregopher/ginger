@@ -2,8 +2,6 @@ package vm
 
 import (
 	"fmt"
-
-	"github.com/mediocregopher/ginger/gg"
 )
 
 // Scope encapsulates a set of name->Value mappings.
@@ -62,66 +60,3 @@ func (s *scopeWith) Resolve(name string) (Value, error) {
 	}
 	return s.Scope.Resolve(name)
 }
-
-type graphScope struct {
-	*gg.Graph
-	parent Scope
-}
-
-/*
-
-TODO I don't think this is actually necessary
-
-// ScopeFromGraph returns a Scope which will use the given Graph for name
-// resolution.
-//
-// When a name is resolved, that name will be looked up in the Graph. The name's
-// vertex must have only a single OpenEdge leading to it. That edge will be
-// compiled into an Operation and returned.
-//
-// If a name does not appear in the Graph, then the given parent Scope will be
-// used to resolve that name. If the parent Scope is nil then an error is
-// returned.
-//
-// NewScope will return the parent scope, if one is given, or an empty ScopeMap
-// if not.
-func ScopeFromGraph(g *gg.Graph, parent Scope) Scope {
-	return &graphScope{
-		Graph:  g,
-		parent: parent,
-	}
-}
-
-func (g *graphScope) Resolve(name string) (Value, error) {
-
-	var ggNameVal gg.Value
-	ggNameVal.Name = &name
-
-	log.Printf("resolving %q", name)
-	edgesIn := g.ValueIns(ggNameVal)
-
-	if l := len(edgesIn); l == 0 && g.parent != nil {
-
-		return g.parent.Resolve(name)
-
-	} else if l != 1 {
-
-		return nil, fmt.Errorf(
-			"%q must have exactly one input edge, found %d input edges",
-			name, l,
-		)
-	}
-
-	return CompileEdge(edgesIn[0], g)
-}
-
-func (g *graphScope) NewScope() Scope {
-
-	if g.parent == nil {
-		return ScopeMap{}
-	}
-
-	return g.parent
-}
-
-*/

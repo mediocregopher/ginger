@@ -13,12 +13,12 @@ import (
 // ZeroValue is a Value with no fields set. It is equivalent to the 0-tuple.
 var ZeroValue Value
 
-// Value extends a gg.Value to include Operations and Tuples as a possible
+// Value extends a gg.Value to include Functions and Tuples as a possible
 // types.
 type Value struct {
 	gg.Value
 
-	Operation
+	Function
 	Tuple []Value
 }
 
@@ -47,8 +47,8 @@ func (v Value) Equal(v2g graph.Value) bool {
 	case !v.Value.IsZero() || !v2.Value.IsZero():
 		return v.Value.Equal(v2.Value)
 
-	case v.Operation != nil || v2.Operation != nil:
-		// for now we say that Operations can't be compared. This will probably
+	case v.Function != nil || v2.Function != nil:
+		// for now we say that Functions can't be compared. This will probably
 		// get revisted later.
 		return false
 
@@ -76,10 +76,10 @@ func (v Value) String() string {
 
 	switch {
 
-	case v.Operation != nil:
+	case v.Function != nil:
 
 		// We can try to get better strings for ops later
-		return "<op>"
+		return "<fn>"
 
 	case !v.Value.IsZero():
 		return v.Value.String()
@@ -100,12 +100,6 @@ func (v Value) String() string {
 
 }
 
-func nameVal(n string) Value {
-	var val Value
-	val.Name = &n
-	return val
-}
-
 // EvaluateSource reads and parses the io.Reader as an operation, input is used
 // as the argument to the operation, and the resultant value is returned.
 //
@@ -119,11 +113,11 @@ func EvaluateSource(opSrc io.Reader, input Value, scope Scope) (Value, error) {
 		return Value{}, err
 	}
 
-	op, err := OperationFromGraph(g, scope.NewScope())
+	fn, err := FunctionFromGraph(g, scope.NewScope())
 
 	if err != nil {
 		return Value{}, err
 	}
 
-	return op.Perform(input), nil
+	return fn.Perform(input), nil
 }
