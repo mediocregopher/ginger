@@ -1,0 +1,24 @@
+<digit>           ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+<positive-number> ::= <digit>+
+<negative-number> ::= "-" <positive-number>
+<number>          ::= <negative-number> | <positive-number>
+
+<name> ::= (<letter> | <mark>) (<letter> | <mark> | <digit>)*
+
+<value> ::= <name> | <number> | <tuple> | <graph>
+
+<tuple>            ::= "(" <tuple-tail>
+<tuple-tail>       ::= ")" | <value> <tuple-post-value>
+<tuple-post-value> ::= ")"
+                     | "," <tuple-tail>
+                     | "<" <value> <tuple-post-value>
+
+<graph>                ::= "{" <graph-tail>
+<graph-tail>           ::= "}" | <name> "=" <graph-open-edge>
+<graph-open-edge>      ::= <value> <graph-open-edge-tail>
+<graph-open-edge-tail> ::= "}"
+                         | ";" <graph-tail>
+                         | "<" <graph-open-edge>
+
+<top-level-value> ::= <name> | <number> | <graph>
+<gg>              ::= <eof> | <top-level-value> <gg>
